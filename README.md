@@ -1201,7 +1201,7 @@ to instances on boot with DHCP. We expose a smaller subset of these:
 -   `internal_dns` Primary DNS server
 -   `external_dns` Secondary DNS server
 -   `domain_name` The network domain
--   `ntp_server` Address of NTP server.
+-   `ntp_server` Up to four space separated IP addresses or DNS names of NTP servers.
 
 We use AWS resolver by specifying AmazonProvidedDNS for internal_dns
 and external_dns, alternatively the APIPA address 169.254.169.253 can
