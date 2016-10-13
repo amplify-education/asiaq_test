@@ -19,7 +19,7 @@ Table of Contents
   * [Image management](#image-management)
   * [Logging](#logging)
   * [Network Configuration](#network-configuration)
-  * [EBS Snapshots](#ebs-snapshots)
+  * [Storage](#storage)
   * [Identity and Access Management](#identity-and-access-management)
   * [Monitoring and alerting](#monitoring-and-alerting)
   * [Working with DynamoDB](#working-with-dynamodb)
@@ -1348,20 +1348,21 @@ Storage
 Images are often baked with small volumes, just enough to install and run
 the OS. This reduces cost on storage. However for machines that maintain
 substantial amount of state often need additional storage. Generally speaking
-its often best to offload state on to a managed services such as EBS
+it's often best to offload state to a managed services such as EBS
 (for database), ElastiCache (caches), S3 (static data and artifacts),
 ElasticSearch (logs & events). However this is not always possible and for
-this asiaq supports several methods of additional local storage.
+this reason asiaq supports several methods of additional local storage.
 
 ### Local ephemeral storage
 
 Some AWS instances come with [instance store](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html).
 Asiaq provides scripts for conveniently and safely mounting these on boot.
 There are few guarantees on long term persistence of these volumes, they do
-not survive reboots, and termination. As such, the example script goes a bit
+not survive reboots or termination. As such, the example script goes a bit
 further to ensure data stored there is irretrievable in case of unsafe /
-unexpected termination by setting up encrypted virtual volumes the keys to
-which are dynamically generated and discarded on mount.
+unexpected termination by setting up encrypted virtual volumes. The keys to
+these volumes are dynamically generated and discarded on mount. After volume
+is unmounted or machine is rebooted the data will be irretrievable.
 
 An example of how to make use of the sample scripts can be found here:
 `discoroot/etc/init.d/disco-tmp-storage~mhcdiscojenkins`
@@ -1391,8 +1392,11 @@ volume (asiaq only supports 1 additional volume) can be attached with
 extra_disk option, similar to extra_space its available in both
 `disco_aws.py provision ...` as well as [pipeline definition](#provisioning-a-pipeline).
 
-After instance boots the volume needs to be formatted and mounted. To
-persist volume across reboots you must create a snapshot on shutdown.
+After instance boots the volume needs to be formatted and mounted.
+
+Unlike extra_space, extra_disk option when combined with snapshoting on
+shutdown will persist across reboot. Making it a more flexible option,
+rendering root volume resizing redundant and obsolete.
 
 
 #### EBS Snapshots
