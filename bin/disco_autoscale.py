@@ -7,6 +7,8 @@ from __future__ import print_function
 import argparse
 import sys
 
+from collections import defaultdict
+
 from disco_aws_automation import DiscoAutoscale, read_config
 from disco_aws_automation.disco_aws_util import run_gracefully
 from disco_aws_automation.disco_logging import configure_logging
@@ -185,9 +187,26 @@ def run():
 
     # Scaling policy commands
     elif args.mode == "listpolicies":
-        policies = autoscale.list_policies()
-        for policy in policies:
-            print("{0:30} {1}".format(policy.name, policy.policy_arn))
+        policies = autoscale.list_policies(
+            group_name=args.group_name,
+            policy_types=args.policy_types,
+            policy_names=args.policy_names
+        )
+        print_table(
+            policies,
+            headers=[
+                'ASG',
+                'Name',
+                'Type',
+                'Adjustment Type',
+                'Scaling Adjustment',
+                'Min Adjustment',
+                'Cooldown',
+                'Step Adjustments',
+                'Warmup',
+                'Alarms'
+            ]
+        )
     elif args.mode == "createpolicy":
         autoscale.create_policy(
             group_name=args.group_name,
@@ -205,6 +224,43 @@ def run():
         autoscale.delete_policy(args.policy_name, args.group_name)
 
     sys.exit(0)
+
+
+def print_table(rows, headers=None, space_between_columns=4):
+    """
+    Convenience method for printing a list of dictionary objects into a table. Automatically sizes the
+    columns to be the maximum size of any entry in the dictionary, and adds additional buffer whitespace.
+
+    Params:
+        rows -                  A list of dictionaries representing a table of information, where keys are the
+                                headers of the table. Ex. { 'Name': 'John', 'Age': 23 }
+
+        headers -               A list of the headers to print for the table. Must be a subset of the keys of
+                                the dictionaries that compose the row. If a header isn't present or it's value
+                                has a falsey value, the value printed is '-'.
+
+        space_between_columns - The amount of space between the columns of text. Defaults to 4.
+    """
+    columns_to_sizing = defaultdict(int)
+    format_string = ''
+
+    headers = headers or rows[0].keys()
+
+    for row in rows:
+        for header in headers:
+            value = row.get(header, '-')
+            columns_to_sizing[header] = max(len(str(value)), columns_to_sizing[header])
+
+    for header in headers:
+        column_size = max(columns_to_sizing[header], len(header)) + space_between_columns
+        format_string += '{' + header + ':<' + str(column_size) + '}'
+
+    print(format_string.format(**{key: key for key in headers}), file=sys.stderr)
+
+    for row in rows:
+        defaulted_row = {header: row.get(header) or '-' for header in headers}
+        print(format_string.format(**defaulted_row))
+
 
 if __name__ == "__main__":
     run_gracefully(run)
