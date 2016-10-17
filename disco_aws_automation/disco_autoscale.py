@@ -279,17 +279,37 @@ class DiscoAutoscale(object):
         NOTE: Deleting tags is not currently supported.
         '''
         # Check if an autoscaling group already exists.
-        group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
-        if create_if_exists or not group:
-            return self.create_group(
+        existing_group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
+        if create_if_exists or not existing_group:
+            group = self.create_group(
                 hostclass=hostclass, launch_config=launch_config, vpc_zone_id=vpc_zone_id,
                 min_size=min_size, max_size=max_size, desired_size=desired_size,
                 termination_policies=termination_policies, tags=tags, load_balancers=load_balancers)
         else:
-            return self.update_group(
-                group=group, launch_config=launch_config,
+            group = self.update_group(
+                group=existing_group, launch_config=launch_config,
                 vpc_zone_id=vpc_zone_id, min_size=min_size, max_size=max_size, desired_size=desired_size,
                 termination_policies=termination_policies, tags=tags, load_balancers=load_balancers)
+
+        # Create default scaling policies
+        self.create_policy(
+            group_name=group.name,
+            policy_name='up',
+            policy_type='SimpleScaling',
+            adjustment_type='PercentChangeInCapacity',
+            scaling_adjustment='10',
+            min_adjustment_magnitude='1'
+        )
+        self.create_policy(
+            group_name=group.name,
+            policy_name='down',
+            policy_type='SimpleScaling',
+            adjustment_type='PercentChangeInCapacity',
+            scaling_adjustment='-10',
+            min_adjustment_magnitude='1'
+        )
+
+        return group
 
     def get_existing_groups(self, hostclass=None, group_name=None):
         """
