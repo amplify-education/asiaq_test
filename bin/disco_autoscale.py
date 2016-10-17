@@ -208,6 +208,23 @@ def run():
             ]
         )
     elif args.mode == "createpolicy":
+        # Parse out the step adjustments, if provided.
+        if args.step_adjustments:
+            allowed_keys = ['MetricIntervalLowerBound', 'MetricIntervalUpperBound', 'ScalingAdjustment']
+            parsed_steps = []
+            for step in args.step_adjustments:
+                parsed_step = {}
+                for entry in step.split(','):
+                    key, value = entry.split('=', 1)
+                    if key not in allowed_keys:
+                        raise Exception(
+                            'Unable to parse step {0}, key {1} not in {2}'.format(step, key, allowed_keys)
+                        )
+                    parsed_step[key] = value
+                parsed_steps.append(parsed_step)
+        else:
+            parsed_steps = []
+
         autoscale.create_policy(
             group_name=args.group_name,
             policy_name=args.policy_name,
@@ -217,7 +234,7 @@ def run():
             scaling_adjustment=args.scaling_adjustment,
             cooldown=args.cooldown,
             metric_aggregation_type=args.metric_aggregation_type,
-            step_adjustments=args.step_adjustments,
+            step_adjustments=parsed_steps,
             estimated_instance_warmup=args.estimated_instance_warmup
         )
     elif args.mode == "deletepolicy":
