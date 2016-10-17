@@ -402,12 +402,12 @@ class DiscoAutoscale(object):
                     'Name': result['PolicyName'],
                     'Type': result['PolicyType'],
                     'Adjustment Type': result['AdjustmentType'],
-                    'Scaling Adjustment': result['ScalingAdjustment'] or '-',
-                    'Step Adjustments': result['StepAdjustments'] or '-',
-                    'Min Adjustment': result.get('MinAdjustmentMagnitude', '-'),
-                    'Cooldown': result.get('Cooldown', '-'),
-                    'Warmup': result.get('EstimatedInstanceWarmup') or '-',
-                    'Alarms': result['Alarms'] or '-'
+                    'Scaling Adjustment': result.get('ScalingAdjustment'),
+                    'Step Adjustments': result.get('StepAdjustments'),
+                    'Min Adjustment': result.get('MinAdjustmentMagnitude'),
+                    'Cooldown': result.get('Cooldown'),
+                    'Warmup': result.get('EstimatedInstanceWarmup'),
+                    'Alarms': result.get('Alarms')
                 })
 
         return policies
