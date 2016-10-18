@@ -313,7 +313,7 @@ class DiscoVPC(object):
 
         logger.info("Existing DHCP options: %s", existing_dhcp_options)
 
-        if not dry_run and desired_dhcp_options != existing_dhcp_options:
+        if not dry_run and not self._same_dhcp_options(desired_dhcp_options, existing_dhcp_options):
             created_dhcp_options = self._create_dhcp_options(desired_dhcp_options)
 
             if existing_dhcp_options:
@@ -322,6 +322,15 @@ class DiscoVPC(object):
                                DhcpOptionsId=self.vpc['DhcpOptionsId'])
 
             self.vpc['DhcpOptionsId'] = created_dhcp_options['DhcpOptionsId']
+
+    def _same_dhcp_options(self, desired_options, existing_options):
+        desired_optns_dict = dict([(option_dict['Key'], option_dict['Values'])
+                                   for option_dict in desired_options])
+
+        existing_optns_dict = dict([(option_dict['Key'], option_dict['Values'])
+                                    for option_dict in existing_options])
+
+        return desired_optns_dict == existing_optns_dict
 
     def _get_dhcp_configs(self):
         internal_dns = self.get_config("internal_dns")
