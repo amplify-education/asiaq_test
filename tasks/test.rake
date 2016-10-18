@@ -208,7 +208,7 @@ namespace "test" do
   task :cover => [:mkdir] do
     notice("Checking code coverage")
     total_coverage = Nose.read_coverage["TOTAL"]
-    ok = total_coverage >= 30
+    ok = total_coverage >= 65
     error("Coverage failed - only #{total_coverage}%. Time to write more tests.") unless ok
     good("Unit test code coverage is #{total_coverage}% - it'll do!")
   end
