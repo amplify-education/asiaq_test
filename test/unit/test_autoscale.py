@@ -158,31 +158,6 @@ class DiscoAutoscaleTests(TestCase):
             tags=ANY, termination_policies=ANY,
             instance_id=ANY)
 
-    @patch("boto.ec2.autoscale.group.AutoScalingGroup")
-    def test_get_group_with_default_scale_policies(self, mock_group_init):
-        '''Test default scale policies are created when creating an autoscaling group'''
-        mock_group = MagicMock()
-        mock_group.name = "mock_group_name"
-        mock_group_init.return_value = mock_group
-
-        self._autoscale._get_group_generator = MagicMock(return_value=[])
-        self._autoscale.get_group(
-            hostclass="mhcdummy",
-            launch_config="launch_config-X", vpc_zone_id="zone-X",
-            min_size=1, max_size=1, desired_size=1)
-
-        expected_calls = [call(AdjustmentType='PercentChangeInCapacity',
-                               AutoScalingGroupName=mock_group.name,
-                               Cooldown=600, MinAdjustmentMagnitude=1,
-                               PolicyName='up', PolicyType='SimpleScaling',
-                               ScalingAdjustment=10),
-                          call(AdjustmentType='PercentChangeInCapacity',
-                               AutoScalingGroupName=mock_group.name,
-                               Cooldown=600, MinAdjustmentMagnitude=1,
-                               PolicyName='down', PolicyType='SimpleScaling',
-                               ScalingAdjustment=-10)]
-        self._mock_boto3_connection.put_scaling_policy.assert_has_calls(expected_calls)
-
     def test_create_policy_simple_scaling(self):
         '''Test create plicy with simple scaling'''
         mock_group_name = "mock_group_name"
