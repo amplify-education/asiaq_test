@@ -80,6 +80,37 @@ class DiscoAutoscaleTests(TestCase):
         self.assertEqual(group.max_size, 5)
         self.assertEqual(group.desired_capacity, 4)
 
+    def test_get_group_add_policies(self):
+        """Test getting a group automatically adds scaling policies"""
+        self._autoscale._get_group_generator = MagicMock(return_value=[self.mock_group("mhcdummy")])
+
+        group = self._autoscale.get_group(
+            hostclass="mhcdummy",
+            launch_config="launch_config-X",
+            vpc_zone_id="zone-X",
+        )
+
+        self._mock_boto3_connection.put_scaling_policy.assert_has_calls([
+            call(
+                AutoScalingGroupName=group.name,
+                PolicyName='up',
+                PolicyType='SimpleScaling',
+                AdjustmentType='PercentChangeInCapacity',
+                ScalingAdjustment=10,
+                Cooldown=600,
+                MinAdjustmentMagnitude=1
+            ),
+            call(
+                AutoScalingGroupName=group.name,
+                PolicyName='down',
+                PolicyType='SimpleScaling',
+                AdjustmentType='PercentChangeInCapacity',
+                ScalingAdjustment=-10,
+                Cooldown=600,
+                MinAdjustmentMagnitude=1
+            )
+        ])
+
     def test_get_group_attach_elb(self):
         """Test getting a group and attaching an elb"""
         self._autoscale._get_group_generator = MagicMock(return_value=[self.mock_group("mhcdummy")])
