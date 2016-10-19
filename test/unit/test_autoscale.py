@@ -181,10 +181,10 @@ class DiscoAutoscaleTests(TestCase):
 
     def test_create_policy_step_scaling(self):
         '''Test create plicy with step scaling'''
-        mock_group_name="mock_group_name"
-        mock_policy_name="mock_policy_name"
-        mock_adjustment_type="mock_adjustment_type"
-        step_scaling="StepScaling"
+        mock_group_name = "mock_group_name"
+        mock_policy_name = "mock_policy_name"
+        mock_adjustment_type = "mock_adjustment_type"
+        step_scaling = "StepScaling"
         scaling_adjustment = 10
         metric_aggregation_type = "Maximum"
         step_adjustments = [{'MetricIntervalLowerBound': 25,
