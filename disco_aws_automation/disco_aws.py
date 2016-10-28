@@ -254,7 +254,12 @@ class DiscoAWS(object):
                 ephemeral_disk_count=self.disco_storage.get_ephemeral_disk_count(instance_type))]
         else:
             block_device_mappings = [old_config.block_device_mappings]
-        return block_device_mappings
+
+        if is_ebs_encrypted(instance_type):
+            return block_device_mappings
+        else:
+            raise RuntimeError('Instance type {} does not support \
+                                encrypted EBS volumes'.format(instance_type))
 
     def create_floating_interfaces(self, meta_network, hostclass):
         """Creates any floating interfaces as needed"""

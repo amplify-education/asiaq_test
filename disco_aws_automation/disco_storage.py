@@ -117,6 +117,50 @@ EBS_OPTIMIZED = [
     "r3.4xlarge"
 ]
 
+EBS_ENCRYPTED = [
+    "m3.medium",
+    "m3.large",
+    "m3.xlarge",
+    "m3.2xlarge",
+    "m4.large",
+    "m4.xlarge",
+    "m4.2xlarge",
+    "m4.4xlarge",
+    "m4.10xlarge",
+    "m4.16xlarge",
+    "t2.nano",
+    "t2.micro",
+    "t2.small",
+    "t2.medium",
+    "c4.large",
+    "c4.xlarge",
+    "c4.2xlarge",
+    "c4.4xlarge",
+    "c4.8xlarge",
+    "c3.large",
+    "c3.xlarge",
+    "c3.2xlarge",
+    "c3.4xlarge",
+    "r1.8xlarge",
+    "r3.large",
+    "r3.xlarge",
+    "r3.2xlarge",
+    "r3.4xlarge",
+    "r3.8xlarge",
+    "x1.16xlarge",
+    "d2.xlarge",
+    "d2.2xlarge",
+    "d2.4xlarge",
+    "d2.8xlarge",
+    "i2.xlarge",
+    "i2.2xlarge",
+    "i2.4xlarge",
+    "g2.2xlarge",
+    "g2.8xlarge",
+    "p2.xlarge",
+    "p2.8xlarge"
+]
+
 
 class DiscoStorage(object):
     """
@@ -130,6 +174,10 @@ class DiscoStorage(object):
     def is_ebs_optimized(self, instance_type):
         """Returns true if the instance type is EBS Optimized"""
         return instance_type in EBS_OPTIMIZED
+
+    def is_ebs_encrypted(self, instance_type):
+        """Returns true if the instance type supports encrypted EBS"""
+        return instance_type in EBS_ENCRYPTED
 
     def get_ephemeral_disk_count(self, instance_type):
         """Returns number of ephemeral disks available for each instance type"""
@@ -159,7 +207,8 @@ class DiscoStorage(object):
     def create_snapshot_bdm(self, snapshot, iops):
         """Create a Block Device Mapping for a Snapshot"""
         device = boto.ec2.blockdevicemapping.EBSBlockDeviceType(
-            snapshot_id=snapshot.id, size=snapshot.volume_size, delete_on_termination=True)
+            snapshot_id=snapshot.id, size=snapshot.volume_size,
+            delete_on_termination=True, encrypted=True)
         if iops:
             device.volume_type = PROVISIONED_IOPS_VOLUME_TYPE
             device.iops = iops
@@ -258,7 +307,8 @@ class DiscoStorage(object):
                     logger.error("Couldn't destroy temporary volume %s", volume.id)
 
             try:
-                volume = throttled_call(self.connection.create_volume, size=size, zone=zone)
+                volume = throttled_call(self.connection.create_volume,
+                                        size=size, zone=zone, encrypted=True)
                 logger.info("Created temporary volume %s in zone %s.", volume.id, zone.name)
                 wait_for_state(volume, 'available', state_attr='status')
                 snapshot = volume.create_snapshot()
