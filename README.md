@@ -1201,7 +1201,7 @@ to instances on boot with DHCP. We expose a smaller subset of these:
 -   `internal_dns` Primary DNS server
 -   `external_dns` Secondary DNS server
 -   `domain_name` The network domain
--   `ntp_server` Address of NTP server.
+-   `ntp_server` Up to four space separated IP addresses or DNS names of NTP servers.
 
 We use AWS resolver by specifying AmazonProvidedDNS for internal_dns
 and external_dns, alternatively the APIPA address 169.254.169.253 can
@@ -1854,6 +1854,7 @@ Options:
 -   `elb_idle_timeout` [Default=300] Timeout before ELB kills idle connections
 -   `elb_connection_draining` [Default=300] The timeout, in seconds, for requests to unhealthy or de-registering instances to complete before instance is removed from ELB
 -   `elb_cross_zone_load_balancing` [Default=True] If true, the ELB will evenly distribute load across instances regardless of their AZs. If false, the ELB will evenly distribute load across AZs regardless of number of instances in each AZ.
+-   `elb_cert_name` [Optional] ELBs will use HTTPS certs by looking them up by the ELB's CNAME. Use this option to force the ELB to use a cert for a different domain
 
 ### Commands for managing ELB
 List all ELBs in the environment
