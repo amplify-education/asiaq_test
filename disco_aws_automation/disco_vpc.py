@@ -457,7 +457,6 @@ class DiscoVPC(object):
         """Filters used to get only the current VPC when filtering an AWS reply by 'vpc-id'"""
         return create_filters({'vpc-id': [self.vpc['VpcId']]})
 
-
     def update(self, dry_run=False):
         """ Update the existing VPC """
         # Ignoring changes in CIDR for now at least

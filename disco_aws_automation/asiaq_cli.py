@@ -12,10 +12,6 @@ from . import DiscoVPC, DiscoAWS, read_config
 from .disco_aws_util import read_pipeline_file, graceful
 from .disco_logging import configure_logging
 
-PEERING_SECTION = 'peerings'
-BLACK_LIST_S3_CONTAINER = "zookeeper-sync-black-lists"
-BLACK_LIST_BUCKET = 'us-west-2.mclass.sandboxes'
-
 
 class CliCommand(object):
     """
@@ -52,6 +48,10 @@ class SandboxCommand(CliCommand):
 
     DESCRIPTION = "Create and populate a sandbox for local development and testing."
 
+    PEERING_SECTION = 'peerings'
+    BLACK_LIST_S3_CONTAINER = "zookeeper-sync-black-lists"
+    BLACK_LIST_BUCKET = 'us-west-2.mclass.sandboxes'
+
     @classmethod
     def init_args(cls, parser):
         parser.add_argument("sandbox_name")
@@ -73,13 +73,13 @@ class SandboxCommand(CliCommand):
             vpc.update()
         else:
             vpc = DiscoVPC(environment_name=sandbox_name,
-                        environment_type='sandbox',
-                        defer_creation=True)
+                           environment_type='sandbox',
+                           defer_creation=True)
             peering_found = False
             peering_prefixes = ("*:sandbox", ("%s:sandbox" % sandbox_name))
-            if vpc.config.has_section(PEERING_SECTION):
-                for peering in vpc.config.options(PEERING_SECTION):
-                    peers = vpc.config.get(PEERING_SECTION, peering)
+            if vpc.config.has_section(self.PEERING_SECTION):
+                for peering in vpc.config.options(self.PEERING_SECTION):
+                    peers = vpc.config.get(self.PEERING_SECTION, peering)
                     self.logger.debug("Peering config: %s = '%s'", peering, peers)
                     if peers.startswith(peering_prefixes):
                         peering_found = True
@@ -88,31 +88,28 @@ class SandboxCommand(CliCommand):
                         raise Exception("oh this is going to be a problem")
             else:
                 self.logger.warn("No peering section found")
-                vpc.config.add_section(PEERING_SECTION)
+                vpc.config.add_section(self.PEERING_SECTION)
             if not peering_found:
                 self.logger.warn("Need to update peering config for %s", sandbox_name)
-                vpc.config.set(PEERING_SECTION, "connection_99", "%s:sandbox/intranet ci/intranet" % sandbox_name)
+                vpc.config.set(self.PEERING_SECTION, "connection_99",
+                               "%s:sandbox/intranet ci/intranet" % sandbox_name)
             vpc.create()
 
         self.logger.debug("Hostclass definitions for spin-up: %s", hostclass_dicts)
         DiscoAWS(aws_config, sandbox_name, vpc=vpc).spinup(hostclass_dicts)
 
-
     def _update_blacklist(self, sandbox_name):
         local_blacklist = os.path.join("sandboxes", sandbox_name, "blacklist")
-        remote_blacklist = os.path.join(BLACK_LIST_S3_CONTAINER, sandbox_name)
+        remote_blacklist = os.path.join(self.BLACK_LIST_S3_CONTAINER, sandbox_name)
         self.logger.info("Uploading blacklist file %s to %s", local_blacklist, remote_blacklist)
-        sandbox_s3_bucket = boto3.resource("s3").Bucket(name=BLACK_LIST_BUCKET)
+        sandbox_s3_bucket = boto3.resource("s3").Bucket(name=self.BLACK_LIST_BUCKET)
         sandbox_s3_bucket.upload_file(local_blacklist, remote_blacklist)
 
-
-def _base_arg_init(parser):
-    parser.add_argument("--debug", "-d", action='store_const', const=True,
-                        help='Log at DEBUG level.')
 
 SUBCOMMANDS = {
     "sandbox": SandboxCommand
 }
+
 
 @graceful
 def sandbox_command():
@@ -143,3 +140,8 @@ def _command_init(description, argparse_setup_func):
     args = parser.parse_args()
     configure_logging(debug=args.debug)
     return args
+
+
+def _base_arg_init(parser):
+    parser.add_argument("--debug", "-d", action='store_const', const=True,
+                        help='Log at DEBUG level.')
