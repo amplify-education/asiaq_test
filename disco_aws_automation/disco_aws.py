@@ -48,6 +48,7 @@ from .exceptions import (
     SmokeTestError,
     CommandError,
     TimeoutError,
+    ProgrammerError,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,9 +59,15 @@ class DiscoAWS(object):
 
     # Too many arguments, but we want to mock a lot of things out, so...
     # pylint: disable=too-many-arguments
-    def __init__(self, config, environment_name, boto2_conn=None, vpc=None, remote_exec=None, storage=None,
-                 autoscale=None, elb=None, log_metrics=None, alarms=None):
-        self.environment_name = environment_name
+    def __init__(self, config, environment_name=None, boto2_conn=None, vpc=None, remote_exec=None,
+                 storage=None, autoscale=None, elb=None, log_metrics=None, alarms=None):
+
+        if not environment_name and not vpc:
+            raise ProgrammerError("Either 'vpc' or 'environment_name' must always be specified.")
+        elif environment_name:
+            self.environment_name = environment_name
+        else:
+            self.environment_name = vpc.environment_name
         self._config = config
         self._project_name = self._config.get("disco_aws", "project_name")
         self._connection = boto2_conn or None  # lazily initialized
