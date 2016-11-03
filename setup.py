@@ -97,7 +97,7 @@ setup(name='asiaq',
     test_suite = 'nose.collector',
     entry_points={
         'console_scripts': [
-            'asiaq_sandbox = %s.asiaq_cli:sandbox' % MODULE_NAME,
+            'asiaq_sandbox = %s.asiaq_cli:sandbox_command' % MODULE_NAME,
             'asiaq = %s.asiaq_cli:super_command' % MODULE_NAME
         ]
     },
