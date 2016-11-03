@@ -96,7 +96,7 @@ class SandboxCommand(CliCommand):
             vpc.create()
 
         self.logger.debug("Hostclass definitions for spin-up: %s", hostclass_dicts)
-        DiscoAWS(aws_config, sandbox_name, vpc=vpc).spinup(hostclass_dicts)
+        DiscoAWS(aws_config, vpc=vpc).spinup(hostclass_dicts)
 
     def _update_blacklist(self, sandbox_name):
         local_blacklist = os.path.join("sandboxes", sandbox_name, "blacklist")
@@ -112,13 +112,10 @@ SUBCOMMANDS = {
 
 
 @graceful
-def sandbox_command():
-    args = _command_init(SandboxCommand.DESCRIPTION, SandboxCommand.init_args)
-    SandboxCommand().run(args)
-
-
-@graceful
 def super_command():
+    """
+    Driver function for the 'asiaq' command.
+    """
     parser = argparse.ArgumentParser(description="All the Asiaq Things")
     _base_arg_init(parser)
     subcommands = parser.add_subparsers(title="subcommands", dest="command")
@@ -145,3 +142,19 @@ def _command_init(description, argparse_setup_func):
 def _base_arg_init(parser):
     parser.add_argument("--debug", "-d", action='store_const', const=True,
                         help='Log at DEBUG level.')
+    parser.add_argument("--env", "--environment",
+                        help="Environment (VPC name, usually). Default: found in config.")
+
+
+def _create_command(driver_class, func_name):
+    @graceful
+    def generic_command():
+        "sacrificial docstring (overwritten below)"
+        driver = driver_class()
+        args = _command_init(driver.DESCRIPTION, driver.init_args)
+        driver.run(args)
+    generic_command.__name__ = func_name
+    generic_command.__doc__ = "Driver function that runs the command in " + driver_class.__name__
+    return generic_command
+
+sandbox_command = _create_command(SandboxCommand, "sandbox_command")
