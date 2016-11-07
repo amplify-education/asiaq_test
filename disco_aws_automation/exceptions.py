@@ -22,6 +22,11 @@ class EarlyExitException(Exception):
     pass
 
 
+class ProgrammerError(Exception):
+    "An exception state that resulted from a coding error, not an environment error."
+    pass
+
+
 class AccountError(Exception):
     """ Account manipulation error """
     pass
