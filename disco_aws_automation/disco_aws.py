@@ -262,7 +262,7 @@ class DiscoAWS(object):
         else:
             block_device_mappings = [old_config.block_device_mappings]
 
-        if is_ebs_encrypted(instance_type):
+        if self.disco_storage.is_ebs_encrypted(instance_type) or old_config:
             return block_device_mappings
         else:
             raise RuntimeError('Instance type {} does not support \
