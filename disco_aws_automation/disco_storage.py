@@ -117,51 +117,6 @@ EBS_OPTIMIZED = [
     "r3.4xlarge"
 ]
 
-EBS_ENCRYPTED = [
-    "m3.medium",
-    "m3.large",
-    "m3.xlarge",
-    "m3.2xlarge",
-    "m4.large",
-    "m4.xlarge",
-    "m4.2xlarge",
-    "m4.4xlarge",
-    "m4.10xlarge",
-    "m4.16xlarge",
-    "t2.nano",
-    "t2.micro",
-    "t2.small",
-    "t2.medium",
-    "c4.large",
-    "c4.xlarge",
-    "c4.2xlarge",
-    "c4.4xlarge",
-    "c4.8xlarge",
-    "c3.large",
-    "c3.xlarge",
-    "c3.2xlarge",
-    "c3.4xlarge",
-    "r1.8xlarge",
-    "r3.large",
-    "r3.xlarge",
-    "r3.2xlarge",
-    "r3.4xlarge",
-    "r3.8xlarge",
-    "x1.16xlarge",
-    "d2.xlarge",
-    "d2.2xlarge",
-    "d2.4xlarge",
-    "d2.8xlarge",
-    "i2.xlarge",
-    "i2.2xlarge",
-    "i2.4xlarge",
-    "g2.2xlarge",
-    "g2.8xlarge",
-    "p2.xlarge",
-    "p2.8xlarge"
-]
-
-
 class DiscoStorage(object):
     """
     Wrapper class to handle all DiscoAWS storage functions
@@ -174,10 +129,6 @@ class DiscoStorage(object):
     def is_ebs_optimized(self, instance_type):
         """Returns true if the instance type is EBS Optimized"""
         return instance_type in EBS_OPTIMIZED
-
-    def is_ebs_encrypted(self, instance_type):
-        """Returns true if the instance type supports encrypted EBS"""
-        return instance_type in EBS_ENCRYPTED
 
     def get_ephemeral_disk_count(self, instance_type):
         """Returns number of ephemeral disks available for each instance type"""
@@ -208,7 +159,7 @@ class DiscoStorage(object):
         """Create a Block Device Mapping for a Snapshot"""
         device = boto.ec2.blockdevicemapping.EBSBlockDeviceType(
             snapshot_id=snapshot.id, size=snapshot.volume_size,
-            delete_on_termination=True, encrypted=True)
+            delete_on_termination=True)
         if iops:
             device.volume_type = PROVISIONED_IOPS_VOLUME_TYPE
             device.iops = iops
@@ -282,7 +233,7 @@ class DiscoStorage(object):
 
         return bdm
 
-    def create_ebs_snapshot(self, hostclass, size):
+    def create_ebs_snapshot(self, hostclass, size, encrypted):
         """
         Creates an EBS snapshot in the first listed availability zone.
 
@@ -291,6 +242,7 @@ class DiscoStorage(object):
 
         :param hostclass:  The hostclass that uses this snapshot
         :param size:  The size of the snapshot in GB
+        :param encrypted:  Boolean whether snapshot is encrypted
         """
         zones = throttled_call(self.connection.get_all_zones)
         if not zones:
@@ -307,13 +259,14 @@ class DiscoStorage(object):
                     logger.error("Couldn't destroy temporary volume %s", volume.id)
 
             try:
-                volume = throttled_call(self.connection.create_volume,
-                                        size=size, zone=zone, encrypted=True)
+                volume = throttled_call(self.connection.create_volume, size=size,
+                                        zone=zone, encrypted=encrypted)
                 logger.info("Created temporary volume %s in zone %s.", volume.id, zone.name)
                 wait_for_state(volume, 'available', state_attr='status')
                 snapshot = volume.create_snapshot()
                 snapshot.add_tag('hostclass', hostclass)
                 snapshot.add_tag('env', self.environment_name)
+                snapshot.add_tag('encrypted', encrypted)
                 logger.info("Created snapshot %s from volume %s.", snapshot.id, volume.id)
             except Exception:
                 _destroy_volume(volume)
