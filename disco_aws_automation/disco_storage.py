@@ -265,7 +265,6 @@ class DiscoStorage(object):
                 snapshot = volume.create_snapshot()
                 snapshot.add_tag('hostclass', hostclass)
                 snapshot.add_tag('env', self.environment_name)
-                snapshot.add_tag('encrypted', encrypted)
                 logger.info("Created snapshot %s from volume %s.", snapshot.id, volume.id)
             except Exception:
                 _destroy_volume(volume)
