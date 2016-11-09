@@ -117,6 +117,7 @@ EBS_OPTIMIZED = [
     "r3.4xlarge"
 ]
 
+
 class DiscoStorage(object):
     """
     Wrapper class to handle all DiscoAWS storage functions
@@ -232,7 +233,7 @@ class DiscoStorage(object):
 
         return bdm
 
-    def create_ebs_snapshot(self, hostclass, size, encrypted):
+    def create_ebs_snapshot(self, hostclass, size, encrypted=False):
         """
         Creates an EBS snapshot in the first listed availability zone.
 
