@@ -17,7 +17,7 @@ import boto.exception
 import dateutil.parser
 from pytz import UTC
 
-from . import normalize_path, read_config
+from .disco_config import normalize_path, read_config
 from .resource_helper import wait_for_sshable, keep_trying, wait_for_state
 from .disco_storage import DiscoStorage
 from .disco_remote_exec import DiscoRemoteExec, SSH_DEFAULT_OPTIONS
@@ -419,8 +419,6 @@ class DiscoBake(object):
             wait_for_state(image, u'available',
                            int(self.hc_option_default(hostclass, "ami_available_wait_time", "600")))
             logger.info("Created %s AMI %s", image_name, image_id)
-        except EarlyExitException as early_exit:
-            logger.info(str(early_exit))
         except:
             logger.exception("Snap shot failed. See trace below.")
             raise

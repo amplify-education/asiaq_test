@@ -11,7 +11,7 @@ import boto3
 import botocore
 from semantic_version import Spec, Version
 
-from . import normalize_path
+from .disco_config import normalize_path
 from .disco_route53 import DiscoRoute53
 from .exceptions import CommandError
 from .resource_helper import throttled_call

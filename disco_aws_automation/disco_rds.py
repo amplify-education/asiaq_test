@@ -15,7 +15,7 @@ import boto3
 import botocore
 import pytz
 
-from . import read_config, ASIAQ_CONFIG
+from .disco_config import read_config, ASIAQ_CONFIG
 from .disco_alarm import DiscoAlarm
 from .disco_aws_util import is_truthy
 from .disco_creds import DiscoS3Bucket

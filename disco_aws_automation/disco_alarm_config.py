@@ -8,7 +8,8 @@ from ConfigParser import ConfigParser
 
 from boto.ec2.cloudwatch import MetricAlarm
 
-from . import read_config, DiscoAutoscale
+from . import DiscoAutoscale
+from .disco_config import read_config
 from .exceptions import AlarmConfigError
 from .disco_aws_util import is_truthy
 from .disco_elb import DiscoELB
