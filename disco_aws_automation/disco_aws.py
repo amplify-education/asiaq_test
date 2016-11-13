@@ -38,7 +38,6 @@ from .disco_remote_exec import DiscoRemoteExec
 from .disco_storage import DiscoStorage
 from .disco_vpc import DiscoVPC
 from .resource_helper import (
-    TimeoutError,
     keep_trying,
     wait_for_state,
 )
