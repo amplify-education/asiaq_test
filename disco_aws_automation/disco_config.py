@@ -5,12 +5,13 @@ Package for reading configurations out of standard locations.
 import os
 import os.path
 from ConfigParser import ConfigParser
-import argparse
+from logging import getLogger
 
 from .exceptions import AsiaqConfigError
 
 ASIAQ_CONFIG = os.getenv("ASIAQ_CONFIG", ".")
 DEFAULT_CONFIG_FILE = "disco_aws.ini"
+_LOG = getLogger(__name__)
 
 
 def read_config(*path_components, **kwargs):
@@ -25,9 +26,8 @@ def read_config(*path_components, **kwargs):
     all_components = list(path_components)  # copy the list to avoid aliasing
     if 'config_file' in kwargs:
         all_components.append(kwargs['config_file'])
-    if not all_components:
-        all_components
-    real_config_file = normalize_path(all_components)
+    real_config_file = normalize_path(all_components or DEFAULT_CONFIG_FILE)
+    _LOG.debug("Reading config file %s", real_config_file)
     config = ConfigParser()
     config.read(real_config_file)
     return config

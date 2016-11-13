@@ -2,14 +2,13 @@
 
 from unittest import TestCase
 from mock import patch, Mock
-import os
 
 from disco_aws_automation import disco_config, exceptions
 
 
 @patch("disco_aws_automation.disco_config.ASIAQ_CONFIG", "FAKE_CONFIG_DIR")
-class TestStuff(TestCase):
-    ""
+class TestDiscoConfig(TestCase):
+    "Test functions for finding, opening and reading configuration files in ASIAQ_CONFIG."
 
     @patch('os.path.exists')
     def test__normalized_path__no_such_path__exception(self, path_exists):
@@ -30,6 +29,15 @@ class TestStuff(TestCase):
         found = disco_config.normalize_path(["yabba", "dabba"])
         self.assertEquals(found, "FAKE_CONFIG_DIR/yabba/dabba")
         path_exists.assert_called_once_with(found)
+
+    @patch('os.path.exists', Mock(return_value=True))
+    @patch('disco_aws_automation.disco_config.ConfigParser')
+    def test__read_config__no_arg__default_behavior(self, configparser_constructor):
+        parser = Mock()
+        configparser_constructor.return_value = parser
+        parsed = disco_config.read_config()
+        self.assertIs(parsed, parser)
+        parser.read.assert_called_once_with("FAKE_CONFIG_DIR/disco_aws.ini")
 
     @patch('os.path.exists', Mock(return_value=True))
     @patch('disco_aws_automation.disco_config.ConfigParser')

@@ -21,7 +21,7 @@ from .disco_aws_util import is_truthy
 from .disco_creds import DiscoS3Bucket
 from .disco_route53 import DiscoRoute53
 from .disco_vpc_sg_rules import DiscoVPCSecurityGroupRules
-from .exceptions import TimeoutError, RDSEnvironmentError
+from .exceptions import TimeoutError, RDSEnvironmentError, AsiaqConfigError
 from .resource_helper import keep_trying, tag2dict, throttled_call
 
 logger = logging.getLogger(__name__)
