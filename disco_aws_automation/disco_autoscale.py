@@ -423,7 +423,7 @@ class DiscoAutoscale(object):
             metric_aggregation_type=None,
             step_adjustments=None,
             estimated_instance_warmup=None
-        ):
+    ):
         """
         Creates a new autoscaling policy, or updates an existing one if the autoscaling group name and
         policy name already exist. Handles the logic of constructing the correct autoscaling policy request,
