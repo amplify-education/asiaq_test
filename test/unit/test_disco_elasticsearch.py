@@ -268,7 +268,7 @@ class DiscoElastiSearchTests(TestCase):
         self._es.update(elasticsearch_name)
         self.assertEquals(len(self._es.list()), 1)
         new_domain_config = self._es._describe_es_domain(self._es.get_domain_name(elasticsearch_name))
-        del(original_domain_config['DomainStatus']['ElasticsearchVersion'])
+        del original_domain_config['DomainStatus']['ElasticsearchVersion']
         self.assertEquals(original_domain_config.viewitems(), new_domain_config.viewitems())
 
     def test_create_and_delete_a_domain(self):
