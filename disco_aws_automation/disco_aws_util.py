@@ -63,9 +63,9 @@ def graceful(func):
     wrapper is actually extremely simple.
     """
     @wraps(func)
-    def run_func():
+    def _run_func():
         run_gracefully(func)
-    return run_func
+    return _run_func
 
 
 def read_pipeline_file(pipeline_file):

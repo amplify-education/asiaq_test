@@ -289,7 +289,7 @@ class DiscoElasticsearch(object):
 
             if desired_elasticsearch_name in all_elasticsearch_names:
                 try:
-                    del(desired_es_config["ElasticsearchVersion"])
+                    del desired_es_config["ElasticsearchVersion"]
                     logging.debug("Ignoring ElasticsearchVersion specification on update")
                 except KeyError:
                     pass

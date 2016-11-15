@@ -1,6 +1,7 @@
 """
 Manage AWS SSM document creation and execution
 """
+from __future__ import print_function
 import os
 import logging
 import time
@@ -14,7 +15,6 @@ from . import read_config
 from .resource_helper import throttled_call, wait_for_state_boto3
 from .exceptions import TimeoutError
 from .disco_creds import DiscoS3Bucket
-from .resource_helper import throttled_call
 from .disco_constants import (
     DEFAULT_CONFIG_SECTION
 )
@@ -155,8 +155,9 @@ class DiscoSSM(object):
                 instance_ids
             )
             time.sleep(5)
-        raise TimeoutException(
-            "Timed out waiting for execution of document '%s' against instances %s after '%s' seconds".format(
+        raise TimeoutError(
+            "Timed out waiting for execution of document '{0}' against instances {1} after '{2}' "
+            "seconds".format(
                 document_name,
                 instance_ids,
                 timeout
@@ -239,12 +240,12 @@ class DiscoSSM(object):
         if stdout_keys:
             stdout = bucket.get_key(stdout_keys[0]).decode('utf-8').strip()
         else:
-            stdout = '-'
+            stdout = u'-'
 
         if stderr_keys:
             stderr = bucket.get_key(stderr_keys[0]).decode('utf-8').strip()
         else:
-            stderr = '-'
+            stderr = u'-'
 
         plugin_output = {
             'name': command_plugin['Name'],
