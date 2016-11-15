@@ -72,7 +72,7 @@ class DiscoStorageTests(TestCase):
         """Test getting all of the snapshots for an environment"""
         self._create_snapshot('foo', 'unittestenv')
         self._create_snapshot('foo', 'otherenv')
-        self._create_snapshot('foo', 'encyptedenv', True)
+        self._create_snapshot('foo', 'encryptedenv', True)
 
         self.assertEquals(1, len(self.storage.get_snapshots()))
 
@@ -97,9 +97,9 @@ class DiscoStorageTests(TestCase):
         self._create_snapshot('foo', 'otherenv')
         self._create_snapshot('foo', 'otherenv')
         self._create_snapshot('foo', 'otherenv')
-        self._create_snapshot('foo', 'encyptedenv', True)
-        self._create_snapshot('foo', 'encyptedenv', True)
-        self._create_snapshot('foo', 'encyptedenv', True)
+        self._create_snapshot('foo', 'encryptedenv', True)
+        self._create_snapshot('foo', 'encryptedenv', True)
+        self._create_snapshot('foo', 'encryptedenv', True)
 
         self.storage.cleanup_ebs_snapshots(keep_last_n=2)
 
