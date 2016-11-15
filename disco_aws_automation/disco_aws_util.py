@@ -11,7 +11,7 @@ from boto.exception import EC2ResponseError
 from botocore.exceptions import ClientError
 
 from .disco_constants import YES_LIST
-from .exceptions import EasyExit
+from .exceptions import EasyExit, EarlyExitException
 
 logger = getLogger(__name__)
 

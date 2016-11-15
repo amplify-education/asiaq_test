@@ -3,13 +3,12 @@ RDS Module. Can be used to perform various RDS operations
 """
 
 from __future__ import print_function
-import os
 import datetime
 import logging
 import time
 import sys
 import threading
-from ConfigParser import ConfigParser, NoOptionError, NoSectionError
+from ConfigParser import NoOptionError, NoSectionError
 
 import boto3
 import botocore
