@@ -253,6 +253,7 @@ def get_preferred_private_ip(instance):
 
 
 def parse_ssm_parameters(parameters):
+    "Parse a list of key=value strings into a dictionary of the form {key: [value]}"
     # Borrow the AWS CLI syntax of splitting the name of the parameter and it's value on '='
     keys_to_values = [parameter.split('=', 1) for parameter in parameters]
     # SSM actually supports multiple values for a given key, but we probably don't need that so let's not
