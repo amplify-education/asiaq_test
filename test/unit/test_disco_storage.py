@@ -18,7 +18,7 @@ class DiscoStorageTests(TestCase):
     def setUp(self):
         self.storage = DiscoStorage(environment_name='unittestenv')
 
-    def _create_snapshot(self, hostclass, env, encrypted=False):
+    def _create_snapshot(self, hostclass, env, encrypted=True):
         client = boto3.client('ec2')
         volume = client.create_volume(
             Size=100,
@@ -108,23 +108,23 @@ class DiscoStorageTests(TestCase):
 
     @mock_ec2
     def test_create_ebs_snapshot(self):
-        """Test creating a snapshot"""
+        """Test creating a snapshot (encrypted by default)"""
         self.storage.create_ebs_snapshot('mhcfoo', 250)
 
         snapshots = self.storage.get_snapshots('mhcfoo')
 
         self.assertEquals(250, snapshots[0].volume_size)
-        self.assertEquals(False, snapshots[0].encrypted)
+        self.assertEquals(True, snapshots[0].encrypted)
 
     @mock_ec2
-    def test_create_ebs_snapshot_encrypted(self):
-        """Test creating an encrypted snapshot"""
-        self.storage.create_ebs_snapshot('mhcfoo', 250, True)
+    def test_create_ebs_snapshot_unencrypted(self):
+        """Test creating an unencrypted snapshot"""
+        self.storage.create_ebs_snapshot('mhcfoo', 250, False)
 
         snapshots = self.storage.get_snapshots('mhcfoo')
 
         self.assertEquals(250, snapshots[0].volume_size)
-        self.assertEquals(True, snapshots[0].encrypted)
+        self.assertEquals(False, snapshots[0].encrypted)
 
     @mock_ec2
     def test_take_snapshot(self):

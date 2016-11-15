@@ -31,8 +31,8 @@ def get_parser():
     parser_create.add_argument('--size', dest='size', required=True, type=int, help='Volume size in GB')
     parser_create.add_argument('--hostclass', dest='hostclass', type=str,
                                help="hostclass that uses this snapshot")
-    parser_create.add_argument('--encrypted', action='store_true',
-                               help='create encrypted volume and snapshot')
+    parser_create.add_argument('--unencrypted', action='store_false',
+                               help='create unencrypted volume and snapshot')
 
     parser_list = subparsers.add_parser('list', help='List all EBS snapshots')
     parser_list.set_defaults(mode='list')
@@ -91,7 +91,7 @@ def run():
 
     aws = DiscoAWS(config, environment_name=environment_name)
     if args.mode == "create":
-        aws.disco_storage.create_ebs_snapshot(args.hostclass, args.size, args.encrypted)
+        aws.disco_storage.create_ebs_snapshot(args.hostclass, args.size, args.unencrypted)
     elif args.mode == "list":
         for snapshot in aws.disco_storage.get_snapshots(args.hostclasses):
             print("{0:26} {1:13} {2:9} {3} {4:4}".format(

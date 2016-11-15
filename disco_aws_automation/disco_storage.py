@@ -233,7 +233,7 @@ class DiscoStorage(object):
 
         return bdm
 
-    def create_ebs_snapshot(self, hostclass, size, encrypted=False):
+    def create_ebs_snapshot(self, hostclass, size, encrypted=True):
         """
         Creates an EBS snapshot in the first listed availability zone.
 
