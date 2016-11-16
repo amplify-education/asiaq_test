@@ -10,9 +10,10 @@ from ConfigParser import NoOptionError
 
 from dateutil import parser as dateutil_parser
 
-from disco_aws_automation import DiscoAWS, DiscoBake, DiscoSSM, read_config
+from disco_aws_automation import DiscoAWS, DiscoBake, DiscoSSM
 from disco_aws_automation.resource_helper import TimeoutError
 from disco_aws_automation.disco_logging import configure_logging
+from disco_aws_automation.disco_config import read_config
 from disco_aws_automation.disco_aws_util import graceful, read_pipeline_file
 from disco_aws_automation.exceptions import SmokeTestError
 
