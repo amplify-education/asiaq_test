@@ -150,7 +150,7 @@ class DiscoVPCTests(unittest.TestCase):
         possible_vpcs = ['10.0.0.0/26', '10.0.0.64/26', '10.0.0.128/26', '10.0.0.192/26']
         self.assertIn(str(auto_vpc.vpc['CidrBlock']), possible_vpcs)
 
-    # pylint: disable=unused-argument
+    # pylint: disable=unused-argument,too-many-arguments,too-many-locals
     @patch('socket.gethostbyname')
     @patch('disco_aws_automation.disco_vpc.DiscoRDS')
     @patch('disco_aws_automation.disco_vpc.DiscoVPCEndpoints')
@@ -219,7 +219,7 @@ class DiscoVPCTests(unittest.TestCase):
         boto3_client_mock.return_value = client_mock
 
         # Calling method under test
-        auto_vpc = DiscoVPC('auto-vpc', 'auto-vpc-type')
+        DiscoVPC('auto-vpc', 'auto-vpc-type')
 
         # Verifying result
         actual_ntp_servers = [

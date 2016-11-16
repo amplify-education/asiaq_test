@@ -1417,12 +1417,12 @@ which work how you would expect them to work.
 
 There is also a create command that allows you to create the initial
 EBS volume snapshot for a hostclass. This initial volume will not be
-formatted.
+formatted. The volume created and its snapshot will be encrypted by default.
+You can pass option --unencrypted to create an unencrypted EBS volume.
 
 
 Identity and Access Management
 ------------------------------
-
 We make use of IAM for access control to AWS resources quite
 extensively. Despite this we treat the IAM configuration in AWS as
 ephemeral, it gets periodically reloaded from configuration stored in
