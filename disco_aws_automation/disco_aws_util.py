@@ -11,16 +11,9 @@ from boto.exception import EC2ResponseError
 from botocore.exceptions import ClientError
 
 from .disco_constants import YES_LIST
+from .exceptions import EasyExit, EarlyExitException
 
 logger = getLogger(__name__)
-
-
-class EasyExit(Exception):
-    """
-    Raise this exception to exit your program with a log message and a non-zero status, but no stack trace
-    (assuming you are running it with run_gracefully).
-    """
-    pass
 
 
 def get_tag_value(tag_list, key):
@@ -97,6 +90,8 @@ def run_gracefully(main_function):
     except EasyExit as msg:
         logger.error(str(msg))
         sys.exit(1)
+    except EarlyExitException as non_error_msg:
+        logger.info(str(non_error_msg))
     except KeyboardInterrupt:
         # swallow the exception unless we turned on debugging, in which case
         # we might want to know what infinite loop we were stuck in

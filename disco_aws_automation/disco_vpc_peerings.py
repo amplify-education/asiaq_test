@@ -6,12 +6,13 @@ import logging
 
 from boto.exception import EC2ResponseError
 import boto3
+
 # FIXME: Disabling complaint about relative-import. This seems to be the only
 # way that works for unit tests.
 # pylint: disable=W0403
 import disco_vpc
 
-from . import read_config
+from .disco_config import read_config
 from .resource_helper import tag2dict, create_filters, throttled_call
 from .exceptions import VPCPeeringSyntaxError
 from .disco_constants import VPC_CONFIG_FILE

@@ -11,7 +11,7 @@ from ConfigParser import NoOptionError
 import boto3
 from botocore.exceptions import ClientError
 
-from . import read_config
+from .disco_config import read_config
 from .resource_helper import throttled_call, wait_for_state_boto3
 from .exceptions import TimeoutError
 from .disco_creds import DiscoS3Bucket

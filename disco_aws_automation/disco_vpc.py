@@ -18,7 +18,7 @@ from netaddr import IPNetwork, IPSet, IPAddress
 from netaddr.core import AddrFormatError
 
 from disco_aws_automation.network_helper import calc_subnet_offset
-from . import normalize_path
+from .disco_config import normalize_path
 
 from .disco_alarm import DiscoAlarm
 from .disco_alarm_config import DiscoAlarmsConfig
