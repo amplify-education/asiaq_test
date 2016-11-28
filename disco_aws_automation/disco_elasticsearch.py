@@ -10,7 +10,7 @@ import boto3
 
 from boto3.exceptions import Boto3Error
 from botocore.exceptions import BotoCoreError
-from . import read_config
+from .disco_config import read_config
 from .disco_route53 import DiscoRoute53
 from .resource_helper import throttled_call
 from .disco_aws_util import is_truthy
@@ -289,7 +289,7 @@ class DiscoElasticsearch(object):
 
             if desired_elasticsearch_name in all_elasticsearch_names:
                 try:
-                    del(desired_es_config["ElasticsearchVersion"])
+                    del desired_es_config["ElasticsearchVersion"]
                     logging.debug("Ignoring ElasticsearchVersion specification on update")
                 except KeyError:
                     pass

@@ -3,25 +3,24 @@ RDS Module. Can be used to perform various RDS operations
 """
 
 from __future__ import print_function
-import os
 import datetime
 import logging
 import time
 import sys
 import threading
-from ConfigParser import ConfigParser, NoOptionError, NoSectionError
+from ConfigParser import NoOptionError, NoSectionError
 
 import boto3
 import botocore
 import pytz
 
-from . import read_config, ASIAQ_CONFIG
+from .disco_config import read_config
 from .disco_alarm import DiscoAlarm
 from .disco_aws_util import is_truthy
 from .disco_creds import DiscoS3Bucket
 from .disco_route53 import DiscoRoute53
 from .disco_vpc_sg_rules import DiscoVPCSecurityGroupRules
-from .exceptions import TimeoutError, RDSEnvironmentError
+from .exceptions import TimeoutError, RDSEnvironmentError, AsiaqConfigError
 from .resource_helper import keep_trying, tag2dict, throttled_call
 
 logger = logging.getLogger(__name__)
@@ -373,20 +372,14 @@ class RDS(threading.Thread):
         self.create_db_parameter_group(db_parameter_group_name, db_parameter_group_family)
 
         # Extract the Custom Values from the config file
-        custom_param_file = os.path.join(ASIAQ_CONFIG,
-                                         'rds', 'engine_specific',
-                                         '{0}.ini'.format(database_name))
-
-        if os.path.isfile(custom_param_file):
-            custom_config = ConfigParser()
-            custom_config.read(custom_param_file)
-            try:
-                custom_db_params = custom_config.items(env_name)
-                logger.info("Updating RDS db_parameter_group %s (family: %s, #params: %s)",
-                            db_parameter_group_name, db_parameter_group_family, len(custom_db_params))
-                self.modify_db_parameter_group(db_parameter_group_name, custom_db_params)
-            except NoSectionError:
-                logger.info("Using Default RDS param")
+        try:
+            custom_config = read_config('rds', 'engine_specific', '{0}.ini'.format(database_name))
+            custom_db_params = custom_config.items(env_name)
+            logger.info("Updating RDS db_parameter_group %s (family: %s, #params: %s)",
+                        db_parameter_group_name, db_parameter_group_family, len(custom_db_params))
+            self.modify_db_parameter_group(db_parameter_group_name, custom_db_params)
+        except (NoSectionError, AsiaqConfigError):
+            logger.info("Using Default RDS param")
 
     def update_cluster(self):
         """
