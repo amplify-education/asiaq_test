@@ -29,11 +29,21 @@ class CliCommand(object):
 
     DESCRIPTION = "This command has no description.  Perhaps you should add one?"
 
-    def __init__(self):
+    def __init__(self, args):
+        self.args = args
         self.logger = getLogger(type(self).__name__)
+        self._aws_config = None
 
-    def run(self, args):
-        raise Exception("This is an abstact method. Override it so this command does something useful!")
+    @property
+    def config(self):
+        "Auto-populate and return an AsiaqConfig for the standard configuration file."
+        if not self._aws_config:
+            self._aws_config = read_config(environment=self.args.env)
+        return self._aws_config
+
+    def run(self):
+        "Run the current command, based on the arguments passed in at initialization time."
+        raise Exception("This is an abstract method. Override it so this command does something useful!")
 
     @classmethod
     def init_args(cls, parser):
@@ -52,17 +62,16 @@ class SandboxCommand(CliCommand):
 
     @classmethod
     def init_args(cls, parser):
-        parser.add_argument("sandbox_name")
+        parser.add_argument("sandbox_name", help="Name of the sandbox VPC to create or update.")
 
-    def run(self, args):
-        self.logger.debug("Updating sandbox %s", args.sandbox_name)
-        sandbox_name = args.sandbox_name
+    def run(self):
+        self.logger.debug("Updating sandbox %s", self.args.sandbox_name)
+        sandbox_name = self.args.sandbox_name
         pipeline_file = os.path.join("sandboxes", sandbox_name, "pipeline.csv")
 
-        aws_config = read_config()
         hostclass_dicts = read_pipeline_file(pipeline_file)
 
-        self._update_s3_configs(aws_config, sandbox_name)
+        self._update_s3_configs(sandbox_name)
 
         self.logger.info("Checking if environment '%s' already exists", sandbox_name)
         vpc = DiscoVPC.fetch_environment(environment_name=sandbox_name)
@@ -76,11 +85,11 @@ class SandboxCommand(CliCommand):
             vpc.create()
 
         self.logger.debug("Hostclass definitions for spin-up: %s", hostclass_dicts)
-        DiscoAWS(aws_config, vpc=vpc).spinup(hostclass_dicts)
+        DiscoAWS(self.config, vpc=vpc).spinup(hostclass_dicts)
 
-    def _update_s3_configs(self, config, sandbox_name):
-        config_sync_option = config.get_asiaq_option('sandbox_sync_config', required=False)
-        bucket_name = config.get_asiaq_option('sandbox_config_bucket', required=False)
+    def _update_s3_configs(self, sandbox_name):
+        config_sync_option = self.config.get_asiaq_option('sandbox_sync_config', required=False)
+        bucket_name = self.config.get_asiaq_option('sandbox_config_bucket', required=False)
         if not config_sync_option:
             return
         elif not bucket_name:
@@ -115,7 +124,7 @@ def super_command():
     configure_logging(debug=args.debug)
 
     if args.command:
-        SUBCOMMANDS[args.command]().run(args)
+        SUBCOMMANDS[args.command](args).run()
 
 
 def _command_init(description, argparse_setup_func):
@@ -138,9 +147,9 @@ def _create_command(driver_class, func_name):
     @graceful
     def generic_command():
         "sacrificial docstring (overwritten below)"
-        driver = driver_class()
-        args = _command_init(driver.DESCRIPTION, driver.init_args)
-        driver.run(args)
+        args = _command_init(driver_class.DESCRIPTION, driver_class.init_args)
+        driver = driver_class(args)
+        driver.run()
     generic_command.__name__ = func_name
     generic_command.__doc__ = "Driver function that runs the command in " + driver_class.__name__
     return generic_command
