@@ -43,11 +43,11 @@ class TestNormalizePath(TestCase):
 
 
 @patch("disco_aws_automation.disco_config.ASIAQ_CONFIG", "FAKE_CONFIG_DIR")
+@patch('disco_aws_automation.disco_config.AsiaqConfig')
 class TestReadConfig(TestCase):
     """Tests for the read_config utility function."""
 
     @patch('os.path.exists', Mock(return_value=True))
-    @patch('disco_aws_automation.disco_config.ConfigParser')
     def test__no_arg__default_behavior(self, configparser_constructor):
         "Default argument for read_config works"
         parser = Mock()
@@ -57,7 +57,6 @@ class TestReadConfig(TestCase):
         parser.read.assert_called_once_with("FAKE_CONFIG_DIR/disco_aws.ini")
 
     @patch('os.path.exists', Mock(return_value=True))
-    @patch('disco_aws_automation.disco_config.ConfigParser')
     def test__named_arg__expected_behavior(self, configparser_constructor):
         "Keyword argument for read_config works"
         parser = Mock()
@@ -67,7 +66,6 @@ class TestReadConfig(TestCase):
         parser.read.assert_called_once_with("FAKE_CONFIG_DIR/Foobar")
 
     @patch('os.path.exists', Mock(return_value=True))
-    @patch('disco_aws_automation.disco_config.ConfigParser')
     def test__arglist__expected_behavior(self, configparser_constructor):
         "Unnamed argument list for read_config works"
         parser = Mock()
@@ -77,7 +75,6 @@ class TestReadConfig(TestCase):
         parser.read.assert_called_once_with("FAKE_CONFIG_DIR/foo/bar")
 
     @patch('os.path.exists', Mock(return_value=True))
-    @patch('disco_aws_automation.disco_config.ConfigParser')
     def test__arg_combo__named_arg_last(self, configparser_constructor):
         "Combined keyword and listed args for read_config work"
         parser = Mock()
