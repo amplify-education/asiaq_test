@@ -8,9 +8,11 @@ from logging import getLogger
 
 import boto3
 
-from . import DiscoVPC, DiscoAWS, read_config
+from . import DiscoVPC, DiscoAWS
 from .disco_aws_util import read_pipeline_file, graceful
 from .disco_logging import configure_logging
+from .disco_config import read_config, normalize_path
+from .exceptions import AsiaqConfigError
 
 
 class CliCommand(object):
@@ -49,8 +51,6 @@ class SandboxCommand(CliCommand):
     DESCRIPTION = "Create and populate a sandbox for local development and testing."
 
     PEERING_SECTION = 'peerings'
-    BLACK_LIST_S3_CONTAINER = "zookeeper-sync-black-lists"
-    BLACK_LIST_BUCKET = 'us-west-2.mclass.sandboxes'
 
     @classmethod
     def init_args(cls, parser):
@@ -64,7 +64,7 @@ class SandboxCommand(CliCommand):
         aws_config = read_config()
         hostclass_dicts = read_pipeline_file(pipeline_file)
 
-        self._update_blacklist(sandbox_name)
+        self._update_s3_configs(aws_config, sandbox_name)
 
         self.logger.info("Checking if environment '%s' already exists", sandbox_name)
         vpc = DiscoVPC.fetch_environment(environment_name=sandbox_name)
@@ -98,12 +98,20 @@ class SandboxCommand(CliCommand):
         self.logger.debug("Hostclass definitions for spin-up: %s", hostclass_dicts)
         DiscoAWS(aws_config, vpc=vpc).spinup(hostclass_dicts)
 
-    def _update_blacklist(self, sandbox_name):
-        local_blacklist = os.path.join("sandboxes", sandbox_name, "blacklist")
-        remote_blacklist = os.path.join(self.BLACK_LIST_S3_CONTAINER, sandbox_name)
-        self.logger.info("Uploading blacklist file %s to %s", local_blacklist, remote_blacklist)
-        sandbox_s3_bucket = boto3.resource("s3").Bucket(name=self.BLACK_LIST_BUCKET)
-        sandbox_s3_bucket.upload_file(local_blacklist, remote_blacklist)
+    def _update_s3_configs(self, config, sandbox_name):
+        config_sync_option = config.get_asiaq_option('sandbox_sync_config', required=False)
+        bucket_name = config.get_asiaq_option('sandbox_config_bucket', required=False)
+        if not config_sync_option:
+            return
+        elif not bucket_name:
+            raise AsiaqConfigError("Sandbox configuration sync requested, but no bucket configured.")
+        s3_bucket = boto3.resource("s3").Bucket(name=bucket_name)
+        for sync_line in config_sync_option.split("\n"):
+            local_name, remote_dir = sync_line.split()
+            local_config_path = normalize_path("sandboxes", sandbox_name, local_name)
+            remote_config_path = os.path.join(remote_dir, sandbox_name)
+            self.logger.info("Uploading config file file %s to %s", local_config_path, remote_config_path)
+            s3_bucket.upload_file(local_config_path, remote_config_path)
 
 
 SUBCOMMANDS = {

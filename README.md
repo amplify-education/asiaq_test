@@ -635,7 +635,7 @@ Environments
 
 Environments created by Asiaq are separated out by VPCs.
 Each environment resides in its own VPC and has its own metanetworks,
-gateways, instances, and so on. All environment management is done with
+gateways, instances, and so on. Most environment management is done with
 the disco_vpc_ui.py tool.
 
 ### Listing Active Environments
@@ -707,6 +707,38 @@ other than the default one without having to alter the config.
 If you will be doing a lot of work in a particular environment you can
 define the DEFAULT_ENV environment variable and disco_aws.py will
 default to working in that environment.
+
+### Working with "sandbox" environments
+
+As a special case, asiaq has a convenience tool that creates VPCs with
+the "sandbox" type, and provides a few shortcuts:
+
+    * the VPC will automatically be provisioned using the pipeline file
+      in "sandboxes/${SANDBOX_NAME}/pipeline.csv
+    * a preset list of configuration files may be synced to an S3
+      bucket, so that hosts that spin up in a named sandbox are able
+      to configure themselves differently if need be (this can be
+      useful for managing service discovery, if the sandbox does not
+      contain an instance of every possible hostclass and its
+      dependencies).
+
+To spin up a sandbox, from a pipeline that has already been created in
+the appropriate configuration location, you can simply run
+
+    asiaq sandbox $SANDBOX_NAME
+
+To configure configuration-file syncing, set the `sandbox_sync_config`
+option in the `disco_aws` section of the main configuration file to
+the name of the S3 bucket, and populate the `sandbox_sync_config`
+option.  This option is line-based, and contains whitespace-separated
+tuples in the form (local file, remote directory): for each line, the file
+`sandboxes/$SANDBOX_NAME/$LOCAL_FILE` will be copied to the s3 bucket
+in the location `$REMOTE_DIRECTORY/$SANDBOX_NAME`.  So, by way of example:
+
+    sandbox_config_bucket=us-west-2.myproject.sandboxes
+    sandbox_sync_config=zk_blacklist zookeeper-sync-black-lists
+        trusted_ip_list   firewall-trusted-cidrs
+
 
 Provisioning a pipeline
 -----------------------
