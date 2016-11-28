@@ -50,8 +50,6 @@ class SandboxCommand(CliCommand):
 
     DESCRIPTION = "Create and populate a sandbox for local development and testing."
 
-    PEERING_SECTION = 'peerings'
-
     @classmethod
     def init_args(cls, parser):
         parser.add_argument("sandbox_name")
@@ -75,24 +73,6 @@ class SandboxCommand(CliCommand):
             vpc = DiscoVPC(environment_name=sandbox_name,
                            environment_type='sandbox',
                            defer_creation=True)
-            peering_found = False
-            peering_prefixes = ("*:sandbox", ("%s:sandbox" % sandbox_name))
-            if vpc.config.has_section(self.PEERING_SECTION):
-                for peering in vpc.config.options(self.PEERING_SECTION):
-                    peers = vpc.config.get(self.PEERING_SECTION, peering)
-                    self.logger.debug("Peering config: %s = '%s'", peering, peers)
-                    if peers.startswith(peering_prefixes):
-                        peering_found = True
-                        break
-                    elif peering.endswith("_99"):
-                        raise Exception("oh this is going to be a problem")
-            else:
-                self.logger.warn("No peering section found")
-                vpc.config.add_section(self.PEERING_SECTION)
-            if not peering_found:
-                self.logger.warn("Need to update peering config for %s", sandbox_name)
-                vpc.config.set(self.PEERING_SECTION, "connection_99",
-                               "%s:sandbox/intranet ci/intranet" % sandbox_name)
             vpc.create()
 
         self.logger.debug("Hostclass definitions for spin-up: %s", hostclass_dicts)
