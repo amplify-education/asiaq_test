@@ -10,7 +10,7 @@ import boto3
 
 from boto3.exceptions import Boto3Error
 from botocore.exceptions import BotoCoreError
-from . import read_config
+from .disco_config import read_config
 from .disco_route53 import DiscoRoute53
 from .resource_helper import throttled_call
 from .disco_aws_util import is_truthy
