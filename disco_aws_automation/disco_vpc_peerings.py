@@ -309,10 +309,10 @@ class DiscoVPCPeerings(object):
         target_endpoints = resolve_endpoint(unresolved_peering.target_endpoint)
 
         # generate new connection lines by peering the cross product of every source and target endpoint
-        return {PeeringConnection(peering[0], peering[1])
-                for peering in product(source_endpoints, target_endpoints)
+        return {PeeringConnection(source, target)
+                for source, target in product(source_endpoints, target_endpoints)
                 # Don't peer a VPC with itself
-                if not peering[0] == peering[1]}
+                if not source == target}
 
 
 class PeeringEndpoint(object):
@@ -324,6 +324,21 @@ class PeeringEndpoint(object):
         self.type = env_type
         self.metanetwork = metanetwork
         self.vpc = vpc
+
+    @staticmethod
+    def from_endpoint_str(endpoint):
+        """ Get a PeeringEndpoint from one of the sides of a peering config """
+        parts = endpoint.split('/')
+
+        vpc_name = parts[0].split(':')[0].strip()
+
+        # get type from `name[:type]/metanetwork`, defaulting to name if type is omitted
+        vpc_type = parts[0].split(':')[-1].strip()
+
+        # get metanetwork from `name[:type]/metanetwork`
+        metanetwork = parts[1].strip()
+
+        return PeeringEndpoint(vpc_name, vpc_type, metanetwork)
 
     def __eq__(self, other):
         return hash(self) == hash(other)
@@ -368,20 +383,8 @@ class PeeringConnection(object):
             raise VPCConfigError('Invalid peering config "%s". Peering config must be of the format '
                                  'vpc_name[:vpc_type]/metanetwork vpc_name[:vpc_type]/metanetwork' % line)
 
-        def get_peering_endpoint(endpoint):
-            """ Get a PeeringEndpoint from one of the sides of a peering config """
-            vpc_name = endpoint.split('/')[0].split(':')[0].strip()
-
-            # get type from `name[:type]/metanetwork`, defaulting to name if type is omitted
-            vpc_type = endpoint.split('/')[0].split(':')[-1].strip()
-
-            # get metanetwork from `name[:type]/metanetwork`
-            metanetwork = endpoint.split('/')[1].strip()
-
-            return PeeringEndpoint(vpc_name, vpc_type, metanetwork)
-
-        source_peering = get_peering_endpoint(endpoints[0])
-        target_peering = get_peering_endpoint(endpoints[1])
+        source_peering = PeeringEndpoint.from_endpoint_str(endpoints[0])
+        target_peering = PeeringEndpoint.from_endpoint_str(endpoints[1])
 
         return PeeringConnection(source_peering, target_peering)
 
