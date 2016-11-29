@@ -3,6 +3,7 @@ Top level disco_aws_automation module.  Orchestrates deployment to AWS.
 """
 from ConfigParser import NoOptionError
 from collections import defaultdict
+from itertools import izip_longest
 import getpass
 import logging
 import random
@@ -286,9 +287,6 @@ class DiscoAWS(object):
                 str(recurrence), hostclass=hostclass, group_name=group_name,
                 min_size=sizes[0], desired_capacity=sizes[1], max_size=sizes[2])
 
-    def _default_protocol_for_port(self, port):
-        return {80: "HTTP", 443: "HTTPS"}.get(int(port)) or "TCP"
-
     # Pylint thinks that we have too many local variables, but we needs them.
     # pylint:  disable=too-many-locals
     def update_elb(self, hostclass, update_autoscaling=True, testing=False):
@@ -308,12 +306,82 @@ class DiscoAWS(object):
                 elb_subnets = self.get_subnets(elb_meta_network, hostclass)
                 subnet_ids = [subnet['SubnetId'] for subnet in elb_subnets]
 
-            elb_port = self.hostclass_option_default(hostclass, "elb_port", 80)
-            elb_protocol = self.hostclass_option_default(hostclass, "elb_protocol", None) or \
-                self._default_protocol_for_port(elb_port)
-            instance_port = int(self.hostclass_option_default(hostclass, "elb_instance_port", 80))
-            instance_protocol = self.hostclass_option_default(hostclass, "elb_instance_protocol", None) or \
-                self._default_protocol_for_port(instance_port)
+            def default_protocol_for_port(port):
+                """
+                Return the default protocl for the port
+                """
+                return {80: 'HTTP', 443: 'HTTPS'}.get(int(port), 'TCP')
+
+            def default_port_for_protocol(protocol):
+                """
+                Return the default port for the protocol
+                """
+                return {'HTTP': 80, 'HTTPS': 443}.get(protocol)
+
+            def unzip(things):
+                """
+                The inverse of zip
+                """
+                return zip(*things)
+
+            def zip_with_defaults(x_things, y_things, default_x, default_y):
+                """
+                Zip together two iterables, replacing missing values with the
+                result of calling the supplied default callable
+                """
+                return [
+                    (
+                        default_x(y) if x is None else x,
+                        default_y(x) if y is None else y,
+                    )
+                    for x, y in izip_longest(
+                        x_things,
+                        y_things,
+                        fillvalue=None
+                    )
+                ]
+
+            def list_from_hostclass_option(option):
+                """
+                Return a list of values from a hostclass option
+                """
+                values = self.hostclass_option_default(hostclass, option, '')
+
+                return values.split(',') if values else []
+
+            elb_ports = map(
+                int,
+                list_from_hostclass_option('elb_port')
+            )
+            elb_protocols = list_from_hostclass_option('elb_protocol')
+            elb_protocols = [protocol.strip() for protocol in elb_protocols]
+            elb_ports, elb_protocols = unzip(
+                zip_with_defaults(
+                    elb_ports,
+                    elb_protocols,
+                    default_port_for_protocol,
+                    default_protocol_for_port
+                ) or [(80, 'HTTP')]
+            )
+
+            instance_ports = map(
+                int,
+                list_from_hostclass_option(
+                    'elb_instance_port',
+                )
+            )
+            instance_protocols = list_from_hostclass_option(
+                'elb_instance_protocol'
+            )
+            instance_protocols = [protocol.strip() for protocol in instance_protocols]
+            instance_ports, instance_protocols = unzip(
+                zip_with_defaults(
+                    instance_ports,
+                    instance_protocols,
+                    default_port_for_protocol,
+                    default_protocol_for_port
+                ) or [(80, 'HTTP')]
+            )
 
             elb = self.elb.get_or_create_elb(
                 hostclass,
@@ -321,8 +389,10 @@ class DiscoAWS(object):
                 subnets=subnet_ids,
                 hosted_zone_name=self.hostclass_option_default(hostclass, "domain_name"),
                 health_check_url=self.hostclass_option_default(hostclass, "elb_health_check_url"),
-                instance_protocol=instance_protocol, instance_port=instance_port,
-                elb_protocols=elb_protocol, elb_ports=elb_port,
+                instance_protocols=instance_protocols,
+                instance_ports=instance_ports,
+                elb_protocols=elb_protocols,
+                elb_ports=elb_ports,
                 elb_public=is_truthy(self.hostclass_option_default(hostclass, "elb_public", "no")),
                 sticky_app_cookie=self.hostclass_option_default(hostclass, "elb_sticky_app_cookie", None),
                 idle_timeout=int(self.hostclass_option_default(hostclass, "elb_idle_timeout", 300)),

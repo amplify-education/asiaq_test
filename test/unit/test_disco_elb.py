@@ -46,8 +46,8 @@ class DiscoELBTests(TestCase):
 
     # pylint: disable=too-many-arguments, R0914
     def _create_elb(self, hostclass=TEST_HOSTCLASS, public=False, tls=False,
-                    instance_protocol='HTTP', instance_port=80,
-                    elb_protocols='HTTP', elb_ports='80',
+                    instance_protocols=('HTTP',), instance_ports=(80,),
+                    elb_protocols=('HTTP',), elb_ports=(80,),
                     idle_timeout=None, connection_draining_timeout=None,
                     sticky_app_cookie=None, existing_cookie_policy=None, testing=False,
                     cross_zone_load_balancing=True, cert_name=None):
@@ -60,11 +60,11 @@ class DiscoELBTests(TestCase):
             security_groups=['sec-1'],
             subnets=[],
             hosted_zone_name=TEST_DOMAIN_NAME,
-            health_check_url="/" if instance_protocol.upper() in ('HTTP', 'HTTPS') else "",
-            instance_protocol=instance_protocol,
-            instance_port=instance_port,
-            elb_protocols="HTTPS" if tls else elb_protocols,
-            elb_ports='443' if tls else elb_ports,
+            health_check_url="/",
+            instance_protocols=instance_protocols,
+            instance_ports=instance_ports,
+            elb_protocols=["HTTPS"] if tls else elb_protocols,
+            elb_ports=[443] if tls else elb_ports,
             elb_public=public,
             sticky_app_cookie=sticky_app_cookie,
             idle_timeout=idle_timeout,
@@ -248,8 +248,8 @@ class DiscoELBTests(TestCase):
         """Test creation an ELB with TCP"""
         elb_client = self.disco_elb.elb_client
         elb_client.create_load_balancer = MagicMock(wraps=elb_client.create_load_balancer)
-        self._create_elb(instance_protocol='TCP', instance_port=25,
-                         elb_protocols='TCP', elb_ports=25)
+        self._create_elb(instance_protocols=['TCP'], instance_ports=[25],
+                         elb_protocols=['TCP'], elb_ports=[25])
         elb_client.create_load_balancer.assert_called_once_with(
             LoadBalancerName=DiscoELB.get_elb_id('unittestenv', 'mhcunit'),
             Listeners=[{
@@ -267,8 +267,8 @@ class DiscoELBTests(TestCase):
         """Test creating an ELB that listens on multiple ports"""
         elb_client = self.disco_elb.elb_client
         elb_client.create_load_balancer = MagicMock(wraps=elb_client.create_load_balancer)
-        self._create_elb(instance_protocol='HTTP', instance_port=80,
-                         elb_protocols='HTTP, HTTPS', elb_ports='80, 443')
+        self._create_elb(instance_protocols=['HTTP', 'HTTP'], instance_ports=[80, 80],
+                         elb_protocols=['HTTP', 'HTTPS'], elb_ports=[80, 443])
         elb_client.create_load_balancer.assert_called_once_with(
             LoadBalancerName=DiscoELB.get_elb_id('unittestenv', 'mhcunit'),
             Listeners=[{
@@ -292,8 +292,34 @@ class DiscoELBTests(TestCase):
         """Test that creating an ELB fails when using a different number of ELB ports and protocols"""
         self.assertRaises(CommandError,
                           self._create_elb,
-                          elb_protocols='HTTP, HTTPS',
-                          elb_ports='80')
+                          elb_protocols=['HTTP', 'HTTPS'],
+                          elb_ports=[80])
+
+    @mock_elb
+    def test_mismatched_instance_ports_protocls(self):
+        """
+        get_or_create_elb raises when given mismatched numbers of instance ports and protocols
+        """
+        with self.assertRaises(CommandError):
+            self._create_elb(
+                instance_protocols=['HTTP', 'HTTPS'],
+                instance_ports=[80],
+                elb_protocols=['HTTP', 'HTTPS'],
+                elb_ports=[80, 443]
+            )
+
+    @mock_elb
+    def test_mismatched_elb_instance(self):
+        """
+        get_or_create_elb raises when given mismatched numbers of ELB and instance protocols
+        """
+        with self.assertRaises(CommandError):
+            self._create_elb(
+                instance_protocols=['HTTP'],
+                instance_ports=[80],
+                elb_protocols=['HTTP', 'HTTPS'],
+                elb_ports=[80, 443]
+            )
 
     @mock_elb
     def test_get_elb_with_idle_timeout(self):

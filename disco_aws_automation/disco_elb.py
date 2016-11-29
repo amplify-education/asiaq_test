@@ -110,12 +110,12 @@ class DiscoELB(object):
 
     def _setup_health_check(self, elb_id, health_check_url, instance_protocol, instance_port,
                             elb_name):
-        if not health_check_url:
-            logger.warning("No health check url configured for ELB %s", elb_name)
-            if instance_protocol.upper() in ('HTTP', 'HTTPS'):
+        if instance_protocol.upper() in ('HTTP', 'HTTPS'):
+            if not health_check_url:
+                logger.warning("No health check url configured for ELB %s", elb_name)
                 health_check_url = '/'
-            else:
-                health_check_url = ''
+        else:
+            health_check_url = ''
 
         target = '{}:{}{}'.format(instance_protocol, instance_port, health_check_url)
 
@@ -163,7 +163,7 @@ class DiscoELB(object):
     # Pylint thinks this function has too many arguments
     # pylint: disable=R0913, R0914
     def get_or_create_elb(self, hostclass, security_groups, subnets, hosted_zone_name,
-                          health_check_url, instance_protocol, instance_port,
+                          health_check_url, instance_protocols, instance_ports,
                           elb_protocols, elb_ports, elb_public, sticky_app_cookie,
                           idle_timeout=None, connection_draining_timeout=None, testing=False, tags=None,
                           cross_zone_load_balancing=True, cert_name=None):
@@ -178,10 +178,10 @@ class DiscoELB(object):
             subnets (List[str]): list of subnets where instances will be in
             hosted_zone_name (str): The name of the Hosted Zone(domain name) to create a subdomain for the ELB
             health_check_url (str): The heartbeat url to use if protocol is HTTP or HTTPS
-            instance_protocol (str): HTTP, HTTPS, SSL or TCP
-            instance_port (int): The port that services on instances are running on
-            elb_protocols (str): Comma separated list of protocols to expose. HTTP, HTTPS, SSL or TCP
-            elb_ports (str): Comma separated list of ports to expose from the load balancer
+            instance_protocols (list): List of protocols used for instance ports (HTTP, HTTPS, SSL or TCP)
+            instance_ports (list): List of ports that services on instances are running on
+            elb_protocols (list): List of protocols to expose. HTTP, HTTPS, SSL or TCP
+            elb_ports (list): List of ports to expose from the load balancer
             elb_public (bool): True if the ELB should be internet routable
             sticky_app_cookie (str): The name of a cookie from your service to use for sticky sessions
             idle_timeout (int): time limit (in seconds) that ELB should wait before killing idle connections
@@ -198,21 +198,38 @@ class DiscoELB(object):
         elb_name = DiscoELB.get_elb_name(self.vpc.environment_name, hostclass, testing=testing)
         elb = self.get_elb(hostclass, testing=testing)
 
-        elb_protocols = str(elb_protocols).split(',')
-        elb_ports = str(elb_ports).split(',')
-
         if not elb:
             logger.info("Creating ELB %s", elb_name)
+
+            if len(instance_protocols) != len(instance_ports):
+                raise CommandError(
+                    'The number of instance ports and protocols must match for ELB %s',
+                    elb_name
+                )
 
             if len(elb_protocols) != len(elb_ports):
                 raise CommandError('The number of ELB ports and protocols must match for ELB %s', elb_name)
 
-            listeners = [{
-                'Protocol': listener_info[0].strip(),
-                'LoadBalancerPort': int(listener_info[1]),
-                'InstanceProtocol': instance_protocol,
-                'InstancePort': int(instance_port)
-            } for listener_info in zip(elb_protocols, elb_ports)]
+            if len(elb_protocols) != len(instance_protocols):
+                raise CommandError(
+                    'The number of ELB and instance protocols must match for ELB %s',
+                    elb_name
+                )
+
+            listeners = [
+                {
+                    'Protocol': elb_protocol,
+                    'InstanceProtocol': instance_protocol,
+                    'LoadBalancerPort': elb_port,
+                    'InstancePort': instance_port
+                }
+                for elb_protocol, elb_port, instance_protocol, instance_port in zip(
+                    elb_protocols,
+                    elb_ports,
+                    instance_protocols,
+                    instance_ports
+                )
+            ]
 
             for listener in listeners:
                 # Only try to lookup a cert if we are using a secure protocol for the ELB
@@ -242,7 +259,9 @@ class DiscoELB(object):
 
         self.route53.create_record(hosted_zone_name, cname, 'CNAME', elb['DNSName'])
 
-        self._setup_health_check(elb_id, health_check_url, instance_protocol, instance_port, elb_name)
+        for protocol, port in zip(instance_protocols, instance_ports):
+            self._setup_health_check(
+                elb_id, health_check_url, protocol, port, elb_name)
         self._setup_sticky_cookies(elb_id, elb_ports, sticky_app_cookie, elb_name)
         self._update_elb_attributes(
             elb_id,
