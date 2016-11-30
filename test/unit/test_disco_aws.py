@@ -459,6 +459,50 @@ class DiscoAWSTests(TestCase):
             cert_name=None
         )
 
+    @mock_elb
+    @patch_disco_aws
+    def test_update_elb_single(self, mock_config, **kwargs):
+        """
+        update_elb calls get_or_create_elb with port and protocol values for a single port and protocol
+        """
+        overrides = {
+            'elb_instance_port': '80',
+            'elb_instance_protocol': 'HTTP',
+            'elb_port': '443',
+            'elb_protocol': 'HTTPS'
+        }
+        aws = DiscoAWS(
+            config=self._get_elb_config(overrides),
+            environment_name=TEST_ENV_NAME,
+            elb=MagicMock()
+        )
+        aws.elb.get_or_create_elb = MagicMock(return_value=MagicMock())
+        aws.get_meta_network_by_name = _get_meta_network_mock()
+        aws.elb.delete_elb = MagicMock()
+
+        aws.update_elb("mhcelb", update_autoscaling=False)
+
+        aws.elb.delete_elb.assert_not_called()
+        aws.elb.get_or_create_elb.assert_called_once_with(
+            'mhcelb',
+            elb_ports=(443,),
+            health_check_url='/foo',
+            hosted_zone_name='example.com',
+            instance_ports=(80,),
+            elb_protocols=('HTTPS',),
+            instance_protocols=('HTTP',),
+            security_groups=['sg-1234abcd'], elb_public=False,
+            sticky_app_cookie=None, subnets=['s-1234abcd', 's-1234abcd', 's-1234abcd'],
+            connection_draining_timeout=300, idle_timeout=300, testing=False,
+            tags={
+                'environment': 'unittestenv',
+                'hostclass': 'mhcelb',
+                'is_testing': '0'
+            },
+            cross_zone_load_balancing=True,
+            cert_name=None
+        )
+
     @patch_disco_aws
     def test_create_userdata_with_eip(self, **kwargs):
         """
