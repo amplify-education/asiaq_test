@@ -316,7 +316,7 @@ class DiscoAWS(object):
                 """
                 Return the default port for the protocol
                 """
-                return {'HTTP': 80, 'HTTPS': 443}.get(protocol)
+                return {'HTTP': 80, 'HTTPS': 443}[protocol]
 
             def unzip(things):
                 """
