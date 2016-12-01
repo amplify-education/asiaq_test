@@ -68,22 +68,15 @@ class DiscoVPCPeerings(object):
                                peer_vpc['VpcId'], peering['VpcPeeringConnectionId'])
                 continue
 
-            vpc_peering_route_tables = throttled_call(
-                self.client.describe_route_tables,
-                Filters=create_filters({
-                    'route.vpc-peering-connection-id': [peering['VpcPeeringConnectionId']]
-                })
-            )['RouteTables']
-
-            for route_table in vpc_peering_route_tables:
+            for route_table in self._get_peering_route_tables(peering['VpcPeeringConnectionId']):
                 tags_dict = tag2dict(route_table['Tags'])
 
-                subnet_name_parts = tags_dict['Name'].split('_')
-                if subnet_name_parts[0] == vpc.environment_name:
+                subnet_env, subnet_network = tags_dict['Name'].split('_')
+                if subnet_env == vpc.environment_name:
                     source_endpoint = PeeringEndpoint(
                         vpc.environment_name,
                         vpc.environment_type,
-                        subnet_name_parts[1],
+                        subnet_network,
                         vpc.vpc
                     )
 
@@ -108,6 +101,15 @@ class DiscoVPCPeerings(object):
                         current_peerings.add(PeeringConnection(source_endpoint, target_endpoint))
 
         return current_peerings
+
+    def _get_peering_route_tables(self, peering_conn_id):
+        """ Get all of the route tables associated with a given peering connection """
+        return throttled_call(
+            self.client.describe_route_tables,
+            Filters=create_filters({
+                'route.vpc-peering-connection-id': [peering_conn_id]
+            })
+        )['RouteTables']
 
     def _get_peer_vpc_id(self, vpc_id, peering):
         if peering['AccepterVpcInfo']['VpcId'] != vpc_id:
@@ -288,10 +290,6 @@ class DiscoVPCPeerings(object):
         existing_vpcs = [vpc for vpc in throttled_call(self.client.describe_vpcs).get('Vpcs', [])
                          if all(tag in tag2dict(vpc.get('Tags', [])) for tag in ['type', 'Name'])]
 
-        if '*' in (unresolved_peering.source_endpoint.type, unresolved_peering.target_endpoint.type):
-            raise VPCConfigError('Wildcards are not allowed for VPC type in "%s". '
-                                 'Please specify a VPC type when using a wild card for the VPC name' % line)
-
         def resolve_endpoint(endpoint):
             """
             Convert a PeeringEndpoint that may contain wildcards into a list of PeeringEndpoints
@@ -300,8 +298,12 @@ class DiscoVPCPeerings(object):
             endpoints = []
             for vpc in existing_vpcs:
                 tags = tag2dict(vpc['Tags'])
-                if endpoint.name in ('*', tags['Name']) and endpoint.type == tags['type']:
-                    endpoints.append(PeeringEndpoint(tags['Name'], tags['type'], endpoint.metanetwork, vpc))
+                vpc_name = tags['Name']
+                vpc_type = tags['type']
+
+                if endpoint.match_vpc(vpc_name, vpc_type):
+                    endpoints.append(PeeringEndpoint(vpc_name, vpc_type, endpoint.metanetwork, vpc))
+
             return endpoints
 
         # find the VPCs that match the peering config. Replace wildcards with real VPC names
@@ -338,7 +340,17 @@ class PeeringEndpoint(object):
         # get metanetwork from `name[:type]/metanetwork`
         metanetwork = parts[1].strip()
 
+        if vpc_type == '*':
+            raise VPCConfigError(
+                'Wildcards are not allowed for VPC type in "%s". '
+                'Please specify a VPC type when using a wild card for the VPC name' % endpoint
+            )
+
         return PeeringEndpoint(vpc_name, vpc_type, metanetwork)
+
+    def match_vpc(self, vpc_name, vpc_type):
+        """ Return True if the given vpc type and name match the VPC of this endpoint """
+        return self.name in ('*', vpc_name) and self.type == vpc_type
 
     def __eq__(self, other):
         return hash(self) == hash(other)
