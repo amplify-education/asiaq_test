@@ -261,7 +261,12 @@ class DiscoELB(object):
 
         for protocol, port in zip(instance_protocols, instance_ports):
             self._setup_health_check(
-                elb_id, health_check_url, protocol, port, elb_name)
+                elb_id,
+                health_check_url,
+                protocol,
+                port,
+                elb_name
+            )
         self._setup_sticky_cookies(elb_id, elb_ports, sticky_app_cookie, elb_name)
         self._update_elb_attributes(
             elb_id,
