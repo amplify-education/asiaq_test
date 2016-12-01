@@ -349,10 +349,12 @@ class DiscoAWS(object):
 
                 return values.split(',') if values else []
 
-            elb_ports = map(
-                int,
-                list_from_hostclass_option('elb_port')
-            )
+            elb_ports = [
+                int(port)
+                for port in list_from_hostclass_option(
+                    'elb_port'
+                )
+            ]
             elb_protocols = list_from_hostclass_option('elb_protocol')
             elb_protocols = [protocol.strip() for protocol in elb_protocols]
             elb_ports, elb_protocols = unzip(
@@ -364,12 +366,12 @@ class DiscoAWS(object):
                 ) or [(80, 'HTTP')]
             )
 
-            instance_ports = map(
-                int,
-                list_from_hostclass_option(
+            instance_ports = [
+                int(port)
+                for port in list_from_hostclass_option(
                     'elb_instance_port',
                 )
-            )
+            ]
             instance_protocols = list_from_hostclass_option(
                 'elb_instance_protocol'
             )
