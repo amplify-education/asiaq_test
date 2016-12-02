@@ -75,6 +75,12 @@ class DiscoDynamoDB(object):
 
         return DiscoDynamoDB._convert_table_to_dict(table)
 
+    def get_real_table_identifiers(self, table_name):
+        """Find the region name and actual table name for a logical table in the current environment."""
+        table = self._find_table(table_name)
+        actual_table_name = table.name
+        return (self.dynamodb.meta.client.meta.region_name, actual_table_name)
+
     def delete_table(self, table_name, wait):
         """ Deletes a DynamoDB table and returns the response from AWS DynamoDB service """
         table = self._find_table(table_name)
