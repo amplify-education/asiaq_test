@@ -41,7 +41,7 @@ class AsiaqDataPipeline(object):
         "Return true if this pipeline has actual pipeline objects, false if it is only metadata."
         return self._objects is not None
 
-    def update_content(self, contents, parameter_definitions, param_values):
+    def update_content(self, contents, parameter_definitions, param_values=None):
         "Set the pipeline content (pipeline nodes, parameters and values) for this pipeline."
         self._objects = contents
         self._params = parameter_definitions
@@ -103,21 +103,36 @@ class AsiaqDataPipelineManager(object):
         definition = throttled_call(self._dp_client.get_pipeline_definition,
                                     pipelineId=pipeline._id, version='latest')
         pipeline.update_content(definition['pipelineObjects'],
-                                definition['parameterObjects'],
-                                definition['parameterValues'])
+                                definition.get('parameterObjects'),
+                                definition.get('parameterValues'))
 
     def fetch_all_descriptions(self):
         """
         Fetch all pipelines in this account/region, populating only their name/metadata fields
         (use fetch_content to get the low-level details).
         """
+        return self.search_descriptions()
+
+    def search_descriptions(self, name=None, tags=None):
+        "Fetch all pipelines in this account/region that have the given tags and/or the given name."
         id_objects = self._fetch_ids()
         descriptions = []
         window = 25
+        tag_set = {(k, v) for k, v in tags.items()} if tags else set()
+
+        def _search_matches(desc):
+            if name and name != desc.get('name'):
+                return False
+            if tag_set:
+                tags_found = [(tag['key'], tag['value']) for tag in desc.get('tags', [])]
+                if not tag_set.issubset(set(tags_found)):
+                    return False
+            return True
+
         for i in range(0, len(id_objects), window):
             batch = throttled_call(self._dp_client.describe_pipelines,
                                    pipelineIds=[desc['id'] for desc in id_objects[i:i + window]])
-            descriptions.extend(batch['pipelineDescriptionList'])
+            descriptions.extend([desc for desc in batch['pipelineDescriptionList'] if _search_matches(desc)])
         return [
             AsiaqDataPipeline(
                 pipeline_id=meta['pipelineId'], name=meta['name'], description=meta.get('description'),
@@ -144,6 +159,26 @@ class AsiaqDataPipelineManager(object):
         if not pipeline.is_persisted():
             raise Exception("Pipeline must be saved before it can be deleted (though honestly...)")
         self._dp_client.delete_pipeline(pipelineId=pipeline._id)
+
+    def fetch_or_create(self, template_name, pipeline_name, pipeline_description, tags, log_location):
+        """
+        If a pipeline with the given tags exists, return it; if not, create one with the given tags
+        and name based on the provided pipeline, save it, and return it.
+        """
+        searched = self.search_descriptions(tags=tags)
+        if searched:
+            if len(searched) > 1:
+                raise Exception("Expected one pipeline with tags %s, found %s" % (tags, len(searched)))
+            pipeline = searched[0]
+            _LOG.info("Found existing pipeline %s", pipeline._id)
+            self.fetch_content(pipeline)
+        else:
+            pipeline = AsiaqDataPipeline.from_template(
+                template_name, pipeline_name, description=pipeline_description,
+                log_location=log_location, tags=tags)
+            self.save(pipeline)
+            _LOG.info("Created new pipeline %s", pipeline._id)
+        return pipeline
 
     def _fetch_ids(self):
         found_defs = []
