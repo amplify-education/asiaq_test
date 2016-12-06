@@ -132,24 +132,31 @@ class DiscoVPCPeerings(object):
 
     def _create_peering_connections(self, peerings):
         """ Create peerings in AWS for the given PeeringConnection objects"""
-        for peering in peerings:
-            peering_conn = throttled_call(
-                self.client.create_vpc_peering_connection,
-                VpcId=peering.source_endpoint.vpc['VpcId'],
-                PeerVpcId=peering.target_endpoint.vpc['VpcId']
-            )['VpcPeeringConnection']
 
-            # wait for the peering connection to be ready
-            waiter = self.client.get_waiter('vpc_peering_connection_exists')
-            waiter.wait(
-                VpcPeeringConnectionIds=[peering_conn['VpcPeeringConnectionId']],
-                Filters=[{'Name': 'status-code', 'Values': LIVE_PEERING_STATES}]
-            )
+        peering_conns = [self._create_peering_conn(peering) for peering in peerings]
 
+        peering_conn_ids = [peering_conn['VpcPeeringConnectionId'] for peering_conn in peering_conns]
+
+        # wait for the peering connection to be ready
+        waiter = self.client.get_waiter('vpc_peering_connection_exists')
+        waiter.wait(
+            VpcPeeringConnectionIds=peering_conn_ids,
+            Filters=[{'Name': 'status-code', 'Values': LIVE_PEERING_STATES}]
+        )
+
+        for peering_conn in peering_conns:
             throttled_call(
                 self.client.accept_vpc_peering_connection,
                 VpcPeeringConnectionId=peering_conn['VpcPeeringConnectionId']
             )
+
+    def _create_peering_conn(self, peering):
+        """ Create a AWS peering connection for the given peering config object """
+        return throttled_call(
+            self.client.create_vpc_peering_connection,
+            VpcId=peering.source_endpoint.vpc['VpcId'],
+            PeerVpcId=peering.target_endpoint.vpc['VpcId']
+        )['VpcPeeringConnection']
 
     def _create_peering_routes(self, peerings):
         """ create/update routes via peering connections between VPCs """
@@ -385,7 +392,7 @@ class PeeringConnection(object):
 
     def contains_vpc_id(self, vpc_id):
         """ Return true if the given vpc_id is the id of a VPC on one of the sides of the connection"""
-        return self.source_endpoint.vpc['VpcId'] == vpc_id or self.target_endpoint.vpc == vpc_id
+        return self.source_endpoint.vpc['VpcId'] == vpc_id or self.target_endpoint.vpc['VpcId'] == vpc_id
 
     @staticmethod
     def from_peering_line(line):
