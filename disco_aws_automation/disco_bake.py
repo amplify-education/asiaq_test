@@ -687,7 +687,7 @@ class DiscoBake(object):
             amis = self.get_amis(filters=filters)
             logger.debug("AMI search for %s found %s", filters, amis)
             amis = self.ami_filter(amis, stage, product_line)
-            stages = [val.strip() for val in stage.split(",")]
+            stages = [val.strip() for val in stage.split(",")] if stage else []
             return self._latest_best_stage_ami(stages, amis)
         else:
             raise ValueError("Must specify either hostclass or AMI")
