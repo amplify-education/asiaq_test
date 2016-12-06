@@ -16,12 +16,10 @@ from test.helpers.patch_disco_aws import (get_mock_config,
                                           TEST_ENV_NAME)
 
 
-TEST_SSM_S3_BUCKET = "foo-bucket"
-
 MOCK_AWS_CONFIG_DEFINITION = {
     'disco_aws': {
         'default_environment': TEST_ENV_NAME,
-        'default_ssm_s3_bucket': TEST_SSM_S3_BUCKET,
+        's3_bucket_base': 'asiaq-test-buckets',
     }}
 MOCK_AWS_DOCUMENTS = [
     {
@@ -457,7 +455,7 @@ class DiscoSSMTests(TestCase):
         """Verify that we get correct S3 bucket"""
 
         self.assertEquals(
-            TEST_SSM_S3_BUCKET,
+            'asiaq-test-buckets--ssm',
             self._ssm.get_s3_bucket_name()
         )
 

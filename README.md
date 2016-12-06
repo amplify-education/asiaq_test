@@ -2230,10 +2230,9 @@ Some important notes about executing SSM documents:
 * You cannot pick the user that is used for executing the SSM document. All SSM documents are executed as the root user.
 * SSM documents execute in parallel across all targets instances, not serially.
 * SSM documents have a default timeout of one minute. If this timeout is not otherwise overwritten, the output will still be returned but the command itself will be marked as a failure.
-
-#### Configuration
-
-Executing SSM documents can be somewhat customized through modifications to `disco_aws.ini`. You can set the `default_ssm_s3_bucket` option under the `disco_aws` section in the `disco_aws.ini`. The value of this option should correspond to an S3 bucket where the output of SSM documents should be uploaded for longer term storage. If this option is not set, then the output of SSM documents will be limited to 2500 characters.
+* The output of SSM documents will be uploaded to an S3 bucket named using variables configured in `disco_aws.ini`, using the following scheme:
+`${s3_bucket_base}--ssm--${s3_bucket_suffix}`.  Both variables can be made environment-specific, or the s3_bucket_suffix variable can be
+omitted entirely.  If the bucket does not exist, dire consequences will likely ensue.
 
 Testing Hostclasses
 -------------------
