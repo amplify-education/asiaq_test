@@ -71,7 +71,7 @@ class DiscoVPCPeerings(object):
             for route_table in self._get_peering_route_tables(peering['VpcPeeringConnectionId']):
                 tags_dict = tag2dict(route_table['Tags'])
 
-                subnet_env, subnet_network = tags_dict['Name'].split('_')
+                subnet_env, subnet_network = tags_dict['Name'].split('_')[:2]
                 if subnet_env == vpc.environment_name:
                     source_endpoint = PeeringEndpoint(
                         vpc.environment_name,
