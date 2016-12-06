@@ -145,7 +145,7 @@ class AsiaqDataPipelineManager(object):
         if not pipeline.is_persisted():
             raise Exception("Pipeline must be saved before it can be activated")
         param_values = _optional_dict_to_list(params) or pipeline._param_values
-        return self._dp_client.activate_pipeline(pipelineId=pipeline._id, startTimestamp=datetime.now(),
+        return self._dp_client.activate_pipeline(pipelineId=pipeline._id, startTimestamp=datetime.utcnow(),
                                                  parameterValues=param_values)
 
     def stop(self, pipeline):
