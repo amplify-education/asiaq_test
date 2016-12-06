@@ -114,6 +114,7 @@ class DynamoDbBackupCommand(CliCommand):
     @classmethod
     def init_args(cls, parser):
         subsub = parser.add_subparsers(title="data pipeline commands", dest="dp_command")
+        subsub.add_parser("init", help="Set up bucket for backup and log data.")
         backup_parser = subsub.add_parser("backup",
                                           help="Configure backup for a dynamodb table")
         backup_parser.add_argument("table_name")
@@ -126,12 +127,16 @@ class DynamoDbBackupCommand(CliCommand):
 
     def run(self):
         dispatch = {
+            'init': self._create_bucket,
             'list': self._list,
             'backup': self._create_backup,
             'restore': self._restore_backup,
         }
         mgr = AsiaqDynamoDbBackupManager(config=self.config)
         dispatch[self.args.dp_command](mgr)
+
+    def _create_bucket(self, mgr):
+        mgr.init_bucket()
 
     def _restore_backup(self, mgr):
         mgr.restore_backup(self.args.table_name, self.args.backup_dir)
