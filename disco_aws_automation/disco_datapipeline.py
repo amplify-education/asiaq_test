@@ -41,11 +41,19 @@ class AsiaqDataPipeline(object):
         "Return true if this pipeline has actual pipeline objects, false if it is only metadata."
         return self._objects is not None
 
+    def get_tag_dict(self):
+        "Retrieve tags as a dictionary."
+        return _optional_list_to_dict(self._tags, key_string='key', value_string='value')
+
+    def get_param_value_dict(self):
+        "Retrieve parameter values as a dictionary."
+        return _optional_list_to_dict(self._param_values)
+
     def update_content(self, contents, parameter_definitions, param_values=None):
         "Set the pipeline content (pipeline nodes, parameters and values) for this pipeline."
         self._objects = contents
         self._params = parameter_definitions
-        self._param_values = param_values
+        self._param_values = _optional_dict_to_list(param_values)
 
     @classmethod
     def from_template(cls, template_name, name, description, tags=None, param_values=None, log_location=None):
@@ -253,3 +261,19 @@ def _optional_dict_to_list(param_value_dict, key_string='id', value_string='stri
     for param_id, value in param_value_dict.items():
         value_objects.append({key_string: param_id, value_string: value})
     return value_objects
+
+
+def _optional_list_to_dict(dict_list, key_string='id', value_string='stringValue'):
+    """
+    If given a list of dictionaries, a dictionary using the given lookup keys.
+    If given None, return None.  If given something invalid, sneeze demons.
+    """
+    if dict_list is None:
+        return None
+    value_dict = {}
+    for item in dict_list:
+        key = item[key_string]
+        if key in value_dict:
+            raise Exception("Repeated item %s in list-to-dictionary transform!" % key)
+        value_dict[key] = item[value_string]
+    return value_dict
