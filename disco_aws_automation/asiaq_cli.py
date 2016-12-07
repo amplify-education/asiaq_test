@@ -162,10 +162,16 @@ class DataPipelineCommand(CliCommand):
         list_parser = subsub.add_parser("list", help="List available pipelines")
         list_parser.add_argument("--pipeline-name", dest="search_name", help="Find pipelines with this name.")
         list_parser.add_argument("--all-envs", dest="ignore_env", action='store_const', const=True)
+        delete_parser = subsub.add_parser("delete", help="Delete an existing pipeline")
+        delete_parser.add_argument("pipeline_id", help="AWS ID of the pipeline to delete")
 
     def run(self):
         mgr = AsiaqDataPipelineManager()
-        self._search(mgr)  # hope it was that command! :-D
+        dispatch = {
+            'list': self._search,
+            'delete': self._delete
+        }
+        dispatch[self.args.dp_command](mgr)
 
     def _search(self, mgr):
         tags = {}
@@ -174,6 +180,11 @@ class DataPipelineCommand(CliCommand):
         found = mgr.search_descriptions(name=self.args.search_name, tags=tags)
         for record in found:
             print "%s\t%s\t%s" % (record._id, record._name, record._description or "")
+
+    def _delete(self, mgr):
+        pipeline = mgr.fetch(self.args.pipeline_id)
+        self.logger.info("Deleting pipeline %s", pipeline._name)
+        mgr.delete(pipeline)
 
 
 SUBCOMMANDS = {

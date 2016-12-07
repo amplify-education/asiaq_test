@@ -95,13 +95,15 @@ class AsiaqDataPipelineManager(object):
         "Fetch a pipeline (metadata and content) from AWS by ID."
         contents = throttled_call(self._dp_client.get_pipeline_definition, pipelineId=pipeline_id,
                                   version='latest')
+        _LOG.debug("Contents for %s: %s", pipeline_id, contents)
         meta_resp = throttled_call(self._dp_client.describe_pipelines, pipelineIds=[pipeline_id])
         meta = meta_resp['pipelineDescriptionList'][0]
         return AsiaqDataPipeline(
             pipeline_id=pipeline_id, name=meta['name'], description=meta.get('description'),
             tags=meta.get('tags'), metadata=meta.get('fields'),
-            contents=contents['pipelineObjects'], parameter_definitions=contents['parameterObjects'],
-            param_values=contents['parameterValues'],
+            contents=contents['pipelineObjects'],
+            parameter_definitions=contents.get('parameterObjects'),
+            param_values=contents.get('parameterValues')
         )
 
     def fetch_content(self, pipeline):
