@@ -126,4 +126,5 @@ class DataPipelineManagerTest(TestCase):
         self.mgr = AsiaqDataPipelineManager()
 
     def test__construction__client_created(self):
+        "AsiaqDataPipelineManager does the very basic things it is supposed to"
         self.assertNotNone(self.mgr._dp_client)
