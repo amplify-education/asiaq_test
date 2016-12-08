@@ -137,7 +137,7 @@ class DataPipelineTest(TestCase):
 class DataPipelineManagerTest(TestCase):
     "Tests for the pipeline management wrapper."
 
-    # pylint: disable=invalid-name,missing-docstring
+    # pylint: disable=invalid-name
     SEARCH_DESCRIPTIONS = [
         {'name': 'pipeline1', 'description': 'pipeline with no tags', 'pipelineId': 'p1'},
         {'name': 'nodescpipeline', 'pipelineId': 'nodesc',
@@ -173,6 +173,7 @@ class DataPipelineManagerTest(TestCase):
         self.assertIsNotNone(manager._dp_client)
 
     def test__fetch__no_params_object__ok(self):
+        "AsiaqDataPipelineManager.fetch behaves as expected for param-less pipeline"
         objects = Mock()
         self.mock_client.get_pipeline_definition.return_value = {'pipelineObjects': objects}
         fetched = self.mgr.fetch("ab-cdef")
@@ -184,6 +185,7 @@ class DataPipelineManagerTest(TestCase):
         self.mock_client.describe_pipelines.assert_called_once_with(pipelineIds=['ab-cdef'])
 
     def test__fetch__full_content_object__ok(self):
+        "AsiaqDataPipelineManager.fetch behaves as expected for fully-defined pipeline"
         objects = Mock()
         params = Mock()
         values = Mock()
@@ -198,14 +200,17 @@ class DataPipelineManagerTest(TestCase):
         self.mock_client.describe_pipelines.assert_called_once_with(pipelineIds=['ab-cdef'])
 
     def test__fetch_content__already_fetched_error(self):
+        "AsiaqDataPipelineManager.fetch_content on an already-populated object: error"
         pipeline = self._persisted_pipeline(contents=Mock())
         self.assertRaises(Exception, self.mgr.fetch_content, pipeline)
 
     def test__fetch_content__not_saved_error(self):
+        "AsiaqDataPipelineManager.fetch_content on a detached object: error"
         pipeline = self._unpersisted_pipeline()
         self.assertRaises(Exception, self.mgr.fetch_content, pipeline)
 
     def test__fetch_content__common_case__ok(self):
+        "AsiaqDataPipelineManager.fetch_content in a 'normal' case behaves normally"
         pipeline = self._persisted_pipeline()
         objects = Mock()
         params = Mock()
@@ -219,15 +224,18 @@ class DataPipelineManagerTest(TestCase):
         self.assertEquals(params, pipeline._params)
 
     def test__delete__unsaved__error(self):
+        "AsiaqDataPipelineManager.delete on a detached object: error"
         pipeline = self._unpersisted_pipeline()
         self.assertRaises(Exception, self.mgr.delete, pipeline)
 
     def test__delete__common_case__ok(self):
+        "AsiaqDataPipelineManager.delete on a saved object: deletes"
         pipeline = self._persisted_pipeline()
         self.mgr.delete(pipeline)
         self.mock_client.delete_pipeline.assert_called_once_with(pipelineId='asdf')
 
     def test__save__update_pipeline__only_content_updated(self):
+        "AsiaqDataPipelineManager.save on a persisted object: update only"
         contents = Mock()
         pipeline = self._persisted_pipeline(contents)
         self.mgr.save(pipeline)
@@ -236,6 +244,7 @@ class DataPipelineManagerTest(TestCase):
             pipelineId="asdf", pipelineObjects=contents, parameterObjects=[], parameterValues=[])
 
     def test__save__new_pipeline__meta_and_content_updated(self):
+        "AsiaqDataPipelineManager.save on a detached object: create and save content"
         self.mock_client.create_pipeline.return_value = {'pipelineId': 'qwerty'}
         contents = Mock()
         pipeline = self._unpersisted_pipeline(contents)
@@ -249,6 +258,7 @@ class DataPipelineManagerTest(TestCase):
         self.assertEquals([], self.mock_client.create_pipeline.call_args[1]['tags'])
 
     def test__search_descriptions__no_ids__no_results(self):
+        "AsiaqDataPipelineManager.search_descriptions with empty results"
         self.mock_client.list_pipelines.return_value = {'hasMoreResults': False, 'pipelineIdList': []}
         self.mock_client.describe_pipelines.return_value = {'pipelineDescriptionList': []}
         self.assertEquals([], self.mgr.search_descriptions())
@@ -256,6 +266,7 @@ class DataPipelineManagerTest(TestCase):
         self.mock_client.describe_pipelines.assert_not_called()
 
     def test__search_descriptions__search_all__all_found(self):
+        "AsiaqDataPipelineManager.search_descriptions without filtering"
         searched = self.mgr.search_descriptions()
         self.assertEquals(4, len(searched))
         for i in range(4):
@@ -268,15 +279,18 @@ class DataPipelineManagerTest(TestCase):
         self.assertEquals({'environment': 'build', 'extraneous': 'tag'}, searched[2].get_tag_dict())
 
     def test__search_descriptions__by_bad_name__nothing_found(self):
+        "AsiaqDataPipelineManager.search_descriptions filtering for a non-existent pipeline name"
         self.assertEquals([], self.mgr.search_descriptions(name="asdfasdfasdfasd"))
 
     def test__search_descriptions__by_good_name__pipeline_found(self):
+        "AsiaqDataPipelineManager.search_descriptions filtering for a unique pipeline name"
         searched = self.mgr.search_descriptions(name="nodescpipeline")
         self.assertEquals(1, len(searched))
         self.assertEquals("nodescpipeline", searched[0]._name)
         self.assertIsNone(searched[0]._description)
 
     def test__search_descriptions__by_dupe_name__pipelines_found(self):
+        "AsiaqDataPipelineManager.search_descriptions filtering for a repeated pipeline name"
         searched = self.mgr.search_descriptions(name="mypipeline")
         self.assertEquals(2, len(searched))
         self.assertEquals("mypipeline", searched[0]._name)
@@ -284,25 +298,30 @@ class DataPipelineManagerTest(TestCase):
         self.assertEquals("ciya", searched[1]._id)
 
     def test__search_descriptions__by_bad_tag__nothing_found(self):
+        "AsiaqDataPipelineManager.search_descriptions filtering for a non-existent tag"
         searched = self.mgr.search_descriptions(tags={'foo': 'bar'})
         self.assertEquals([], searched)
 
     def test__search_descriptions__by_good_tag__pipeline_found(self):
+        "AsiaqDataPipelineManager.search_descriptions filtering for a unique tag"
         searched = self.mgr.search_descriptions(tags={'environment': 'ci'})
         self.assertEquals(1, len(searched))
         self.assertEquals("mypipeline", searched[0]._name)
         self.assertEquals("pipeline in ci", searched[0]._description)
 
     def test__search_descriptions__by_dupe_name_and_tag__pipelines_found(self):
+        "AsiaqDataPipelineManager.search_descriptions filtering for a tag/name combination"
         searched = self.mgr.search_descriptions(name="mypipeline", tags={'environment': 'build'})
         self.assertEquals(1, len(searched))
         self.assertEquals("mypipeline", searched[0]._name)
         self.assertEquals("buildit", searched[0]._id)
 
     def test__start__unpersisted__error(self):
+        "AsiaqDataPipelineManager.start on a detached object: error"
         self.assertRaises(Exception, self.mgr.start, self._unpersisted_pipeline())
 
     def test__start__persisted_without_params__started(self):
+        "AsiaqDataPipelineManager.start with no parameter values anywhere"
         self.mgr.start(self._persisted_pipeline())
         self.assertEquals(1, self.mock_client.activate_pipeline.call_count)
         activate_args = self.mock_client.activate_pipeline.call_args[1]
@@ -311,6 +330,7 @@ class DataPipelineManagerTest(TestCase):
         self.assertIn('startTimestamp', activate_args)
 
     def test__start__persisted_with_param_values__started_with_param_values(self):
+        "AsiaqDataPipelineManager.start with parameter values in the object"
         pipeline = self._persisted_pipeline()
         pipeline._param_values = Mock()
         self.mgr.start(pipeline)
@@ -321,6 +341,7 @@ class DataPipelineManagerTest(TestCase):
         self.assertIn('startTimestamp', activate_args)
 
     def test__start__param_values_list__started_with_correct_param_values(self):
+        "AsiaqDataPipelineManager.start with parameter values as a list and in the object"
         pipeline = self._persisted_pipeline()
         pipeline._param_values = Mock()  # this is the WRONG set of params
         real_params = [Mock(), Mock()]
@@ -332,6 +353,7 @@ class DataPipelineManagerTest(TestCase):
         self.assertIn('startTimestamp', activate_args)
 
     def test__start__param_values_dict__started_with_correct_param_values(self):
+        "AsiaqDataPipelineManager.start with parameter values as a dict and in the object"
         pipeline = self._persisted_pipeline()
         pipeline._param_values = Mock()  # this is the WRONG set of params
         real_params = {"foo": "bar", "qwerty": "asdf"}
@@ -344,8 +366,10 @@ class DataPipelineManagerTest(TestCase):
         self.assertIn('startTimestamp', activate_args)
 
     def test__stop__unpersisted__error(self):
+        "AsiaqDataPipelineManager.stop with a detached object: error"
         self.assertRaises(Exception, self.mgr.stop, self._unpersisted_pipeline())
 
     def test__stop__persisted__stopped(self):
+        "AsiaqDataPipelineManager.stop with a saved pipeline: stops"
         self.mgr.stop(self._persisted_pipeline())
         self.mock_client.deactivate_pipeline.assert_called_once_with(pipelineId="asdf")
