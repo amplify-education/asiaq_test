@@ -152,7 +152,7 @@ class DynamoDbBackupCommand(CliCommand):
 
 class DataPipelineCommand(CliCommand):
     """
-    CliCommand implementation for managing data pipelines (excessively entangled with dyanmodb)
+    CliCommand implementation for managing data pipelines.
     """
     DESCRIPTION = "Inspect and manage data pipelines."
 

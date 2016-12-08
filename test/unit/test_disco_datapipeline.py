@@ -33,7 +33,7 @@ class DataPipelineTest(TestCase):
         self.assertEquals({"template": "silly"}, pipeline.get_tag_dict())
 
     def test__get_tag_dict__tags_list_passed__correct_return(self):
-        "AsiaqDataPipeline.get_tag_dict with tags passed as lsit"
+        "AsiaqDataPipeline.get_tag_dict with tags passed as list"
         pipeline = AsiaqDataPipeline(
             name="asdf", description="qwerty",
             tags=[{'key': 'template', 'value': 'silly'}, {'key': 'another', 'value': 'tag'}])
