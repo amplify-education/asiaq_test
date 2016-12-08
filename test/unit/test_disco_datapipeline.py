@@ -62,12 +62,12 @@ class DataPipelineTest(TestCase):
         self.assertRaises(Exception, pipeline.get_param_value_dict)
 
     def test__from_template__template_missing__exception(self):
-        "AsiaqDataPipline.from_template with an invalid template"
+        "AsiaqDataPipeline.from_template with an invalid template"
         self.assertRaises(asiaq_exceptions.AsiaqConfigError, AsiaqDataPipeline.from_template,
                           name="asdf", description="qwerty", template_name="nope")
 
     def test__from_template__template_ok__reasonable(self):
-        "AsiaqDataPipline.from_template with a valid template"
+        "AsiaqDataPipeline.from_template with a valid template"
         pipeline = AsiaqDataPipeline.from_template(
             name="asdf", description="qwerty", template_name="dynamodb_backup")
         self.assertFalse(pipeline._tags)
@@ -79,7 +79,7 @@ class DataPipelineTest(TestCase):
         self.assertEquals(pipeline._description, "qwerty")
 
     def test__update_content__no_values__content_updated(self):
-        "AsiaqDataPipline.update_content with no parameter values"
+        "AsiaqDataPipeline.update_content with no parameter values"
         pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
         pipeline_objects = Mock()
         param_defs = Mock()
@@ -89,7 +89,7 @@ class DataPipelineTest(TestCase):
         self.assertIsNone(pipeline._param_values)
 
     def test__update_content__dict_values__content_updated(self):
-        "AsiaqDataPipline.update_content with silly dictionary parameter values"
+        "AsiaqDataPipeline.update_content with silly dictionary parameter values"
         pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
         pipeline_objects = Mock()
         param_defs = Mock()
@@ -104,7 +104,7 @@ class DataPipelineTest(TestCase):
         self.assertEquals({"foo": "bar", "baz": "1"}, pipeline.get_param_value_dict())
 
     def test__update_content__list_values__content_updated(self):
-        "AsiaqDataPipline.update_content with silly listed parameter values"
+        "AsiaqDataPipeline.update_content with silly listed parameter values"
         pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
         pipeline_objects = Mock()
         param_defs = Mock()
@@ -120,14 +120,14 @@ class DataPipelineTest(TestCase):
         self.assertEquals({"foo": "bar", "bar": "baz", "simple": "string"}, pipeline.get_param_value_dict())
 
     def test__update_content__template__content_updated(self):
-        "AsiaqDataPipline.update_content with a template"
+        "AsiaqDataPipeline.update_content with a template"
         pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
         pipeline.update_content(template_name="dynamodb_restore")
         self.assertTrue(pipeline.has_content())
         self.assertEquals("DDBDestinationTable", pipeline._objects[1]['id'])
 
     def test__update_content__bad_args__error(self):
-        "AsiaqDataPipline.update_content with bad argument combinations fails"
+        "AsiaqDataPipeline.update_content with bad argument combinations fails"
         pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
         self.assertRaises(asiaq_exceptions.ProgrammerError, pipeline.update_content)
         self.assertRaises(asiaq_exceptions.ProgrammerError, pipeline.update_content,
