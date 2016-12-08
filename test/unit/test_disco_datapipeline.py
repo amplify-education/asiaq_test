@@ -73,6 +73,8 @@ class DataPipelineTest(TestCase):
         self.assertFalse(pipeline._tags)
         self.assertFalse(pipeline.is_persisted())
         self.assertTrue(pipeline.has_content())
+        # nasty cherry-pick:
+        self.assertEquals("DailySchedule", pipeline._objects[0]['id'])
         self.assertEquals(pipeline._name, "asdf")
         self.assertEquals(pipeline._description, "qwerty")
 
@@ -116,6 +118,20 @@ class DataPipelineTest(TestCase):
         self.assertIs(pipeline._params, param_defs)
         self.assertEquals(3, len(pipeline._param_values))
         self.assertEquals({"foo": "bar", "bar": "baz", "simple": "string"}, pipeline.get_param_value_dict())
+
+    def test__update_content__template__content_updated(self):
+        "AsiaqDataPipline.update_content with a template"
+        pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
+        pipeline.update_content(template_name="dynamodb_restore")
+        self.assertTrue(pipeline.has_content())
+        self.assertEquals("DDBDestinationTable", pipeline._objects[1]['id'])
+
+    def test__update_content__bad_args__error(self):
+        "AsiaqDataPipline.update_content with bad argument combinations fails"
+        pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
+        self.assertRaises(asiaq_exceptions.ProgrammerError, pipeline.update_content)
+        self.assertRaises(asiaq_exceptions.ProgrammerError, pipeline.update_content,
+                          template_name="something", contents="something else")
 
 
 class DataPipelineManagerTest(TestCase):

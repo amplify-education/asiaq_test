@@ -10,6 +10,7 @@ import boto3
 
 from .disco_config import open_normalized
 from .resource_helper import throttled_call
+from .exceptions import ProgrammerError
 
 
 _LOG = getLogger(__name__)
@@ -49,8 +50,15 @@ class AsiaqDataPipeline(object):
         "Retrieve parameter values as a dictionary."
         return _optional_list_to_dict(self._param_values)
 
-    def update_content(self, contents, parameter_definitions, param_values=None):
-        "Set the pipeline content (pipeline nodes, parameters and values) for this pipeline."
+    def update_content(self, contents=None, parameter_definitions=None, param_values=None,
+                       template_name=None, log_location=None):
+        """
+        Set the pipeline content (pipeline nodes, parameters and values) for this pipeline.
+        """
+        if (not contents and not template_name) or (contents and template_name):
+            raise ProgrammerError("Either pipeline content or a template (not both!) must be specified")
+        if template_name:
+            contents, parameter_definitions = _read_template(template_name, log_location)
         self._objects = contents
         self._params = parameter_definitions
         self._param_values = _optional_dict_to_list(param_values)
@@ -58,11 +66,7 @@ class AsiaqDataPipeline(object):
     @classmethod
     def from_template(cls, template_name, name, description, tags=None, param_values=None, log_location=None):
         """Create a new AsiaqDataPipeline object, populated from template in the configuration directory."""
-        with open_normalized(DataPipelineConsts.TEMPLATE_DIR, template_name + ".json") as f:
-            template_data = json.load(f)
-        boto_objects, boto_parameters = template_to_boto(template_data)
-        if log_location:
-            add_log_location_param(boto_objects, log_location)
+        boto_objects, boto_parameters = _read_template(template_name, log_location)
         return cls(contents=boto_objects, parameter_definitions=boto_parameters,
                    name=name, description=description, tags=tags, param_values=param_values)
 
@@ -281,3 +285,16 @@ def _optional_list_to_dict(dict_list, key_string='id', value_string='stringValue
             raise Exception("Repeated item %s in list-to-dictionary transform!" % key)
         value_dict[key] = item[value_string]
     return value_dict
+
+
+def _read_template(template_name, log_location):
+    """
+    Open a template file, read the definition, and translate it into the format expected by boto.
+    If log_location is supplied, insert it into the template definition before returning it.
+    """
+    with open_normalized(DataPipelineConsts.TEMPLATE_DIR, template_name + ".json") as f:
+        template_data = json.load(f)
+    boto_objects, boto_params = template_to_boto(template_data)
+    if log_location:
+        add_log_location_param(boto_objects, log_location)
+    return boto_objects, boto_params
