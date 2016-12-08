@@ -110,6 +110,8 @@ class AsiaqDataPipelineManager(object):
         "Populate the pipeline content fields of this pipeline object with the information fetched from AWS."
         if pipeline.has_content():
             raise Exception("Content already fetched or locally generated for this pipeline object")
+        if not pipeline.is_persisted():
+            raise Exception("Cannot fetch content for a pipeline that has not been saved")
         definition = throttled_call(self._dp_client.get_pipeline_definition,
                                     pipelineId=pipeline._id, version='latest')
         pipeline.update_content(definition['pipelineObjects'],
