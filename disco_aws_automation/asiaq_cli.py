@@ -116,9 +116,9 @@ class DynamoDbBackupCommand(CliCommand):
         subsub = parser.add_subparsers(title="data pipeline commands", dest="dp_command")
         subsub.add_parser("init", help="Set up bucket for backup and log data.")
         backup_parser = subsub.add_parser("backup",
-                                          help="Configure backup for a dynamodb table")
+                                          help="Configure backup to S3 for a dynamodb table")
         backup_parser.add_argument("table_name")
-        restore_parser = subsub.add_parser("restore", help="Restore a dynamodb table from backup")
+        restore_parser = subsub.add_parser("restore", help="Restore a dynamodb table from an S3 backup")
         restore_parser.add_argument("table_name")
         restore_parser.add_argument("--from", dest="backup_dir",
                                     help="Previous backup to restore from (default: latest)")
