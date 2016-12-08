@@ -164,7 +164,7 @@ class DiscoELB(object):
     # pylint: disable=R0913, R0914
     def get_or_create_elb(self, hostclass, security_groups, subnets, hosted_zone_name,
                           health_check_url, instance_protocol, instance_port,
-                          elb_protocols, elb_ports, elb_public, sticky_app_cookie,
+                          elb_protocols, elb_ports, elb_public, sticky_app_cookie, elb_dns_alias=None,
                           idle_timeout=None, connection_draining_timeout=None, testing=False, tags=None,
                           cross_zone_load_balancing=True, cert_name=None):
         """
@@ -183,6 +183,7 @@ class DiscoELB(object):
             elb_protocols (str): Comma separated list of protocols to expose. HTTP, HTTPS, SSL or TCP
             elb_ports (str): Comma separated list of ports to expose from the load balancer
             elb_public (bool): True if the ELB should be internet routable
+            elb_dns_alias (str): The hostname portion of a DNS name for this ELB (within hosted_zone_name)
             sticky_app_cookie (str): The name of a cookie from your service to use for sticky sessions
             idle_timeout (int): time limit (in seconds) that ELB should wait before killing idle connections
             connection_draining_timeout (int): timeout limit (in seconds) that ELB should allow for open
@@ -194,6 +195,7 @@ class DiscoELB(object):
                              Ignored if protocol isn't SSL or HTTPS
         """
         cname = self.get_cname(hostclass, hosted_zone_name, testing=testing)
+        custom_cname = elb_dns_alias + '.' + hosted_zone_name if elb_dns_alias else None
         elb_id = DiscoELB.get_elb_id(self.vpc.environment_name, hostclass, testing=testing)
         elb_name = DiscoELB.get_elb_name(self.vpc.environment_name, hostclass, testing=testing)
         elb = self.get_elb(hostclass, testing=testing)
@@ -221,7 +223,7 @@ class DiscoELB(object):
                     if cert_name:
                         cert = self.get_certificate_arn(cert_name)
                     else:
-                        cert = self.get_certificate_arn(cname)
+                        cert = self.get_certificate_arn(custom_cname or cname)
                     listener['SSLCertificateId'] = cert or ''
 
             elb_args = {
@@ -241,6 +243,8 @@ class DiscoELB(object):
         elb_id = elb["LoadBalancerName"]
 
         self.route53.create_record(hosted_zone_name, cname, 'CNAME', elb['DNSName'])
+        if custom_cname:
+            self.route53.create_record(hosted_zone_name, custom_cname, 'CNAME', elb['DNSName'])
 
         self._setup_health_check(elb_id, health_check_url, instance_protocol, instance_port, elb_name)
         self._setup_sticky_cookies(elb_id, elb_ports, sticky_app_cookie, elb_name)
