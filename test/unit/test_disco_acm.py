@@ -40,6 +40,7 @@ class DiscoACMTests(TestCase):
             CERT_SUMMARY_LIST_KEY: [TEST_CERT, TEST_WILDCARD_CERT, TEST_MULTI_CERT]
         }
 
+        # pylint: disable=invalid-name
         def _describe_cert(CertificateArn):
             cert_data = {
                 TEST_CERTIFICATE_ARN_ACM_WILDCARD: {
