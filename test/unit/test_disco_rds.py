@@ -199,6 +199,7 @@ class RDSTests(unittest.TestCase):
     @patch('disco_aws_automation.disco_rds.DiscoRoute53')
     @patch('disco_aws_automation.disco_rds.DiscoS3Bucket', return_value=_get_bucket_mock())
     def test_clone_uses_latest_snapshot(self, bucket_mock, r53_mock, vpc_mock):
+        """test that an RDS clone uses the latest available snapshot"""
         self.rds._get_db_instance = MagicMock(return_value=None)
         self.rds.config_rds = get_mock_config({
             'some-env-db-name': {

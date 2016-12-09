@@ -233,7 +233,7 @@ class DiscoStorage(object):
 
         return bdm
 
-    def create_ebs_snapshot(self, hostclass, size):
+    def create_ebs_snapshot(self, hostclass, size, encrypted=True):
         """
         Creates an EBS snapshot in the first listed availability zone.
 
@@ -242,6 +242,7 @@ class DiscoStorage(object):
 
         :param hostclass:  The hostclass that uses this snapshot
         :param size:  The size of the snapshot in GB
+        :param encrypted:  Boolean whether snapshot is encrypted
         """
         zones = throttled_call(self.connection.get_all_zones)
         if not zones:
@@ -258,7 +259,8 @@ class DiscoStorage(object):
                     logger.error("Couldn't destroy temporary volume %s", volume.id)
 
             try:
-                volume = throttled_call(self.connection.create_volume, size=size, zone=zone)
+                volume = throttled_call(self.connection.create_volume, size=size,
+                                        zone=zone, encrypted=encrypted)
                 logger.info("Created temporary volume %s in zone %s.", volume.id, zone.name)
                 wait_for_state(volume, 'available', state_attr='status')
                 snapshot = volume.create_snapshot()
