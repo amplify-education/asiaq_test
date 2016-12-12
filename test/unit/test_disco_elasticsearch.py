@@ -13,6 +13,7 @@ from test.helpers.patch_disco_aws import get_mock_config
 MOCK_AWS_CONFIG_DEFINITION = {
     "disco_aws": {
         "default_domain_name": "aws.example.com",
+        "default_environment": "fake-ci",
     }
 }
 
