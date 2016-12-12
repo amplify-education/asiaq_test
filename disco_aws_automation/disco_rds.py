@@ -222,7 +222,7 @@ class RDS(threading.Thread):
         logger.info("Updating RDS cluster %s", instance_params["DBInstanceIdentifier"])
         params = RDS.delete_keys(instance_params, [
             "Engine", "LicenseModel", "DBSubnetGroupName", "PubliclyAccessible",
-            "MasterUsername", "Port", "CharacterSetName", "StorageEncrypted"])
+            "MasterUsername", "Port", "CharacterSetName", "StorageEncrypted", "Tags"])
         throttled_call(self.client.modify_db_instance, ApplyImmediately=apply_immediately, **params)
         logger.info("Rebooting cluster to apply Param group %s", instance_params["DBInstanceIdentifier"])
         keep_trying(RDS_STATE_POLL_INTERVAL,
@@ -265,6 +265,13 @@ class RDS(threading.Thread):
         preferred_maintenance_window = self.config_with_default(self.config_rds, section,
                                                                 'preferred_maintenance_window',
                                                                 None)
+        tags = [
+            {'Key': 'environment', 'Value': env_name},
+            {'Key': 'db-name', 'Value': database_name},
+            {'Key': 'productline', 'Value': self.config_with_default(self.config_rds, section,
+                                                                     'productline',
+                                                                     'unknown')}
+        ]
 
         instance_params = {
             'AllocatedStorage': self.config_integer(self.config_rds, section, 'allocated_storage'),
@@ -289,7 +296,8 @@ class RDS(threading.Thread):
             'VpcSecurityGroupIds': [self.rds_security_group_id],
             'StorageEncrypted': self.config_truthy(self.config_rds, section, 'storage_encrypted'),
             'BackupRetentionPeriod': self.config_integer(self.config_rds, section,
-                                                         'backup_retention_period', 1)
+                                                         'backup_retention_period', 1),
+            'Tags': tags
         }
 
         # If custom windows were set, use them. If windows are not specified, we will use the AWS defaults
