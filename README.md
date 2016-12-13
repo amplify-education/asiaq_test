@@ -757,7 +757,7 @@ The format of the CSV file is pretty simple. Here is a short sample:
     2,mhcdiscotaskstatus,,1,,m3.large,,,no,yes,disco_profiling_task_status_service
     2,mhcdiscoinferenceworer,1,1@45 19 * * *:3@33 19 * * *,,5,m3.large,,,no,yes,disco_inference_workflow
 
-Field descriptions:
+### Field Descriptions
 
 1.  Instance boot sequence number. The smaller the number the earlier
     the machines are started, relative to others. This field need not to
@@ -785,12 +785,14 @@ Field descriptions:
 12. integration_test Name of the integration test to run to verify
     instances are in a good state
 
+#### Schedule Scaling
 The desired_size can be either an integer or a colon (:) separated list
 of integers with cron formatted times at which to apply each size. Using
 the at symbol (@) to separate the desired size and the cron
 specification. For example, `"1@30 10 * * *:5@45 1 * * *"` says to scale
 to one host at 10:30 AM UTC and scale to 5 hosts at 1:45 AM UTC.
 
+### Manual Provisioning
 But you can also provision machines one at a time using the provision
 command, for example:
 
