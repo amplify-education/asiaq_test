@@ -269,7 +269,7 @@ class RDS(threading.Thread):
             {'Key': 'environment', 'Value': env_name},
             {'Key': 'db-name', 'Value': database_name},
             {'Key': 'productline', 'Value': self.config_with_default(self.config_rds, section,
-                                                                     'productline',
+                                                                     'product_line',
                                                                      'unknown')}
         ]
 
