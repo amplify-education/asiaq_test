@@ -83,7 +83,7 @@ class RDSTests(unittest.TestCase):
                     'db_instance_class': 'db.m4.2xlarge',
                     'engine_version': '12.1.0.2.v2',
                     'master_username': 'foo',
-                    'productline': 'mock_productline'
+                    'product_line': 'mock_productline'
                 },
                 'some-env-db-name-with-windows': {
                     'engine': 'oracle',
@@ -93,7 +93,7 @@ class RDSTests(unittest.TestCase):
                     'master_username': 'foo',
                     'preferred_backup_window': MOCK_BACKUP_WINDOW,
                     'preferred_maintenance_window': MOCK_MAINTENANCE_WINDOW,
-                    'productline': 'mock_productline'
+                    'product_line': 'mock_productline'
                 }
             })
 
@@ -140,7 +140,7 @@ class RDSTests(unittest.TestCase):
                 'db_instance_class': 'db.m4.2xlarge',
                 'engine_version': '12.1.0.2.v2',
                 'master_username': 'foo',
-                'productline': 'mock_productline'
+                'product_line': 'mock_productline'
             },
             'some-env-db-name-with-windows': {
                 'engine': 'oracle',
@@ -150,7 +150,7 @@ class RDSTests(unittest.TestCase):
                 'master_username': 'foo',
                 'preferred_backup_window': MOCK_BACKUP_WINDOW,
                 'preferred_maintenance_window': MOCK_MAINTENANCE_WINDOW,
-                'productline': 'mock_productline'
+                'product_line': 'mock_productline'
             }
         })
 
@@ -218,7 +218,7 @@ class RDSTests(unittest.TestCase):
                 'db_instance_class': 'db.m4.2xlarge',
                 'engine_version': '12.1.0.2.v2',
                 'master_username': 'foo',
-                'productline': 'mock_productline'
+                'product_line': 'mock_productline'
             }
         })
 
@@ -278,7 +278,7 @@ class DiscoRDSTests(unittest.TestCase):
                     'db_instance_class': 'db.m4.2xlarge',
                     'engine_version': '12.1.0.2.v2',
                     'master_username': 'foo',
-                    'productline': 'mock_productline'
+                    'product_line': 'mock_productline'
                 },
                 'some-env-db-name-with-windows': {
                     'engine': 'oracle',
@@ -288,7 +288,7 @@ class DiscoRDSTests(unittest.TestCase):
                     'master_username': 'foo',
                     'preferred_backup_window': MOCK_BACKUP_WINDOW,
                     'preferred_maintenance_window': MOCK_MAINTENANCE_WINDOW,
-                    'productline': 'mock_productline'
+                    'product_line': 'mock_productline'
                 }
             })
             self.rds.domain_name = 'example.com'
