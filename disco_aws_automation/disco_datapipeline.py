@@ -122,15 +122,12 @@ class AsiaqDataPipelineManager(object):
                                 definition.get('parameterObjects'),
                                 definition.get('parameterValues'))
 
-    def fetch_all_descriptions(self):
-        """
-        Fetch all pipelines in this account/region, populating only their name/metadata fields
-        (use fetch_content to get the low-level details).
-        """
-        return self.search_descriptions()
-
     def search_descriptions(self, name=None, tags=None):
-        "Fetch all pipelines in this account/region that have the given tags and/or the given name."
+        """
+        Fetch all pipelines in this account/region that have the given tags and/or the given name.
+        If arguments are left empty, all pipelines will be fetched.  Only names and metadata are
+        retrieved: use fetch_content to retrieve the pipeline internal details.
+        """
         id_objects = self._fetch_ids()
         descriptions = []
         window = 25
