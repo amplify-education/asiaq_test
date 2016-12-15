@@ -233,7 +233,7 @@ class DiscoStorage(object):
 
         return bdm
 
-    def create_ebs_snapshot(self, hostclass, size, encrypted=True):
+    def create_ebs_snapshot(self, hostclass, size, product_line, encrypted=True):
         """
         Creates an EBS snapshot in the first listed availability zone.
 
@@ -242,6 +242,7 @@ class DiscoStorage(object):
 
         :param hostclass:  The hostclass that uses this snapshot
         :param size:  The size of the snapshot in GB
+        :param product_line: The productline that the hostclass belongs to
         :param encrypted:  Boolean whether snapshot is encrypted
         """
         zones = throttled_call(self.connection.get_all_zones)
@@ -266,6 +267,7 @@ class DiscoStorage(object):
                 snapshot = volume.create_snapshot()
                 snapshot.add_tag('hostclass', hostclass)
                 snapshot.add_tag('env', self.environment_name)
+                snapshot.add_tag('productline', product_line)
                 logger.info("Created snapshot %s from volume %s.", snapshot.id, volume.id)
             except Exception:
                 _destroy_volume(volume)
@@ -330,7 +332,8 @@ class DiscoStorage(object):
                 instance_ids=[volume.attach_data.instance_id])[0].instances[0]
 
             tags = {'hostclass': instance.tags['hostclass'],
-                    'env': instance.tags['environment']}
+                    'env': instance.tags['environment'],
+                    'productline': instance.tags['productline']}
         else:
             raise RuntimeError("The volume specified is not attched to an instance. "
                                "Snapshotting that is not supported.")
