@@ -142,6 +142,21 @@ class DynamoDBEnvironmentError(RuntimeError):
     pass
 
 
+class DataPipelineException(Exception):
+    """Some error to do with data pipelines"""
+    pass
+
+
+class DataPipelineFormatException(DataPipelineException):
+    """An error in data pipeline data formatting."""
+    pass
+
+
+class DataPipelineStateException(DataPipelineException):
+    """An illegal or unexpected state was detected (either locally or on the server)."""
+    pass
+
+
 class AlarmConfigError(RuntimeError):
     """Error in Alarm Configuration"""
     pass
