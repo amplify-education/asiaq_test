@@ -1,11 +1,13 @@
 """Tests for datapipeline wrapper class and manager."""
 
+import copy
 from unittest import TestCase
 
 import boto3
 from mock import Mock, MagicMock
 
-from disco_aws_automation.disco_datapipeline import AsiaqDataPipeline, AsiaqDataPipelineManager
+from disco_aws_automation.disco_datapipeline import (
+    AsiaqDataPipeline, AsiaqDataPipelineManager, template_to_boto, add_log_location_param)
 from disco_aws_automation import exceptions as asiaq_exceptions
 
 
@@ -375,3 +377,143 @@ class DataPipelineManagerTest(TestCase):
         "AsiaqDataPipelineManager.stop with a saved pipeline: stops"
         self.mgr.stop(self._persisted_pipeline())
         self.mock_client.deactivate_pipeline.assert_called_once_with(pipelineId="asdf")
+
+
+class PipelineUtilityTest(TestCase):
+    "Unit tests for the utility functions in the data pipeline package."
+    # pylint: disable=invalid-name
+    FAKE_S3_URL = "s3://my-bucket/logs"
+
+    def test__template_to_boto__missing_keys__key_error(self):
+        "template_to_boto: missing top-level template keys fail."
+        self.assertRaises(KeyError, template_to_boto, {})
+        self.assertRaises(KeyError, template_to_boto, {'objects': []})
+        self.assertRaises(KeyError, template_to_boto, {'parameters': []})
+
+    def test__template_to_boto__empty_values__empty_return(self):
+        "template_to_boto: degenerate input succeeds."
+        objects, parameter_defs = template_to_boto({'objects': [], 'parameters': []})
+        self.assertEquals([], objects)
+        self.assertEquals([], parameter_defs)
+
+    def test__template_to_boto__only_conserved_fields__identical_return(self):
+        "template_to_boto: conserved_fields conserved."
+        objects, parameter_defs = template_to_boto({
+            'objects': [
+                {'id': 'asdf', 'name': 'George'},
+                {'id': 'qwerty', 'name': 'Fred'}
+            ],
+            'parameters': [{'id': '1234'}]
+        })
+        self.assertEquals(
+            [{'id': 'asdf', 'name': 'George', 'fields': []}, {'id': 'qwerty', 'name': 'Fred', 'fields': []}],
+            objects)
+        self.assertEquals([{'id': '1234', 'attributes': []}], parameter_defs)
+
+    def test__template_to_boto__object_simple_defs__fields_dict(self):
+        "template_to_boto: string values translated."
+        objects, _ = template_to_boto({
+            'objects': [
+                {'id': 'asdf', 'name': 'George', 'some_field': 'some_value'},
+                {'id': 'qwerty', 'name': 'Fred', 'my_field': 'vaaalue'}
+            ],
+            'parameters': []
+        })
+        self.assertEquals(
+            [{'id': 'asdf', 'name': 'George', 'fields': [{'key': 'some_field', 'stringValue': 'some_value'}]},
+             {'id': 'qwerty', 'name': 'Fred', 'fields': [{'key': 'my_field', 'stringValue': 'vaaalue'}]}],
+            objects)
+
+    def test__template_to_boto__object_list_def__list_of_dicts(self):
+        "template_to_boto: list values translated."
+        objects, _ = template_to_boto({
+            'objects': [
+                {'id': 'asdf', 'name': 'George', 'some_field': ['val1', 'val2', 'val3']}
+            ],
+            'parameters': []
+        })
+        self.assertEquals(
+            [{'id': 'asdf', 'name': 'George', 'fields': [
+                {'key': 'some_field', 'stringValue': 'val1'},
+                {'key': 'some_field', 'stringValue': 'val2'},
+                {'key': 'some_field', 'stringValue': 'val3'},
+            ]}],
+            objects)
+
+    def test__template_to_boto__object_ref__ref_value_found(self):
+        "template_to_boto: ref values translated."
+        objects, _ = template_to_boto({
+            'objects': [
+                {'id': 'asdf', 'name': 'George', 'some_field': {'ref': 'someIdGoesHere'}}
+            ],
+            'parameters': []
+        })
+        self.assertEquals(
+            [{'id': 'asdf', 'name': 'George', 'fields': [
+                {'key': 'some_field', 'refValue': 'someIdGoesHere'}
+            ]}],
+            objects)
+
+    def test__template_to_boto__parameter_strings__fields_dicts(self):
+        "template_to_boto: parameter defs translated."
+        _, parameter_defs = template_to_boto({
+            'objects': [],
+            'parameters': [{
+                "id": "myDDBRegion",
+                "type": "String",
+                "description": "Region of the DynamoDB table",
+                "default": "us-east-1",
+                "watermark": "us-east-1"
+            }]
+        })
+        self.assertEquals(1, len(parameter_defs))
+        self.assertEquals('myDDBRegion', parameter_defs[0]['id'])
+        # These are not necessarily well-ordered, so we have to work around a little
+        attrs_found = parameter_defs[0]['attributes']
+        expected = [
+            {'key': 'description', 'stringValue': 'Region of the DynamoDB table'},
+            {'key': 'default', 'stringValue': 'us-east-1'},
+            {'key': 'watermark', 'stringValue': 'us-east-1'},
+            {'key': 'type', 'stringValue': 'String'}
+        ]
+        for expected_attr in expected:
+            self.assertIn(expected_attr, attrs_found)
+
+    def test__add_log_location_param__no_default__error(self):
+        "add_log_location_param: invalid input produces an exception"
+        object_list = [
+            {'id': 'foo', 'name': 'bar', 'fields': []}, {'id': 'bar', 'name': 'baz', 'fields': []}
+        ]
+        backup_list = copy.deepcopy(object_list)
+        self.assertRaises(asiaq_exceptions.DataPipelineFormatException,
+                          add_log_location_param, object_list, self.FAKE_S3_URL)
+        self.assertEquals(backup_list, object_list)
+
+    def test__add_log_location_param__existing_value__update(self):
+        "add_log_location_param: existing log location gets updated"
+        object_list = [
+            {'id': 'foo', 'name': 'bar', 'fields': []},
+            {'id': 'Default', 'name': 'Deffy', 'fields': [
+                {'key': 'pipelineLogUri', 'stringValue': 's3://stupid-bucket'},
+                {'key': 'scheduleType', 'refValue': 'DailySchedule'}
+            ]},
+            {'id': 'bar', 'name': 'baz', 'fields': []}
+        ]
+        backup_list = copy.deepcopy(object_list)
+        add_log_location_param(object_list, self.FAKE_S3_URL)
+        self.assertNotEquals(backup_list, object_list)
+        self.assertEquals(self.FAKE_S3_URL, object_list[1]['fields'][0]['stringValue'])
+
+    def test__add_log_location_param__no_value__insert(self):
+        "add_log_location_param: missing log location gets inserted"
+        object_list = [
+            {'id': 'foo', 'name': 'bar', 'fields': []},
+            {'id': 'Default', 'name': 'Deffy', 'fields': [
+                {'key': 'scheduleType', 'refValue': 'DailySchedule'}
+            ]},
+            {'id': 'bar', 'name': 'baz', 'fields': []}
+        ]
+        backup_list = copy.deepcopy(object_list)
+        add_log_location_param(object_list, self.FAKE_S3_URL)
+        self.assertNotEquals(backup_list, object_list)
+        self.assertEquals(self.FAKE_S3_URL, object_list[1]['fields'][1]['stringValue'])

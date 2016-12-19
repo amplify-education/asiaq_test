@@ -242,7 +242,7 @@ def add_log_location_param(boto_objects, log_location):
     """
     default_found = False
     for pipeline_obj in boto_objects:
-        if pipeline_obj['name'] == 'Default':
+        if pipeline_obj['id'] == 'Default':
             default_found = True
             log_setting_found = False
             for field in pipeline_obj['fields']:
