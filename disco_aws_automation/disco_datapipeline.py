@@ -10,7 +10,7 @@ import boto3
 
 from .disco_config import open_normalized
 from .resource_helper import throttled_call
-from .exceptions import ProgrammerError
+from .exceptions import ProgrammerError, DataPipelineFormatException, DataPipelineStateException
 
 
 _LOG = getLogger(__name__)
@@ -113,9 +113,10 @@ class AsiaqDataPipelineManager(object):
     def fetch_content(self, pipeline):
         "Populate the pipeline content fields of this pipeline object with the information fetched from AWS."
         if pipeline.has_content():
-            raise Exception("Content already fetched or locally generated for this pipeline object")
+            raise DataPipelineStateException(
+                "Content already fetched or locally generated for this pipeline object")
         if not pipeline.is_persisted():
-            raise Exception("Cannot fetch content for a pipeline that has not been saved")
+            raise DataPipelineStateException("Cannot fetch content for a pipeline that has not been saved")
         definition = throttled_call(self._dp_client.get_pipeline_definition,
                                     pipelineId=pipeline._id, version='latest')
         pipeline.update_content(definition['pipelineObjects'],
@@ -156,7 +157,7 @@ class AsiaqDataPipelineManager(object):
     def start(self, pipeline, params=None):
         "Activate the pipeline in AWS."
         if not pipeline.is_persisted():
-            raise Exception("Pipeline must be saved before it can be activated")
+            raise DataPipelineStateException("Pipeline must be saved before it can be activated")
         param_values = _optional_dict_to_list(params) or pipeline._param_values
         return self._dp_client.activate_pipeline(pipelineId=pipeline._id, startTimestamp=datetime.utcnow(),
                                                  parameterValues=param_values)
@@ -164,13 +165,13 @@ class AsiaqDataPipelineManager(object):
     def stop(self, pipeline):
         "Deactivate the pipeline in AWS."
         if not pipeline.is_persisted():
-            raise Exception("Pipeline must be saved before it can be deactivated")
+            raise DataPipelineStateException("Pipeline must be saved before it can be deactivated")
         return self._dp_client.deactivate_pipeline(pipelineId=pipeline._id)
 
     def delete(self, pipeline):
         "Remove the pipeline completely from AWS."
         if not pipeline.is_persisted():
-            raise Exception("Pipeline must be saved before it can be deleted (though honestly...)")
+            raise DataPipelineStateException("Pipeline must be saved before it can be deleted (but...)")
         self._dp_client.delete_pipeline(pipelineId=pipeline._id)
 
     def fetch_or_create(self, template_name, pipeline_name, pipeline_description, tags, log_location):
@@ -181,7 +182,8 @@ class AsiaqDataPipelineManager(object):
         searched = self.search_descriptions(tags=tags)
         if searched:
             if len(searched) > 1:
-                raise Exception("Expected one pipeline with tags %s, found %s" % (tags, len(searched)))
+                raise DataPipelineStateException(
+                    "Expected one pipeline with tags %s, found %s" % (tags, len(searched)))
             pipeline = searched[0]
             _LOG.info("Found existing pipeline %s", pipeline._id)
             self.fetch_content(pipeline)
@@ -252,7 +254,8 @@ def add_log_location_param(boto_objects, log_location):
                 pipeline_obj['fields'].append({'key': 'pipelineLogUri', 'stringValue': log_location})
             break
     if not default_found:
-        raise Exception("No 'Default' object found: this is probably not a valid data pipeline definition")
+        raise DataPipelineFormatException(
+            "No 'Default' object found: this is probably not a valid data pipeline definition")
 
 
 def _optional_dict_to_list(param_value_dict, key_string='id', value_string='stringValue'):
@@ -279,8 +282,12 @@ def _optional_list_to_dict(dict_list, key_string='id', value_string='stringValue
     for item in dict_list:
         key = item[key_string]
         if key in value_dict:
-            raise Exception("Repeated item %s in list-to-dictionary transform!" % key)
-        value_dict[key] = item[value_string]
+            raise DataPipelineFormatException("Repeated item %s in list-to-dictionary transform!" % key)
+        try:
+            value_dict[key] = item[value_string]
+        except KeyError as missing:
+            raise DataPipelineFormatException("Bad dictionary in list-to-dictionary transform: %s"
+                                              % str(missing))
     return value_dict
 
 

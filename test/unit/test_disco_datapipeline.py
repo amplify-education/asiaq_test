@@ -44,14 +44,14 @@ class DataPipelineTest(TestCase):
         pipeline = AsiaqDataPipeline(
             name="asdf", description="qwerty",
             tags=[{'key': 'template', 'value': 'silly'}, {'key': 'template', 'value': 'conflict'}])
-        self.assertRaises(Exception, pipeline.get_tag_dict)
+        self.assertRaises(asiaq_exceptions.DataPipelineFormatException, pipeline.get_tag_dict)
 
     def test__get_tag_dict__malformed_tag__exception(self):
         "AsiaqDataPipeline.get_tag_dict with an invalid tag definition"
         pipeline = AsiaqDataPipeline(
             name="asdf", description="qwerty",
             tags=[{'key': 'template', 'stringValue': 'conflict'}])
-        self.assertRaises(KeyError, pipeline.get_tag_dict)
+        self.assertRaises(asiaq_exceptions.DataPipelineFormatException, pipeline.get_tag_dict)
 
     def test__get_param_value_dict__duplicate_value__exception(self):
         "AsiaqDataPipeline.get_param_value_dict with a duplicate value definition"
@@ -59,7 +59,7 @@ class DataPipelineTest(TestCase):
             {'id': 'template', 'stringValue': 'silly'},
             {'id': 'template', 'stringValue': 'conflict'}
         ])
-        self.assertRaises(Exception, pipeline.get_param_value_dict)
+        self.assertRaises(asiaq_exceptions.DataPipelineFormatException, pipeline.get_param_value_dict)
 
     def test__from_template__template_missing__exception(self):
         "AsiaqDataPipeline.from_template with an invalid template"
@@ -202,12 +202,12 @@ class DataPipelineManagerTest(TestCase):
     def test__fetch_content__already_fetched_error(self):
         "AsiaqDataPipelineManager.fetch_content on an already-populated object: error"
         pipeline = self._persisted_pipeline(contents=Mock())
-        self.assertRaises(Exception, self.mgr.fetch_content, pipeline)
+        self.assertRaises(asiaq_exceptions.DataPipelineStateException, self.mgr.fetch_content, pipeline)
 
     def test__fetch_content__not_saved_error(self):
         "AsiaqDataPipelineManager.fetch_content on a detached object: error"
         pipeline = self._unpersisted_pipeline()
-        self.assertRaises(Exception, self.mgr.fetch_content, pipeline)
+        self.assertRaises(asiaq_exceptions.DataPipelineStateException, self.mgr.fetch_content, pipeline)
 
     def test__fetch_content__common_case__ok(self):
         "AsiaqDataPipelineManager.fetch_content in a 'normal' case behaves normally"
@@ -226,7 +226,7 @@ class DataPipelineManagerTest(TestCase):
     def test__delete__unsaved__error(self):
         "AsiaqDataPipelineManager.delete on a detached object: error"
         pipeline = self._unpersisted_pipeline()
-        self.assertRaises(Exception, self.mgr.delete, pipeline)
+        self.assertRaises(asiaq_exceptions.DataPipelineStateException, self.mgr.delete, pipeline)
 
     def test__delete__common_case__ok(self):
         "AsiaqDataPipelineManager.delete on a saved object: deletes"
@@ -318,7 +318,8 @@ class DataPipelineManagerTest(TestCase):
 
     def test__start__unpersisted__error(self):
         "AsiaqDataPipelineManager.start on a detached object: error"
-        self.assertRaises(Exception, self.mgr.start, self._unpersisted_pipeline())
+        self.assertRaises(asiaq_exceptions.DataPipelineStateException,
+                          self.mgr.start, self._unpersisted_pipeline())
 
     def test__start__persisted_without_params__started(self):
         "AsiaqDataPipelineManager.start with no parameter values anywhere"
@@ -367,7 +368,8 @@ class DataPipelineManagerTest(TestCase):
 
     def test__stop__unpersisted__error(self):
         "AsiaqDataPipelineManager.stop with a detached object: error"
-        self.assertRaises(Exception, self.mgr.stop, self._unpersisted_pipeline())
+        self.assertRaises(asiaq_exceptions.DataPipelineStateException,
+                          self.mgr.stop, self._unpersisted_pipeline())
 
     def test__stop__persisted__stopped(self):
         "AsiaqDataPipelineManager.stop with a saved pipeline: stops"
