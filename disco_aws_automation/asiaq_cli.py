@@ -123,7 +123,8 @@ class DynamoDbBackupCommand(CliCommand):
             parser.add_argument("table_name")
             parser.add_argument("--force-reload", action='store_true',
                                 help="Force recreation of the pipeline content")
-            parser.add_argument("--metanetwork", metavar="NAME", help="Metanetwork in which to launch pipeline assets")
+            parser.add_argument("--metanetwork", metavar="NAME",
+                                help="Metanetwork in which to launch pipeline assets")
 
         restore_parser.add_argument("--from", dest="backup_dir",
                                     help="Previous backup to restore from (default: latest)")
