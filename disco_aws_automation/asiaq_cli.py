@@ -115,11 +115,16 @@ class DynamoDbBackupCommand(CliCommand):
     def init_args(cls, parser):
         subsub = parser.add_subparsers(title="data pipeline commands", dest="dp_command")
         subsub.add_parser("init", help="Set up bucket for backup and log data.")
+
         backup_parser = subsub.add_parser("backup",
                                           help="Configure backup to S3 for a dynamodb table")
-        backup_parser.add_argument("table_name")
         restore_parser = subsub.add_parser("restore", help="Restore a dynamodb table from an S3 backup")
-        restore_parser.add_argument("table_name")
+        for parser in [backup_parser, restore_parser]:
+            parser.add_argument("table_name")
+            parser.add_argument("--force-reload", action='store_true',
+                                help="Force recreation of the pipeline content")
+            parser.add_argument("--metanetwork", metavar="NAME", help="Metanetwork in which to launch pipeline assets")
+
         restore_parser.add_argument("--from", dest="backup_dir",
                                     help="Previous backup to restore from (default: latest)")
         list_parser = subsub.add_parser("list", help="List existing backups")
@@ -139,10 +144,12 @@ class DynamoDbBackupCommand(CliCommand):
         mgr.init_bucket()
 
     def _restore_backup(self, mgr):
-        mgr.restore_backup(self.args.table_name, self.args.backup_dir)
+        mgr.restore_backup(self.args.table_name, self.args.backup_dir,
+                           force_update=self.args.force_reload, metanetwork=self.args.metanetwork)
 
     def _create_backup(self, mgr):
-        mgr.create_backup(self.args.table_name)
+        mgr.create_backup(self.args.table_name, force_update=self.args.force_reload,
+                          metanetwork=self.args.metanetwork)
 
     def _list(self, mgr):
         backups = mgr.list_backups(self.config.environment, self.args.table_name)

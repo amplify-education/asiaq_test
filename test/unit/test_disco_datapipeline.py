@@ -88,6 +88,7 @@ class DataPipelineTest(TestCase):
         self.assertFalse(pipeline._tags)
         self.assertFalse(pipeline.is_persisted())
         self.assertTrue(pipeline.has_content())
+
         def _find_default(objects):
             for obj in objects:
                 if obj['id'] == 'Default':

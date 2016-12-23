@@ -9,8 +9,11 @@ from logging import getLogger
 import boto3
 
 from .disco_config import open_normalized
+from .disco_vpc import DiscoVPC
 from .resource_helper import throttled_call
-from .exceptions import ProgrammerError, DataPipelineFormatException, DataPipelineStateException
+from .exceptions import (
+    ProgrammerError, DataPipelineFormatException, DataPipelineStateException, VPCEnvironmentError
+)
 
 
 _LOG = getLogger(__name__)
@@ -81,8 +84,9 @@ class AsiaqDataPipeline(object):
 
 class AsiaqDataPipelineManager(object):
     "List, retrieve, store and delete pipelines."
-    def __init__(self, client=None):
+    def __init__(self, client=None, config=None):
         self._dp_client = client or boto3.client("datapipeline")
+        self.config = config  # REFACTOR-BAIT
 
     def save(self, pipeline):
         "Save or update the pipeline object in AWS."
@@ -191,12 +195,23 @@ class AsiaqDataPipelineManager(object):
         self._dp_client.delete_pipeline(pipelineId=pipeline._id)
 
     def fetch_or_create(self, template_name, pipeline_name, pipeline_description, tags, log_location,
-                        force_update=False):
+                        force_update=False, metanetwork=None, availability_zone=None):
         """
         If a pipeline with the given tags exists, return it; if not, create one with the given tags
         and name based on the provided pipeline, save it, and return it.
+
+        If metanetwork is supplied, the pipeline will be set to run EC2 instances in a subnet that
+        belongs to that metanetwork; if availability_zone is supplied, it will be run in the subnet
+        that belongs to that availability zone.  NOTE: availability_zone may be either a full AZ name
+        (e.g. "us-west-2a") or a one-letter suffix ("a"); in the latter case, the AZ that ends with that
+        suffix will be used. In any case where a specific subnet or metanetwork is requested and but
+        cannot be found, a VPCEnvironmentError will be raised.
+
+        If force_update is supplied, update the pipeline contents as if we had just created it, rather
+        than fetching the existing content.
         """
         searched = self.search_descriptions(tags=tags)
+        subnet_id = None
         if searched:
             if len(searched) > 1:
                 raise DataPipelineStateException(
@@ -204,14 +219,20 @@ class AsiaqDataPipelineManager(object):
             pipeline = searched[0]
             _LOG.info("Found existing pipeline %s", pipeline._id)
             if force_update:
-                pipeline.update_content(template_name=template_name, log_location=log_location)
+                _LOG.info("Re-loading content of pipeline %s from template %s", pipeline._id, template_name)
+                if metanetwork:
+                    subnet_id = self._find_subnet_id(metanetwork, availability_zone)
+                pipeline.update_content(template_name=template_name,
+                                        log_location=log_location, subnet_id=subnet_id)
                 self.save(pipeline)
             else:
                 self.fetch_content(pipeline)
         else:
+            if metanetwork:
+                subnet_id = self._find_subnet_id(metanetwork, availability_zone)
             pipeline = AsiaqDataPipeline.from_template(
                 template_name, pipeline_name, description=pipeline_description,
-                log_location=log_location, tags=tags)
+                log_location=log_location, tags=tags, subnet_id=subnet_id)
             self.save(pipeline)
             _LOG.info("Created new pipeline %s", pipeline._id)
         return pipeline
@@ -224,6 +245,38 @@ class AsiaqDataPipelineManager(object):
             resp = throttled_call(self._dp_client.list_pipelines, marker=resp['marker'])
             found_defs.extend(resp['pipelineIdList'])
         return found_defs
+
+    def _find_subnet_id(self, metanetwork, availability_zone=None):
+        """
+        Find a DiscoSubnet object that matches the input parameters and return its ID.
+
+        If availability_zone is not supplied, an arbitrary subnet will be chosen;
+        if it is supplied and is a valid AZ, the subnet for that AZ will be chosen;
+        if it is supplied and is not a valid AZ but is a suffix of an AZ that has
+        a subnet in it, that subnet will be chosen (e.g. 'a' for 'us-west-2a' but
+        also 'us-east-1a', if we were to move regions).
+        """
+
+        vpc = DiscoVPC.fetch_environment(environment_name=self.config.environment)
+        subnets = vpc.networks[metanetwork].disco_subnets
+        if availability_zone:
+            if availability_zone in subnets:
+                found_subnet = subnets[availability_zone]
+            else:
+                for az_name, subnet in subnets.items():
+                    if az_name.endswith(availability_zone):
+                        found_subnet = subnet
+                        break
+                else:
+                    raise VPCEnvironmentError(
+                        "No match found for availability_zone argument '%s' in metanetwork '%s'" %
+                        (metanetwork, availability_zone)
+                    )
+        else:
+            found_subnet = subnets.values()[0]
+        _LOG.debug("Found subnet %s in AZ %s for network %s",
+                   found_subnet.subnet_id, found_subnet.name, metanetwork)
+        return found_subnet.subnet_id
 
 
 def template_to_boto(template_json):
