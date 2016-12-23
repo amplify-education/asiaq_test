@@ -7,7 +7,7 @@ import boto3
 from mock import Mock, MagicMock, patch
 
 from disco_aws_automation.disco_datapipeline import (
-    AsiaqDataPipeline, AsiaqDataPipelineManager, template_to_boto, add_log_location_param)
+    AsiaqDataPipeline, AsiaqDataPipelineManager, template_to_boto, add_default_object_fields)
 from disco_aws_automation import exceptions as asiaq_exceptions
 
 
@@ -80,6 +80,23 @@ class DataPipelineTest(TestCase):
         self.assertEquals(pipeline._name, "asdf")
         self.assertEquals(pipeline._description, "qwerty")
 
+    def test__from_template__log_and_subnet_fields__fields_set(self):
+        "AsiaqDataPipeline.from_template with a log location and subnet ID"
+        pipeline = AsiaqDataPipeline.from_template(
+            name="asdf", description="qwerty", template_name="dynamodb_backup",
+            log_location="FAKEY", subnet_id="McFAKEFAKE")
+        self.assertFalse(pipeline._tags)
+        self.assertFalse(pipeline.is_persisted())
+        self.assertTrue(pipeline.has_content())
+        def _find_default(objects):
+            for obj in objects:
+                if obj['id'] == 'Default':
+                    return obj
+
+        default_object = _find_default(pipeline._objects)
+        self.assertIn({'key': 'pipelineLogUri', 'stringValue': 'FAKEY'}, default_object['fields'])
+        self.assertIn({'key': 'subnetId', 'stringValue': 'McFAKEFAKE'}, default_object['fields'])
+
     def test__update_content__no_values__content_updated(self):
         "AsiaqDataPipeline.update_content with no parameter values"
         pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
@@ -108,9 +125,22 @@ class DataPipelineTest(TestCase):
         pipeline_objects = Mock()
         param_defs = Mock()
         pipeline.update_content(pipeline_objects, param_defs)
-        self.assertEquals([{'id': 'this', 'stringValue': 'will not'}, {'id':'be', 'stringValue': 'overwritten'}],
-                          pipeline._param_values)
+        self.assertEquals(
+            [{'id': 'this', 'stringValue': 'will not'}, {'id': 'be', 'stringValue': 'overwritten'}],
+            pipeline._param_values
+        )
 
+    def test__update_content__old_values_new_empty__values_cleared(self):
+        "AsiaqDataPipeline.update_content does not overwrite parameter values when not appropriate"
+        orig_values = {'this': 'will', 'be': 'overwritten'}
+        pipeline = AsiaqDataPipeline(name="asdf", description="qwerty", param_values=orig_values)
+        pipeline_objects = Mock()
+        param_defs = Mock()
+        pipeline.update_content(pipeline_objects, param_defs, [])
+        self.assertEquals(
+            [],
+            pipeline._param_values
+        )
 
     def test__update_content__dict_values__content_updated(self):
         "AsiaqDataPipeline.update_content with silly dictionary parameter values"
@@ -149,6 +179,17 @@ class DataPipelineTest(TestCase):
         pipeline.update_content(template_name="dynamodb_restore")
         self.assertTrue(pipeline.has_content())
         self.assertEquals("DDBDestinationTable", pipeline._objects[1]['id'])
+
+    def test__update_content__log_location_and_subnet__fields_set(self):
+        "AsiaqDataPipeline.update_content with log location and subnet ID"
+        pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
+        new_contents = [
+            {'id': 'Default', 'fields': [{'key': 'uninteresting', 'stringValue': 'thing'}], 'name': 'short'},
+            {'id': 'Other', 'fields': [], 'name': 'unused'}
+        ]
+        pipeline.update_content(log_location='FAKEFAKE', subnet_id='EVENFAKER', contents=new_contents)
+        self.assertIn({'key': 'pipelineLogUri', 'stringValue': 'FAKEFAKE'}, pipeline._objects[0]['fields'])
+        self.assertIn({'key': 'subnetId', 'stringValue': 'EVENFAKER'}, pipeline._objects[0]['fields'])
 
     def test__update_content__bad_args__error(self):
         "AsiaqDataPipeline.update_content with bad argument combinations fails"
@@ -519,18 +560,19 @@ class PipelineUtilityTest(TestCase):
         for expected_attr in expected:
             self.assertIn(expected_attr, attrs_found)
 
-    def test__add_log_location_param__no_default__error(self):
-        "add_log_location_param: invalid input produces an exception"
+    def test__add_default_object_fields__no_default__error(self):
+        "add_default_object_fields: invalid input produces an exception"
         object_list = [
             {'id': 'foo', 'name': 'bar', 'fields': []}, {'id': 'bar', 'name': 'baz', 'fields': []}
         ]
+        added_fields = {'pipelineLogUri': self.FAKE_S3_URL}
         backup_list = copy.deepcopy(object_list)
         self.assertRaises(asiaq_exceptions.DataPipelineFormatException,
-                          add_log_location_param, object_list, self.FAKE_S3_URL)
+                          add_default_object_fields, object_list, added_fields)
         self.assertEquals(backup_list, object_list)
 
-    def test__add_log_location_param__existing_value__update(self):
-        "add_log_location_param: existing log location gets updated"
+    def test__add_default_object_fields__existing_value__update(self):
+        "add_default_object_fields: existing log location gets updated"
         object_list = [
             {'id': 'foo', 'name': 'bar', 'fields': []},
             {'id': 'Default', 'name': 'Deffy', 'fields': [
@@ -539,13 +581,14 @@ class PipelineUtilityTest(TestCase):
             ]},
             {'id': 'bar', 'name': 'baz', 'fields': []}
         ]
+        added_fields = {'pipelineLogUri': self.FAKE_S3_URL}
         backup_list = copy.deepcopy(object_list)
-        add_log_location_param(object_list, self.FAKE_S3_URL)
+        add_default_object_fields(object_list, added_fields)
         self.assertNotEquals(backup_list, object_list)
         self.assertEquals(self.FAKE_S3_URL, object_list[1]['fields'][0]['stringValue'])
 
-    def test__add_log_location_param__no_value__insert(self):
-        "add_log_location_param: missing log location gets inserted"
+    def test__add_default_object_fields__no_value__insert(self):
+        "add_default_object_fields: missing log location gets inserted"
         object_list = [
             {'id': 'foo', 'name': 'bar', 'fields': []},
             {'id': 'Default', 'name': 'Deffy', 'fields': [
@@ -553,7 +596,27 @@ class PipelineUtilityTest(TestCase):
             ]},
             {'id': 'bar', 'name': 'baz', 'fields': []}
         ]
+        added_fields = {'fakeParam': self.FAKE_S3_URL}
         backup_list = copy.deepcopy(object_list)
-        add_log_location_param(object_list, self.FAKE_S3_URL)
+        add_default_object_fields(object_list, added_fields)
         self.assertNotEquals(backup_list, object_list)
+        self.assertEquals('fakeParam', object_list[1]['fields'][1]['key'])
         self.assertEquals(self.FAKE_S3_URL, object_list[1]['fields'][1]['stringValue'])
+
+    def test__add_default_object_fields__new_and_existing_values__insert_and_update(self):
+        "add_default_object_fields: existing log location gets updated, new field gets added"
+        default_fields = [
+            {'key': 'pipelineLogUri', 'stringValue': 's3://stupid-bucket'},
+            {'key': 'scheduleType', 'refValue': 'DailySchedule'}
+        ]
+        object_list = [
+            {'id': 'foo', 'name': 'bar', 'fields': []},
+            {'id': 'Default', 'name': 'Deffy', 'fields': default_fields},
+            {'id': 'bar', 'name': 'baz', 'fields': []}
+        ]
+        added_fields = {'pipelineLogUri': self.FAKE_S3_URL, 'newThing': 'newValue'}
+        backup_list = copy.deepcopy(object_list)
+        add_default_object_fields(object_list, added_fields)
+        self.assertNotEquals(backup_list, object_list)
+        self.assertEquals(self.FAKE_S3_URL, default_fields[0]['stringValue'])
+        self.assertEquals('newValue', default_fields[2]['stringValue'])

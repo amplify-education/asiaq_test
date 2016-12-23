@@ -19,6 +19,8 @@ _LOG = getLogger(__name__)
 class DataPipelineConsts(object):
     """Constants for data pipeline management."""
     TEMPLATE_DIR = "datapipeline_templates"
+    LOG_LOCATION_FIELD = "pipelineLogUri"
+    SUBNET_ID_FIELD = 'subnetId'
 
 
 class AsiaqDataPipeline(object):
@@ -51,7 +53,7 @@ class AsiaqDataPipeline(object):
         return _optional_list_to_dict(self._param_values)
 
     def update_content(self, contents=None, parameter_definitions=None, param_values=None,
-                       template_name=None, log_location=None):
+                       template_name=None, log_location=None, subnet_id=None):
         """
         Set the pipeline content (pipeline nodes, parameters and values) for this pipeline.
 
@@ -60,16 +62,19 @@ class AsiaqDataPipeline(object):
         if (not contents and not template_name) or (contents and template_name):
             raise ProgrammerError("Either pipeline content or a template (not both!) must be specified")
         if template_name:
-            contents, parameter_definitions = _read_template(template_name, log_location)
+            contents, parameter_definitions = _read_template(template_name)
+        _update_defaults(contents, log_location, subnet_id)
         self._objects = contents
         self._params = parameter_definitions
-        if param_values:
+        if param_values is not None:
             self._param_values = _optional_dict_to_list(param_values)
 
     @classmethod
-    def from_template(cls, template_name, name, description, tags=None, param_values=None, log_location=None):
+    def from_template(cls, template_name, name, description, tags=None, param_values=None,
+                      log_location=None, subnet_id=None):
         """Create a new AsiaqDataPipeline object, populated from template in the configuration directory."""
-        boto_objects, boto_parameters = _read_template(template_name, log_location)
+        boto_objects, boto_parameters = _read_template(template_name)
+        _update_defaults(boto_objects, log_location, subnet_id)
         return cls(contents=boto_objects, parameter_definitions=boto_parameters,
                    name=name, description=description, tags=tags, param_values=param_values)
 
@@ -250,15 +255,6 @@ def template_to_boto(template_json):
     return (boto3_objects, boto3_params)
 
 
-def add_log_location_param(boto_objects, log_location):
-    """
-    Silly-looking utility function to traverse a pipeline template, find the place where we want
-    to insert the URI for logs to be written, and insert it there.  Abstracted out to keep it from
-    cluttering up more interesting code.
-    """
-    add_default_object_fields(boto_objects, {'pipelineLogUri': log_location})
-
-
 def add_default_object_fields(boto_objects, field_values):
     """
     Silly-looking utility function to traverse a pipeline template, find the place where we want
@@ -271,7 +267,6 @@ def add_default_object_fields(boto_objects, field_values):
     for pipeline_obj in boto_objects:
         if pipeline_obj['id'] == 'Default':
             default_found = True
-            log_setting_found = False
             for field in pipeline_obj['fields']:
                 field_key = field['key']
                 if field_key in field_values:
@@ -322,7 +317,7 @@ def _optional_list_to_dict(dict_list, key_string='id', value_string='stringValue
     return value_dict
 
 
-def _read_template(template_name, log_location):
+def _read_template(template_name):
     """
     Open a template file, read the definition, and translate it into the format expected by boto.
     If log_location is supplied, insert it into the template definition before returning it.
@@ -330,6 +325,14 @@ def _read_template(template_name, log_location):
     with open_normalized(DataPipelineConsts.TEMPLATE_DIR, template_name + ".json") as f:
         template_data = json.load(f)
     boto_objects, boto_params = template_to_boto(template_data)
-    if log_location:
-        add_log_location_param(boto_objects, log_location)
     return boto_objects, boto_params
+
+
+def _update_defaults(pipeline_objects, log_location=None, subnet_id=None):
+    new_fields = {}
+    if log_location:
+        new_fields[DataPipelineConsts.LOG_LOCATION_FIELD] = log_location
+    if subnet_id:
+        new_fields[DataPipelineConsts.SUBNET_ID_FIELD] = subnet_id
+    if new_fields:
+        add_default_object_fields(pipeline_objects, new_fields)
