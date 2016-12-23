@@ -54,6 +54,8 @@ class AsiaqDataPipeline(object):
                        template_name=None, log_location=None):
         """
         Set the pipeline content (pipeline nodes, parameters and values) for this pipeline.
+
+        If param_values is not passed in, existing values will be left untouched.
         """
         if (not contents and not template_name) or (contents and template_name):
             raise ProgrammerError("Either pipeline content or a template (not both!) must be specified")
@@ -61,7 +63,8 @@ class AsiaqDataPipeline(object):
             contents, parameter_definitions = _read_template(template_name, log_location)
         self._objects = contents
         self._params = parameter_definitions
-        self._param_values = _optional_dict_to_list(param_values)
+        if param_values:
+            self._param_values = _optional_dict_to_list(param_values)
 
     @classmethod
     def from_template(cls, template_name, name, description, tags=None, param_values=None, log_location=None):
@@ -154,12 +157,20 @@ class AsiaqDataPipelineManager(object):
             for meta in descriptions
         ]
 
-    def start(self, pipeline, params=None):
-        "Activate the pipeline in AWS."
+    def start(self, pipeline, params=None, start_time=None):
+        """
+        Activate the pipeline in AWS.
+        Optional Parameters:
+            params: a dictionary or list of parameter values to pass in at activation time (default: none)
+            start_time: the time at which to activate, as a datetime object (default: now)
+        """
         if not pipeline.is_persisted():
             raise DataPipelineStateException("Pipeline must be saved before it can be activated")
+        if not start_time:
+            start_time = datetime.utcnow()
         param_values = _optional_dict_to_list(params) or pipeline._param_values
-        return self._dp_client.activate_pipeline(pipelineId=pipeline._id, startTimestamp=datetime.utcnow(),
+        return self._dp_client.activate_pipeline(pipelineId=pipeline._id,
+                                                 startTimestamp=start_time,
                                                  parameterValues=param_values)
 
     def stop(self, pipeline):
@@ -174,7 +185,8 @@ class AsiaqDataPipelineManager(object):
             raise DataPipelineStateException("Pipeline must be saved before it can be deleted (but...)")
         self._dp_client.delete_pipeline(pipelineId=pipeline._id)
 
-    def fetch_or_create(self, template_name, pipeline_name, pipeline_description, tags, log_location):
+    def fetch_or_create(self, template_name, pipeline_name, pipeline_description, tags, log_location,
+                        force_update=False):
         """
         If a pipeline with the given tags exists, return it; if not, create one with the given tags
         and name based on the provided pipeline, save it, and return it.
@@ -186,7 +198,11 @@ class AsiaqDataPipelineManager(object):
                     "Expected one pipeline with tags %s, found %s" % (tags, len(searched)))
             pipeline = searched[0]
             _LOG.info("Found existing pipeline %s", pipeline._id)
-            self.fetch_content(pipeline)
+            if force_update:
+                pipeline.update_content(template_name=template_name, log_location=log_location)
+                self.save(pipeline)
+            else:
+                self.fetch_content(pipeline)
         else:
             pipeline = AsiaqDataPipeline.from_template(
                 template_name, pipeline_name, description=pipeline_description,
@@ -240,18 +256,33 @@ def add_log_location_param(boto_objects, log_location):
     to insert the URI for logs to be written, and insert it there.  Abstracted out to keep it from
     cluttering up more interesting code.
     """
+    add_default_object_fields(boto_objects, {'pipelineLogUri': log_location})
+
+
+def add_default_object_fields(boto_objects, field_values):
+    """
+    Silly-looking utility function to traverse a pipeline template, find the place where we want
+    to insert default values (e.g. the URI for logs to be written, the subnetId to run instances,
+    or roles to run under), and insert it there.  Abstracted out to keep it from cluttering up
+    more interesting code.
+    """
     default_found = False
+    field_found = {}
     for pipeline_obj in boto_objects:
         if pipeline_obj['id'] == 'Default':
             default_found = True
             log_setting_found = False
             for field in pipeline_obj['fields']:
-                if field['key'] == 'pipelineLogUri':
-                    log_setting_found = True
-                    _LOG.debug("Updating existing log bucket %s to %s", field['stringValue'], log_location)
-                    field['stringValue'] = log_location
-            if not log_setting_found:
-                pipeline_obj['fields'].append({'key': 'pipelineLogUri', 'stringValue': log_location})
+                field_key = field['key']
+                if field_key in field_values:
+                    new_value = field_values[field_key]
+                    field_found[field_key] = True
+                    _LOG.debug("Updating existing default for '%s' from %s to %s",
+                               field_key, field['stringValue'], new_value)
+                    field['stringValue'] = new_value
+            for field_key, new_value in field_values.items():
+                if field_key not in field_found:
+                    pipeline_obj['fields'].append({'key': field_key, 'stringValue': new_value})
             break
     if not default_found:
         raise DataPipelineFormatException(

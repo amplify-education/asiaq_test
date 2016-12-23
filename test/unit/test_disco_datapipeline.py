@@ -4,7 +4,7 @@ import copy
 from unittest import TestCase
 
 import boto3
-from mock import Mock, MagicMock
+from mock import Mock, MagicMock, patch
 
 from disco_aws_automation.disco_datapipeline import (
     AsiaqDataPipeline, AsiaqDataPipelineManager, template_to_boto, add_log_location_param)
@@ -89,6 +89,28 @@ class DataPipelineTest(TestCase):
         self.assertIs(pipeline._objects, pipeline_objects)
         self.assertIs(pipeline._params, param_defs)
         self.assertIsNone(pipeline._param_values)
+
+    def test__update_content__new_and_old_values__values_updated(self):
+        "AsiaqDataPipeline.update_content overwrites parameter values when appropriate"
+        orig_values = {'this': 'will', 'be': 'overwritten'}
+        pipeline = AsiaqDataPipeline(name="asdf", description="qwerty", param_values=orig_values)
+        new_values = {'foo': 'bar', 'baz': '1'}
+        pipeline_objects = Mock()
+        param_defs = Mock()
+        pipeline.update_content(pipeline_objects, param_defs, new_values)
+        self.assertEquals([{'id': 'foo', 'stringValue': 'bar'}, {'id': 'baz', 'stringValue': '1'}],
+                          pipeline._param_values)
+
+    def test__update_content__old_values_not_new_ones__values_unchanged(self):
+        "AsiaqDataPipeline.update_content does not overwrite parameter values when not appropriate"
+        orig_values = {'this': 'will not', 'be': 'overwritten'}
+        pipeline = AsiaqDataPipeline(name="asdf", description="qwerty", param_values=orig_values)
+        pipeline_objects = Mock()
+        param_defs = Mock()
+        pipeline.update_content(pipeline_objects, param_defs)
+        self.assertEquals([{'id': 'this', 'stringValue': 'will not'}, {'id':'be', 'stringValue': 'overwritten'}],
+                          pipeline._param_values)
+
 
     def test__update_content__dict_values__content_updated(self):
         "AsiaqDataPipeline.update_content with silly dictionary parameter values"
@@ -367,6 +389,24 @@ class DataPipelineManagerTest(TestCase):
         self.assertIn({'id': 'foo', 'stringValue': 'bar'}, activate_args['parameterValues'])
         self.assertIn({'id': 'qwerty', 'stringValue': 'asdf'}, activate_args['parameterValues'])
         self.assertIn('startTimestamp', activate_args)
+
+    @patch('disco_aws_automation.disco_datapipeline.datetime')
+    def test__start__no_time_given__utcnow_called(self, datetime):
+        "AsiaqDataPipelineManager.start with no start time uses utcnow"
+        fake_now = Mock()
+        datetime.utcnow = Mock(return_value=fake_now)
+        self.mgr.start(self._persisted_pipeline())
+        self.assertEquals(1, self.mock_client.activate_pipeline.call_count)
+        activate_args = self.mock_client.activate_pipeline.call_args[1]
+        self.assertEquals(fake_now, activate_args['startTimestamp'])
+
+    def test__start__time_passed__time_used(self):
+        "AsiaqDataPipelineManager.start with passed-in start time uses passed-in value"
+        start_time = Mock()
+        self.mgr.start(self._persisted_pipeline(), start_time=start_time)
+        self.assertEquals(1, self.mock_client.activate_pipeline.call_count)
+        activate_args = self.mock_client.activate_pipeline.call_args[1]
+        self.assertEquals(start_time, activate_args['startTimestamp'])
 
     def test__stop__unpersisted__error(self):
         "AsiaqDataPipelineManager.stop with a detached object: error"
