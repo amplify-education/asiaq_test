@@ -609,9 +609,9 @@ class DiscoVPC(object):
         # If DHCP options didn't get created correctly during VPC creation, what we have here
         # could be the default DHCP options, which cannot be deleted. We need to check the tag
         # to make sure we are deleting the one that belongs to the VPC.
-        if len(dhcp_options) > 0:
+        if len(dhcp_options) > 0 and dhcp_options[0].get('Tags'):
             tags = tag2dict(dhcp_options[0]['Tags'])
-            if tags['Name'] == self.environment_name:
+            if tags.get('Name') == self.environment_name:
                 throttled_call(self.boto3_ec2.delete_dhcp_options, DhcpOptionsId=dhcp_options_id)
 
     @staticmethod
