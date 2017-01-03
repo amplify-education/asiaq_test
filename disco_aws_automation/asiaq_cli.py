@@ -7,6 +7,7 @@ import os
 from logging import getLogger
 
 import boto3
+import pytz
 
 from . import DiscoVPC, DiscoAWS
 from .disco_aws_util import read_pipeline_file, graceful
@@ -169,7 +170,16 @@ class DataPipelineCommand(CliCommand):
         subsub = parser.add_subparsers(title="data pipeline commands", dest="dp_command")
         list_parser = subsub.add_parser("list", help="List available pipelines")
         list_parser.add_argument("--pipeline-name", dest="search_name", help="Find pipelines with this name.")
-        list_parser.add_argument("--all-envs", dest="ignore_env", action='store_const', const=True)
+        list_parser.add_argument("--all-envs", dest="ignore_env", action='store_true',
+                                 help="List pipelines in any (or no) environment.")
+        list_parser.add_argument("--health", action='store_true', help="Print pipeline health status.")
+        list_parser.add_argument("--state", action='store_true', help="Print pipeline readiness state.")
+        list_parser.add_argument("--create-date", action='store_true',
+                                 help="Print last creation date for this pipeline.")
+        list_parser.add_argument("--last-run", action='store_true',
+                                 help="Print last start date for this pipeline.")
+        list_parser.add_argument("--desc", action='store_true', help="Print pipeline descriptions.")
+
         delete_parser = subsub.add_parser("delete", help="Delete an existing pipeline")
         delete_parser.add_argument("pipeline_id", help="AWS ID of the pipeline to delete")
 
@@ -186,8 +196,22 @@ class DataPipelineCommand(CliCommand):
         if not self.args.ignore_env:
             tags['environment'] = self.config.environment
         found = mgr.search_descriptions(name=self.args.search_name, tags=tags)
+        tzname = self.config.get_asiaq_option("user_timezone", default="US/Eastern", required=False)
+        user_tz = pytz.timezone(tzname)
         for record in found:
-            print "%s\t%s\t%s" % (record._id, record._name, record._description or "")
+            output = [record._id, record._name]
+            if self.args.health:
+                output.append(record.health)
+            if self.args.state:
+                output.append(record.pipeline_state)
+            if self.args.create_date:
+                output.append(record.create_date.astimezone(user_tz).isoformat())
+            if self.args.last_run:
+                output.append(record.last_run.astimezone(user_tz).isoformat())
+            if self.args.desc:
+                output.append(record._description or "")
+
+            print "\t".join(output)
 
     def _delete(self, mgr):
         pipeline = mgr.fetch(self.args.pipeline_id)

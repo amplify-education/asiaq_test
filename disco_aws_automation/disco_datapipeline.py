@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 from logging import getLogger
 
+from pytz import utc
 import boto3
 
 from .disco_config import open_normalized
@@ -24,6 +25,15 @@ class DataPipelineConsts(object):
     TEMPLATE_DIR = "datapipeline_templates"
     LOG_LOCATION_FIELD = "pipelineLogUri"
     SUBNET_ID_FIELD = 'subnetId'
+
+
+class DataPipelineMetadata(object):
+    """Constants for data pipeline metadata field names in AWS."""
+    HEALTH = '@healthStatus'
+    STATE = '@pipelineState'
+    LAST_RUN = '@latestRunTime'
+    INITIAL_ACTIVATION = '@firstActivationTime'
+    CREATION = '@creationTime'
 
 
 class AsiaqDataPipeline(object):
@@ -46,6 +56,26 @@ class AsiaqDataPipeline(object):
     def has_content(self):
         "Return true if this pipeline has actual pipeline objects, false if it is only metadata."
         return self._objects is not None
+
+    @property
+    def last_run(self):
+        "Return a UTC datetime for the last time this pipeline was run (and if it fails...?)"
+        return self._date_metadata_field(DataPipelineMetadata.LAST_RUN)
+
+    @property
+    def health(self):
+        """Return the health code (e.g. "HEALTHY", we hope) for this pipeline."""
+        return self._metadata_field(DataPipelineMetadata.HEALTH)
+
+    @property
+    def pipeline_state(self):
+        """Return the state code (e.g. "SCHEDULED") for this pipeline."""
+        return self._metadata_field(DataPipelineMetadata.STATE)
+
+    @property
+    def create_date(self):
+        "Return a UTC datetime for the creation date of this pipeline."
+        return self._date_metadata_field(DataPipelineMetadata.CREATION)
 
     def get_tag_dict(self):
         "Retrieve tags as a dictionary."
@@ -71,6 +101,20 @@ class AsiaqDataPipeline(object):
         self._params = parameter_definitions
         if param_values is not None:
             self._param_values = _optional_dict_to_list(param_values)
+
+    def _metadata_field(self, field_name):
+        if not self._metadata:
+            raise DataPipelineStateException("No metadata fields found on pipeline '%s'" % self._name)
+        for field_definition in self._metadata:
+            if field_definition['key'] == field_name:
+                return field_definition['stringValue']
+        raise DataPipelineStateException("Field '%s' was not found in pipeline '%s'"
+                                         % (field_name, self._name))
+
+    def _date_metadata_field(self, field_name, with_timezone=True):
+        timestamp = self._metadata_field(field_name)
+        parsed = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S')
+        return parsed.replace(tzinfo=utc) if with_timezone else parsed
 
     @classmethod
     def from_template(cls, template_name, name, description, tags=None, param_values=None,
