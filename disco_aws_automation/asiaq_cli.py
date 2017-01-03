@@ -201,13 +201,14 @@ class DataPipelineCommand(CliCommand):
         for record in found:
             output = [record._id, record._name]
             if self.args.health:
-                output.append(record.health)
+                output.append(record.health or "N/A")
             if self.args.state:
                 output.append(record.pipeline_state)
             if self.args.create_date:
                 output.append(record.create_date.astimezone(user_tz).isoformat())
             if self.args.last_run:
-                output.append(record.last_run.astimezone(user_tz).isoformat())
+                last_run = record.last_run
+                output.append(last_run.astimezone(user_tz).isoformat() if last_run else "NEVER")
             if self.args.desc:
                 output.append(record._description or "")
 

@@ -60,12 +60,18 @@ class AsiaqDataPipeline(object):
     @property
     def last_run(self):
         "Return a UTC datetime for the last time this pipeline was run (and if it fails...?)"
-        return self._date_metadata_field(DataPipelineMetadata.LAST_RUN)
+        try:
+            return self._date_metadata_field(DataPipelineMetadata.LAST_RUN)
+        except KeyError:
+            return None
 
     @property
     def health(self):
         """Return the health code (e.g. "HEALTHY", we hope) for this pipeline."""
-        return self._metadata_field(DataPipelineMetadata.HEALTH)
+        try:
+            return self._metadata_field(DataPipelineMetadata.HEALTH)
+        except KeyError:
+            return None
 
     @property
     def pipeline_state(self):
@@ -108,8 +114,7 @@ class AsiaqDataPipeline(object):
         for field_definition in self._metadata:
             if field_definition['key'] == field_name:
                 return field_definition['stringValue']
-        raise DataPipelineStateException("Field '%s' was not found in pipeline '%s'"
-                                         % (field_name, self._name))
+        raise KeyError("Field '%s' was not found in pipeline '%s'" % (field_name, self._name))
 
     def _date_metadata_field(self, field_name, with_timezone=True):
         timestamp = self._metadata_field(field_name)
