@@ -55,6 +55,66 @@ class DataPipelineTest(TestCase):
             tags=[{'key': 'template', 'stringValue': 'conflict'}])
         self.assertRaises(asiaq_exceptions.DataPipelineFormatException, pipeline.get_tag_dict)
 
+    def test__last_run__no_metadata__state_exception(self):
+        "AsiaqDataPipeline.last_run fails appropriately when no metadata is set"
+        pipeline = AsiaqDataPipeline("TEST", "TESTY")
+        with self.assertRaises(asiaq_exceptions.DataPipelineStateException):
+            _ = pipeline.last_run
+
+    def test__last_run__no_field__none_returned(self):
+        "AsiaqDataPipeline.last_run is None when metadata does not include last-run"
+        pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[{'key': '@foo', 'stringValue': 'bar'}])
+        self.assertIsNone(pipeline.last_run)
+
+    def test__last_run__valid_date__datetime_returned(self):
+        "AsiaqDataPipeline.last_run is a correct datetime"
+        pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[
+            {'key': '@latestRunTime', 'stringValue': '1978-08-05T08:00:00'}])
+        self.assertEquals(1978, pipeline.last_run.year)
+        self.assertEquals(8, pipeline.last_run.month)
+        self.assertEquals(5, pipeline.last_run.day)
+        self.assertEquals(8, pipeline.last_run.hour)
+        self.assertEquals(0, pipeline.last_run.utcoffset().total_seconds())
+
+    def test__health__no_field__none_returned(self):
+        "AsiaqDataPipeline.health is none if the field is absent"
+        pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[{'key': '@foo', 'stringValue': 'bar'}])
+        self.assertIsNone(pipeline.health)
+
+    def test__health__field_set__value_found(self):
+        "AsiaqDataPipeline.health is found if set"
+        pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[
+            {'key': '@healthStatus', 'stringValue': 'SUPERHEALTHY'}])
+        self.assertEquals('SUPERHEALTHY', pipeline.health)
+
+    def test__pipeline_state__field_absent__exception(self):
+        "AsiaqDataPipeline.pipeline_state causes an exception if not set"
+        pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[{'key': '@foo', 'stringValue': 'bar'}])
+        with self.assertRaises(KeyError):
+            _ = pipeline.pipeline_state
+
+    def test__pipeline_state__field_set__value_found(self):
+        "AsiaqDataPipeline.pipeline_state is found if set"
+        pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[
+            {'key': '@pipelineState', 'stringValue': 'NIFTY'}])
+        self.assertEquals('NIFTY', pipeline.pipeline_state)
+
+    def test__create_date__field_absent__exception(self):
+        "AsiaqDataPipeline.create_date causes an exception if not set"
+        pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[{'key': '@foo', 'stringValue': 'bar'}])
+        with self.assertRaises(KeyError):
+            _ = pipeline.create_date
+
+    def test__create_date__field_set__datetime_found(self):
+        "AsiaqDataPipeline.create_date is a correct datetime"
+        pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[
+            {'key': '@creationTime', 'stringValue': '2008-01-20T17:00:00'}])
+        self.assertEquals(2008, pipeline.create_date.year)
+        self.assertEquals(1, pipeline.create_date.month)
+        self.assertEquals(20, pipeline.create_date.day)
+        self.assertEquals(17, pipeline.create_date.hour)
+        self.assertEquals(0, pipeline.create_date.utcoffset().total_seconds())
+
     def test__get_param_value_dict__duplicate_value__exception(self):
         "AsiaqDataPipeline.get_param_value_dict with a duplicate value definition"
         pipeline = AsiaqDataPipeline(name="asdf", description="qwerty", param_values=[
