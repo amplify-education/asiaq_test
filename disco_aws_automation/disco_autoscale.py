@@ -160,8 +160,9 @@ class DiscoAutoscale(object):
                 throttled_call(group.delete, force_delete=force)
                 logger.info("Deleting group %s", group.name)
                 self.delete_config(group.launch_config_name)
-            except BotoServerError:
-                logger.info("Unable to delete group %s, try force deleting", group.name)
+            except BotoServerError as exc:
+                logger.info("Unable to delete group %s due to: %s. Force delete is set to %s",
+                            group.name, exc.message, force)
 
     def clean_groups(self, force=False):
         '''

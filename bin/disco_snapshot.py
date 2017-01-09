@@ -92,7 +92,8 @@ def run():
 
     aws = DiscoAWS(config, environment_name=environment_name)
     if args.mode == "create":
-        aws.disco_storage.create_ebs_snapshot(args.hostclass, args.size, not args.unencrypted)
+        product_line = aws.hostclass_option_default(args.hostclass, 'product_line', 'unknown')
+        aws.disco_storage.create_ebs_snapshot(args.hostclass, args.size, product_line, not args.unencrypted)
     elif args.mode == "list":
         for snapshot in aws.disco_storage.get_snapshots(args.hostclasses):
             print("{0:26} {1:13} {2:9} {3} {4:4}".format(
