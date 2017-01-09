@@ -515,7 +515,7 @@ class DiscoBake(object):
         amis = self.connection.get_all_images(owners=['self'], filters=filters)
 
         if excluded_amis:
-            amis = [ami for ami in amis if ami.name not in excluded_amis]
+            amis = [ami for ami in amis if ami.id not in excluded_amis]
 
         ami_map = defaultdict(list)
         for ami in amis:
