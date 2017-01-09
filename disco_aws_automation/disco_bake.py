@@ -487,7 +487,8 @@ class DiscoBake(object):
         return self.connection.get_all_images(
             image_ids=image_ids, owners=trusted_accounts, filters=filters)
 
-    def cleanup_amis(self, restrict_hostclass, product_line, stage, min_age, min_count, dry_run):
+    def cleanup_amis(self, restrict_hostclass, product_line, stage, min_age, min_count, dry_run,
+                     excluded_amis):
         """
         Deletes oldest AMIs so long as they are older than min_age and there
         are at least min_count AMIs remaining in the hostclass.
@@ -497,6 +498,8 @@ class DiscoBake(object):
 
         If product_line is not None, then this will only iterate over amis tagged
         with that specific productline.
+
+        If excluded_amis has any items, they are excluded from deletion.
 
         """
         # Pylint complains that this function has one too many local variables.  But deleting any
@@ -510,6 +513,10 @@ class DiscoBake(object):
             filters["tag:productline"] = product_line
 
         amis = self.connection.get_all_images(owners=['self'], filters=filters)
+
+        if excluded_amis:
+            amis = [ami for ami in amis if ami.name not in excluded_amis]
+
         ami_map = defaultdict(list)
         for ami in amis:
             if AMI_NAME_PATTERN.match(ami.name):
