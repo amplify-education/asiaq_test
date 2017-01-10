@@ -28,6 +28,9 @@ def parse_arguments():
                                help='What to call the new environment.')
     parser_create.add_argument('--type', dest='vpc_type', required=True,
                                help='What type of environment to create (as defined in config).')
+    parser_create.add_argument('--skip-enis', dest='skip_enis', action='store_const',
+                               const=True, default=False,
+                               help="Skip pre-allocating ENIs with static IPs used by hostclasses.")
 
     parser_destroy = subparsers.add_parser(
         'destroy', help='Delete environment releasing all non-persistent resources.')
@@ -82,7 +85,7 @@ def create_vpc_command(args):
         print("VPC with same name already exists.")
         sys.exit(1)
     else:
-        vpc = DiscoVPC(args.vpc_name, args.vpc_type)
+        vpc = DiscoVPC(args.vpc_name, args.vpc_type, skip_enis_pre_allocate=args.skip_enis)
         print("VPC {0}({1}) has been created".format(args.vpc_name, vpc.get_vpc_id()))
 
 

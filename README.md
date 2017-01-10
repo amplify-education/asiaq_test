@@ -2257,7 +2257,17 @@ The `update-documents` command also accepts the `--dry-run` flag, which causes t
 
 ### Execution
 
-The mechanism for executing SSM commands is `disco_aws.py exec-ssm`. See the `--help` of that subcommand for usage instructions.
+The mechanism for executing SSM commands is `disco_aws.py exec-ssm`.
+
+Here's an example of executing a document of a hostclass in staging:
+
+`AWS_PROFILE=<YOUR PROD PROFILE NAME> disco_aws.py --env staging exec-ssm --document ifconfig --hostclass mhcbar`
+
+SSM also supports parameters. If the document you are executing supports parameters, you can specify the parameters as key=value pairs with the `--parameters` argument, repeating the `--parameters` argument for every parameter you need to specify. Here's an example:
+
+`disco_aws.py exec-ssm --document run-tests --hostclass mhcfoo --parameter test=loadtest`
+
+For more information, see `disco_aws.py exec-ssm --help` for full usage instructions.
 
 Some important notes about executing SSM documents:
 
