@@ -5,7 +5,7 @@ import unittest
 from mock import MagicMock, patch, PropertyMock, call
 
 from disco_aws_automation import DiscoVPC
-from test.helpers.patch_disco_aws import get_mock_config
+from test.helpers.patch_disco_aws import get_mock_config, get_default_config_dict
 
 
 class DiscoVPCTests(unittest.TestCase):
@@ -215,3 +215,54 @@ class DiscoVPCTests(unittest.TestCase):
         client_mock.associate_dhcp_options.assert_has_calls(
             [call(DhcpOptionsId=local_dict['new_mock_dhcp_options_id'],
                   VpcId=local_dict['mock_vpc_id'])])
+
+    # pylint: disable=unused-argument
+    @patch('disco_aws_automation.disco_vpc.DiscoRDS')
+    @patch('disco_aws_automation.disco_vpc.DiscoVPCEndpoints')
+    @patch('disco_aws_automation.disco_vpc.DiscoSNS')
+    @patch('disco_aws_automation.disco_vpc.DiscoVPCGateways')
+    @patch('time.sleep')
+    @patch('disco_aws_automation.disco_vpc.DiscoVPC.config', new_callable=PropertyMock)
+    @patch('boto3.client')
+    @patch('boto3.resource')
+    @patch('disco_aws_automation.disco_vpc.DiscoMetaNetwork')
+    def test_reserve_hostclass_ip_addresses(self, meta_network_mock, boto3_resource_mock,
+                                            boto3_client_mock, config_mock,
+                                            sleep_mock, gateways_mock, sns_mock, endpoints_mock,
+                                            rds_mock):
+        """Test hostclass IP addresses are being reserved during VPC creation"""
+
+        config_mock.return_value = get_mock_config({
+            'envtype:auto-vpc-type': {
+                'ip_space': '10.0.0.0/24',
+                'vpc_cidr_size': '26',
+                'intranet_cidr': 'auto',
+                'tunnel_cidr': 'auto',
+                'dmz_cidr': 'auto',
+                'maintenance_cidr': 'auto',
+                'ntp_server': '10.0.0.5'
+            }
+        })
+
+        # pylint: disable=C0103
+        def _create_vpc_mock(CidrBlock):
+            return {'Vpc': {'CidrBlock': CidrBlock,
+                            'VpcId': 'mock_vpc_id',
+                            'DhcpOptionsId': 'mock_dhcp_options_id'}}
+
+        client_mock = MagicMock()
+        client_mock.create_vpc.side_effect = _create_vpc_mock
+        client_mock.get_all_zones.return_value = [MagicMock()]
+        client_mock.describe_dhcp_options.return_value = {'DhcpOptions': [MagicMock()]}
+        boto3_client_mock.return_value = client_mock
+        network_mock = MagicMock()
+        meta_network_mock.return_value = network_mock
+
+        DiscoVPC('auto-vpc', 'auto-vpc-type', aws_config=get_mock_config())
+
+        expected_calls = []
+        default_config = get_default_config_dict()
+        for section in default_config:
+            if section.startswith("mhc") and default_config[section].get("ip_address"):
+                expected_calls.append(call(default_config[section].get("ip_address")))
+        network_mock.get_interface.assert_has_calls(expected_calls)
