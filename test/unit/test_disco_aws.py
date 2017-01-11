@@ -366,7 +366,8 @@ class DiscoAWSTests(TestCase):
             tags={
                 'environment': 'unittestenv',
                 'hostclass': 'mhcelb',
-                'is_testing': '0'
+                'is_testing': '0',
+                'productline': 'mock_productline'
             },
             cross_zone_load_balancing=True,
             cert_name=None
@@ -410,7 +411,8 @@ class DiscoAWSTests(TestCase):
             tags={
                 'environment': 'unittestenv',
                 'hostclass': 'mhcelb',
-                'is_testing': '0'
+                'is_testing': '0',
+                'productline': 'mock_productline'
             },
             cross_zone_load_balancing=True,
             cert_name=None
@@ -454,7 +456,8 @@ class DiscoAWSTests(TestCase):
             tags={
                 'environment': 'unittestenv',
                 'hostclass': 'mhcelb',
-                'is_testing': '0'
+                'is_testing': '0',
+                'productline': 'mock_productline'
             },
             cross_zone_load_balancing=True,
             cert_name=None
