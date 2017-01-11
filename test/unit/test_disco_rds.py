@@ -82,7 +82,8 @@ class RDSTests(unittest.TestCase):
                     'allocated_storage': '100',
                     'db_instance_class': 'db.m4.2xlarge',
                     'engine_version': '12.1.0.2.v2',
-                    'master_username': 'foo'
+                    'master_username': 'foo',
+                    'product_line': 'mock_productline'
                 },
                 'some-env-db-name-with-windows': {
                     'engine': 'oracle',
@@ -91,7 +92,8 @@ class RDSTests(unittest.TestCase):
                     'engine_version': '12.1.0.2.v2',
                     'master_username': 'foo',
                     'preferred_backup_window': MOCK_BACKUP_WINDOW,
-                    'preferred_maintenance_window': MOCK_MAINTENANCE_WINDOW
+                    'preferred_maintenance_window': MOCK_MAINTENANCE_WINDOW,
+                    'product_line': 'mock_productline'
                 }
             })
 
@@ -137,7 +139,8 @@ class RDSTests(unittest.TestCase):
                 'allocated_storage': '100',
                 'db_instance_class': 'db.m4.2xlarge',
                 'engine_version': '12.1.0.2.v2',
-                'master_username': 'foo'
+                'master_username': 'foo',
+                'product_line': 'mock_productline'
             },
             'some-env-db-name-with-windows': {
                 'engine': 'oracle',
@@ -146,7 +149,8 @@ class RDSTests(unittest.TestCase):
                 'engine_version': '12.1.0.2.v2',
                 'master_username': 'foo',
                 'preferred_backup_window': MOCK_BACKUP_WINDOW,
-                'preferred_maintenance_window': MOCK_MAINTENANCE_WINDOW
+                'preferred_maintenance_window': MOCK_MAINTENANCE_WINDOW,
+                'product_line': 'mock_productline'
             }
         })
 
@@ -177,7 +181,13 @@ class RDSTests(unittest.TestCase):
             LicenseModel='bring-your-own-license',
             MultiAZ=True,
             Port=1521,
-            PubliclyAccessible=False)
+            PubliclyAccessible=False,
+            Tags=[
+                {'Key': 'environment', 'Value': 'some-env'},
+                {'Key': 'db-name', 'Value': 'db-name'},
+                {'Key': 'productline', 'Value': 'mock_productline'}
+            ]
+        )
 
         self.rds.client.create_db_parameter_group.assert_called_once_with(
             DBParameterGroupName='unittestenv-db-name',
@@ -207,7 +217,8 @@ class RDSTests(unittest.TestCase):
                 'allocated_storage': '100',
                 'db_instance_class': 'db.m4.2xlarge',
                 'engine_version': '12.1.0.2.v2',
-                'master_username': 'foo'
+                'master_username': 'foo',
+                'product_line': 'mock_productline'
             }
         })
 
@@ -266,7 +277,8 @@ class DiscoRDSTests(unittest.TestCase):
                     'allocated_storage': '100',
                     'db_instance_class': 'db.m4.2xlarge',
                     'engine_version': '12.1.0.2.v2',
-                    'master_username': 'foo'
+                    'master_username': 'foo',
+                    'product_line': 'mock_productline'
                 },
                 'some-env-db-name-with-windows': {
                     'engine': 'oracle',
@@ -275,7 +287,8 @@ class DiscoRDSTests(unittest.TestCase):
                     'engine_version': '12.1.0.2.v2',
                     'master_username': 'foo',
                     'preferred_backup_window': MOCK_BACKUP_WINDOW,
-                    'preferred_maintenance_window': MOCK_MAINTENANCE_WINDOW
+                    'preferred_maintenance_window': MOCK_MAINTENANCE_WINDOW,
+                    'product_line': 'mock_productline'
                 }
             })
             self.rds.domain_name = 'example.com'

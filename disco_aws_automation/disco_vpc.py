@@ -5,7 +5,6 @@ environments, and between an environment and the internet.  In particular non-VP
 """
 
 import logging
-import random
 
 import socket
 import time
@@ -13,16 +12,18 @@ from ConfigParser import ConfigParser
 
 from boto.exception import EC2ResponseError
 import boto3
+from botocore.exceptions import ClientError
 
-from netaddr import IPNetwork, IPSet, IPAddress
+from netaddr import IPNetwork, IPAddress
 from netaddr.core import AddrFormatError
 
-from disco_aws_automation.network_helper import calc_subnet_offset
+from disco_aws_automation.network_helper import calc_subnet_offset, get_random_free_subnet
 from .disco_config import normalize_path
 
 from .disco_alarm import DiscoAlarm
 from .disco_alarm_config import DiscoAlarmsConfig
 from .disco_autoscale import DiscoAutoscale
+from .disco_config import read_config
 from .disco_constants import CREDENTIAL_BUCKET_TEMPLATE, NETWORKS, VPC_CONFIG_FILE
 from .disco_elasticache import DiscoElastiCache
 from .disco_elb import DiscoELB
@@ -35,9 +36,7 @@ from .disco_vpc_gateways import DiscoVPCGateways
 from .disco_vpc_peerings import DiscoVPCPeerings
 from .disco_vpc_sg_rules import DiscoVPCSecurityGroupRules
 from .resource_helper import (tag2dict, create_filters, keep_trying, throttled_call)
-from .exceptions import (
-    MultipleVPCsForVPCNameError, VPCConfigError, VPCEnvironmentError,
-    VPCNameNotFound)
+from .exceptions import (IPRangeError, VPCConfigError, VPCEnvironmentError)
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +48,14 @@ class DiscoVPC(object):
     This class contains all our VPC orchestration code
     """
 
-    def __init__(self, environment_name, environment_type, vpc=None, config_file=None, boto3_ec2=None):
+    def __init__(self, environment_name, environment_type, vpc=None,
+                 config_file=None, boto3_ec2=None, defer_creation=False,
+                 aws_config=None, skip_enis_pre_allocate=False):
         self.config_file = config_file or VPC_CONFIG_FILE
 
         self.environment_name = environment_name
         self.environment_type = environment_type
+        self.skip_enis_pre_allocate = skip_enis_pre_allocate
 
         # Lazily initialized
         self._config = None
@@ -61,6 +63,7 @@ class DiscoVPC(object):
         self._networks = None
         self._alarms_config = None
         self._disco_vpc_endpoints = None
+        self._aws_config = aws_config
 
         if boto3_ec2:
             self.boto3_ec2 = boto3_ec2
@@ -71,7 +74,7 @@ class DiscoVPC(object):
         self.elb = DiscoELB(vpc=self)
         self.disco_vpc_sg_rules = DiscoVPCSecurityGroupRules(vpc=self, boto3_ec2=self.boto3_ec2)
         self.disco_vpc_gateways = DiscoVPCGateways(vpc=self, boto3_ec2=self.boto3_ec2)
-        self.disco_vpc_peerings = DiscoVPCPeerings(vpc=self, boto3_ec2=self.boto3_ec2)
+        self.disco_vpc_peerings = DiscoVPCPeerings(boto3_ec2=self.boto3_ec2)
         self.elasticache = DiscoElastiCache(vpc=self)
         self.log_metrics = DiscoLogMetrics(environment=environment_name)
 
@@ -81,8 +84,15 @@ class DiscoVPC(object):
 
         if vpc:
             self.vpc = vpc
-        else:
-            self._create_environment()
+        elif not defer_creation:
+            self.create()
+
+    @property
+    def aws_config(self):
+        "Auto-populate and return an AsiaqConfig for the standard configuration file."
+        if not self._aws_config:
+            self._aws_config = read_config(environment=self.environment_name)
+        return self._aws_config
 
     @property
     def config(self):
@@ -90,7 +100,9 @@ class DiscoVPC(object):
         if not self._config:
             try:
                 config = ConfigParser()
-                config.read(normalize_path(self.config_file))
+                config_file = normalize_path(self.config_file)
+                logger.info("Reading VPC config %s", config_file)
+                config.read(config_file)
                 self._config = config
             except Exception:
                 return None
@@ -241,7 +253,7 @@ class DiscoVPC(object):
         for network_name, cidr in networks.iteritems():
             # pick a random ip range if there isn't one configured for the network in the config
             if cidr == 'auto':
-                cidr = DiscoVPC.get_random_free_subnet(self.vpc['CidrBlock'], meta_network_size, used_cidrs)
+                cidr = get_random_free_subnet(self.vpc['CidrBlock'], meta_network_size, used_cidrs)
 
                 if not cidr:
                     raise VPCConfigError("Can't create metanetwork %s. No subnets available", network_name)
@@ -251,6 +263,28 @@ class DiscoVPC(object):
             used_cidrs.append(cidr)
 
         return metanetworks
+
+    def _reserve_hostclass_ip_addresses(self):
+        """
+        Reserves static ip addresses used by hostclasses by pre-creating the ENIs,
+        so that these IPs won't be occupied by AWS services, such as RDS, ElastiCache, etc.
+        """
+        for hostclass in self.aws_config.get_hostclasses_from_section_names():
+            ip_address = self.aws_config.get_asiaq_option(
+                "ip_address", section=hostclass, required=False)
+            if ip_address:
+                meta_network = self.networks[
+                    self.aws_config.get_asiaq_option("meta_network", section=hostclass)]
+
+                if ip_address.startswith("-") or ip_address.startswith("+"):
+                    try:
+                        ip_address = str(meta_network.ip_by_offset(ip_address))
+                    except IPRangeError as exc:
+                        logger.warn("Failed to reserve IP address (%s) for hostclass (%s) due "
+                                    "to IPRangeError: %s", ip_address, hostclass, exc.message)
+                        continue
+
+                meta_network.get_interface(ip_address)
 
     def find_instance_route_table(self, instance):
         """ Return route tables corresponding to instance """
@@ -305,7 +339,7 @@ class DiscoVPC(object):
                 Filters=[{'Name': 'tag:Name', 'Values': [self.environment_name]}]
             )['DhcpOptions'][0]['DhcpConfigurations']
 
-        except IndexError:
+        except (IndexError, ClientError):
             existing_dhcp_options = []
 
         for option in existing_dhcp_options:
@@ -376,7 +410,7 @@ class DiscoVPC(object):
 
         return created_dhcp_options[0]
 
-    def _create_environment(self):
+    def create(self):
 
         """Create a new disco style environment VPC"""
         vpc_cidr = self.get_config("vpc_cidr")
@@ -393,7 +427,7 @@ class DiscoVPC(object):
             # get the cidr for all other VPCs so we can avoid overlapping with other VPCs
             occupied_network_cidrs = [vpc['cidr_block'] for vpc in self.list_vpcs()]
 
-            vpc_cidr = DiscoVPC.get_random_free_subnet(ip_space, int(vpc_size), occupied_network_cidrs)
+            vpc_cidr = get_random_free_subnet(ip_space, int(vpc_size), occupied_network_cidrs)
 
             if vpc_cidr is None:
                 raise VPCConfigError('Cannot create VPC %s. No subnets available' % self.environment_name)
@@ -416,6 +450,8 @@ class DiscoVPC(object):
                        VpcId=self.vpc['VpcId'], EnableDnsHostnames={'Value': True})
 
         self._networks = self._create_new_meta_networks()
+        if not self.skip_enis_pre_allocate:
+            self._reserve_hostclass_ip_addresses()
 
         self._update_dhcp_options()
 
@@ -424,7 +460,7 @@ class DiscoVPC(object):
         self.disco_vpc_gateways.update_nat_gateways_and_routes()
         self.disco_vpc_endpoints.update()
         self.configure_notifications()
-        self.disco_vpc_peerings.update_peering_connections()
+        self.disco_vpc_peerings.update_peering_connections(self)
         self.rds.update_all_clusters_in_vpc(parallel=True)
 
     def configure_notifications(self, dry_run=False):
@@ -469,7 +505,7 @@ class DiscoVPC(object):
         logger.info("Updating VPC S3 endpoints...")
         self.disco_vpc_endpoints.update(dry_run=dry_run)
         logger.info("Updating VPC peering connections...")
-        self.disco_vpc_peerings.update_peering_connections(dry_run)
+        self.disco_vpc_peerings.update_peering_connections(self, dry_run, delete_extra_connections=True)
         logger.info("Updating alarm notifications...")
         self.configure_notifications(dry_run)
 
@@ -487,7 +523,7 @@ class DiscoVPC(object):
         self.disco_vpc_gateways.destroy_igw_and_detach_vgws()
         self._destroy_interfaces()
         self.disco_vpc_sg_rules.destroy()
-        DiscoVPCPeerings.delete_peerings(self.get_vpc_id())
+        self.disco_vpc_peerings.delete_peerings(self.get_vpc_id())
         self._destroy_subnets()
         self.disco_vpc_endpoints.delete()
         self._destroy_routes()
@@ -573,25 +609,10 @@ class DiscoVPC(object):
         # If DHCP options didn't get created correctly during VPC creation, what we have here
         # could be the default DHCP options, which cannot be deleted. We need to check the tag
         # to make sure we are deleting the one that belongs to the VPC.
-        if len(dhcp_options) > 0:
+        if len(dhcp_options) > 0 and dhcp_options[0].get('Tags'):
             tags = tag2dict(dhcp_options[0]['Tags'])
-            if tags['Name'] == self.environment_name:
+            if tags.get('Name') == self.environment_name:
                 throttled_call(self.boto3_ec2.delete_dhcp_options, DhcpOptionsId=dhcp_options_id)
-
-    @staticmethod
-    def find_vpc_id_by_name(vpc_name):
-        """Find VPC by name"""
-        client = boto3.client('ec2')
-        vpcs = throttled_call(
-            client.describe_vpcs,
-            Filters=create_filters({'tag:Name': [vpc_name]})
-        )['Vpcs']
-        if len(vpcs) == 1:
-            return vpcs[0]['VpcId']
-        elif len(vpcs) == 0:
-            raise VPCNameNotFound("No VPC is named as {}".format(vpc_name))
-        else:
-            raise MultipleVPCsForVPCNameError("More than 1 VPC is named as {}".format(vpc_name))
 
     @staticmethod
     def list_vpcs():
@@ -602,26 +623,3 @@ class DiscoVPC(object):
                  'tags': tag2dict(vpc['Tags'] if 'Tags' in vpc else None),
                  'cidr_block': vpc['CidrBlock']}
                 for vpc in vpcs['Vpcs']]
-
-    @staticmethod
-    def get_random_free_subnet(network_cidr, network_size, occupied_network_cidrs):
-        """
-        Pick a random available subnet from a bigger network
-        Args:
-            network_cidr (str): CIDR string describing a network
-            network_size (int): The number of bits for the CIDR of the subnet
-            occupied_network_cidrs (List[str]): List of CIDR strings describing existing networks
-                                                to avoid overlapping with
-
-        Returns str: The CIDR of a randomly chosen subnet that doesn't intersect with
-                     the ip ranges of any of the given other networks
-        """
-        possible_subnets = IPNetwork(network_cidr).subnet(int(network_size))
-        occupied_networks = [IPSet(IPNetwork(cidr)) for cidr in occupied_network_cidrs]
-
-        # find the subnets that don't overlap with any other networks
-        available_subnets = [subnet for subnet in possible_subnets
-                             if all([IPSet(subnet).isdisjoint(occupied_network)
-                                     for occupied_network in occupied_networks])]
-
-        return random.choice(available_subnets) if available_subnets else None
