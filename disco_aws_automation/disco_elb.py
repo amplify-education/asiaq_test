@@ -6,6 +6,8 @@ import re
 import logging
 import time
 import hashlib
+from itertools import izip_longest
+from collections import namedtuple
 
 import boto3
 import botocore
@@ -14,7 +16,7 @@ from .disco_aws_util import get_tag_value, is_truthy
 from .disco_route53 import DiscoRoute53
 from .disco_acm import DiscoACM
 from .disco_iam import DiscoIAM
-from .exceptions import CommandError, TimeoutError
+from .exceptions import CommandError, AsiaqConfigError, TimeoutError
 from .resource_helper import throttled_call
 from .disco_aws_util import chunker
 
@@ -162,11 +164,23 @@ class DiscoELB(object):
 
     # Pylint thinks this function has too many arguments
     # pylint: disable=R0913, R0914
-    def get_or_create_elb(self, hostclass, security_groups, subnets, hosted_zone_name,
-                          health_check_url, instance_protocols, instance_ports,
-                          elb_protocols, elb_ports, elb_public, sticky_app_cookie,
-                          idle_timeout=None, connection_draining_timeout=None, testing=False, tags=None,
-                          cross_zone_load_balancing=True, cert_name=None):
+    def get_or_create_elb(
+            self,
+            hostclass,
+            security_groups,
+            subnets,
+            hosted_zone_name,
+            health_check_url,
+            port_config,
+            elb_public,
+            sticky_app_cookie,
+            idle_timeout=None,
+            connection_draining_timeout=None,
+            testing=False,
+            tags=None,
+            cross_zone_load_balancing=True,
+            cert_name=None
+    ):
         """
         Returns an elb.
         This updates an existing elb if it exists, otherwise this creates a new elb.
@@ -178,10 +192,7 @@ class DiscoELB(object):
             subnets (List[str]): list of subnets where instances will be in
             hosted_zone_name (str): The name of the Hosted Zone(domain name) to create a subdomain for the ELB
             health_check_url (str): The heartbeat url to use if protocol is HTTP or HTTPS
-            instance_protocols (list): List of protocols used for instance ports (HTTP, HTTPS, SSL or TCP)
-            instance_ports (list): List of ports that services on instances are running on
-            elb_protocols (list): List of protocols to expose. HTTP, HTTPS, SSL or TCP
-            elb_ports (list): List of ports to expose from the load balancer
+            port_config (DiscoELBPortConfig):  The port and protocol configuration for this ELB,
             elb_public (bool): True if the ELB should be internet routable
             sticky_app_cookie (str): The name of a cookie from your service to use for sticky sessions
             idle_timeout (int): time limit (in seconds) that ELB should wait before killing idle connections
@@ -201,34 +212,14 @@ class DiscoELB(object):
         if not elb:
             logger.info("Creating ELB %s", elb_name)
 
-            if len(instance_protocols) != len(instance_ports):
-                raise CommandError(
-                    'The number of instance ports and protocols must match for ELB %s',
-                    elb_name
-                )
-
-            if len(elb_protocols) != len(elb_ports):
-                raise CommandError('The number of ELB ports and protocols must match for ELB %s', elb_name)
-
-            if len(elb_protocols) != len(instance_protocols):
-                raise CommandError(
-                    'The number of ELB and instance protocols must match for ELB %s',
-                    elb_name
-                )
-
             listeners = [
                 {
-                    'Protocol': elb_protocol,
-                    'InstanceProtocol': instance_protocol,
-                    'LoadBalancerPort': elb_port,
-                    'InstancePort': instance_port
+                    'Protocol': mapping.external_protocol,
+                    'InstanceProtocol': mapping.internal_protocol,
+                    'LoadBalancerPort': mapping.external_port,
+                    'InstancePort': mapping.internal_port
                 }
-                for elb_protocol, elb_port, instance_protocol, instance_port in zip(
-                    elb_protocols,
-                    elb_ports,
-                    instance_protocols,
-                    instance_ports
-                )
+                for mapping in port_config.port_mappings
             ]
 
             for listener in listeners:
@@ -259,15 +250,20 @@ class DiscoELB(object):
 
         self.route53.create_record(hosted_zone_name, cname, 'CNAME', elb['DNSName'])
 
-        for protocol, port in zip(instance_protocols, instance_ports):
+        for mapping in port_config.port_mappings:
             self._setup_health_check(
                 elb_id,
                 health_check_url,
-                protocol,
-                port,
+                mapping.internal_protocol,
+                mapping.internal_port,
                 elb_name
             )
-        self._setup_sticky_cookies(elb_id, elb_ports, sticky_app_cookie, elb_name)
+        self._setup_sticky_cookies(
+            elb_id,
+            [mapping.external_port for mapping in port_config.port_mappings],
+            sticky_app_cookie,
+            elb_name
+        )
         self._update_elb_attributes(
             elb_id,
             idle_timeout,
@@ -452,3 +448,90 @@ class DiscoELB(object):
                                                                                                scope,
                                                                                                elb_name,
                                                                                                state))
+
+
+class DiscoELBPortConfig(object):
+    """
+    Store the port and protocol configuration for an ELB
+    """
+    def __init__(self, port_mappings):
+        self.port_mappings = port_mappings
+
+    @classmethod
+    def from_config(cls, disco_aws, hostclass):
+        """
+        Construct a DiscoELBPortConfig instance from configuration
+        """
+        internal_ports_by_protocol = cls._protocols_by_port(disco_aws, hostclass, 'elb_instance')
+        external_ports_by_protocol = cls._protocols_by_port(disco_aws, hostclass, 'elb')
+
+        if len(internal_ports_by_protocol) != len(external_ports_by_protocol):
+            raise AsiaqConfigError(
+                'ELB for hostclass %s must have the same number of internal and external ports' % hostclass
+            )
+
+        return DiscoELBPortConfig(
+            [
+                DiscoELBPortMapping(
+                    internal_port,
+                    internal_protocol,
+                    external_port,
+                    external_protocol
+                )
+                for (internal_port, internal_protocol), (external_port, external_protocol) in zip(
+                    cls._protocols_by_port(disco_aws, hostclass, 'elb_instance'),
+                    cls._protocols_by_port(disco_aws, hostclass, 'elb')
+                )
+            ]
+        )
+
+    @staticmethod
+    def _protocols_by_port(disco_aws, hostclass, config_prefix):
+        def _default_protocol_for_port(port):
+            return {80: 'HTTP', 443: 'HTTPS'}.get(int(port), 'TCP')
+
+        def _default_port_for_protocol(protocol):
+            return {'HTTP': 80, 'HTTPS': 443}[protocol]
+
+        def _zip_with_defaults(x_things, y_things, default_x, default_y):
+            return [
+                (
+                    default_x(y) if x is None else x,
+                    default_y(x) if y is None else y,
+                )
+                for x, y in izip_longest(
+                    x_things,
+                    y_things,
+                    fillvalue=None
+                )
+            ]
+
+        def _list_from_hostclass_option(option):
+            values = disco_aws.hostclass_option_default(hostclass, option, '')
+
+            return values.split(',') if values else []
+
+        ports = [
+            int(port)
+            for port in _list_from_hostclass_option(
+                '%s_port' % config_prefix
+            )
+        ]
+        protocols = _list_from_hostclass_option('%s_protocol' % config_prefix)
+        protocols = [protocol.strip() for protocol in protocols]
+
+        return _zip_with_defaults(
+            ports,
+            protocols,
+            _default_port_for_protocol,
+            _default_protocol_for_port
+        ) or [(80, 'HTTP')]
+
+    def __eq__(self, other):
+        return self.port_mappings == other.port_mappings
+
+
+DiscoELBPortMapping = namedtuple(
+    'DiscoELBPortMapping',
+    ['internal_port', 'internal_protocol', 'external_port', 'external_protocol']
+)

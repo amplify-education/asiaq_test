@@ -2,7 +2,8 @@
 from unittest import TestCase
 from mock import MagicMock
 from moto import mock_elb
-from disco_aws_automation import DiscoELB, CommandError
+from disco_aws_automation import DiscoELB
+from disco_aws_automation.disco_elb import DiscoELBPortConfig, DiscoELBPortMapping
 
 TEST_ENV_NAME = 'unittestenv'
 TEST_HOSTCLASS = 'mhcunit'
@@ -55,16 +56,24 @@ class DiscoELBTests(TestCase):
         mock_describe = MagicMock(return_value={'PolicyDescriptions': sticky_policies})
         self.disco_elb.elb_client.describe_load_balancer_policies = mock_describe
 
+        elb_protocols = ['HTTPS'] if tls else elb_protocols
+        elb_ports = [443] if tls else elb_ports
+
         return self.disco_elb.get_or_create_elb(
             hostclass=hostclass or TEST_HOSTCLASS,
             security_groups=['sec-1'],
             subnets=[],
             hosted_zone_name=TEST_DOMAIN_NAME,
             health_check_url="/",
-            instance_protocols=instance_protocols,
-            instance_ports=instance_ports,
-            elb_protocols=["HTTPS"] if tls else elb_protocols,
-            elb_ports=[443] if tls else elb_ports,
+            port_config=DiscoELBPortConfig(
+                [
+                    DiscoELBPortMapping(internal_port, internal_protocol, external_port, external_protocol)
+                    for (internal_port, internal_protocol), (external_port, external_protocol) in zip(
+                        zip(instance_ports, instance_protocols),
+                        zip(elb_ports, elb_protocols)
+                    )
+                ]
+            ),
             elb_public=public,
             sticky_app_cookie=sticky_app_cookie,
             idle_timeout=idle_timeout,
@@ -286,40 +295,6 @@ class DiscoELBTests(TestCase):
             Subnets=[],
             SecurityGroups=['sec-1'],
             Scheme='internal')
-
-    @mock_elb
-    def test_get_elb_mismatched_ports_protocols(self):
-        """Test that creating an ELB fails when using a different number of ELB ports and protocols"""
-        self.assertRaises(CommandError,
-                          self._create_elb,
-                          elb_protocols=['HTTP', 'HTTPS'],
-                          elb_ports=[80])
-
-    @mock_elb
-    def test_mismatched_instance_ports_protocls(self):
-        """
-        get_or_create_elb raises when given mismatched numbers of instance ports and protocols
-        """
-        with self.assertRaises(CommandError):
-            self._create_elb(
-                instance_protocols=['HTTP', 'HTTPS'],
-                instance_ports=[80],
-                elb_protocols=['HTTP', 'HTTPS'],
-                elb_ports=[80, 443]
-            )
-
-    @mock_elb
-    def test_mismatched_elb_instance(self):
-        """
-        get_or_create_elb raises when given mismatched numbers of ELB and instance protocols
-        """
-        with self.assertRaises(CommandError):
-            self._create_elb(
-                instance_protocols=['HTTP'],
-                instance_ports=[80],
-                elb_protocols=['HTTP', 'HTTPS'],
-                elb_ports=[80, 443]
-            )
 
     @mock_elb
     def test_get_elb_with_idle_timeout(self):
