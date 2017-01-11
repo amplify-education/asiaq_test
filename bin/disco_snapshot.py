@@ -60,8 +60,8 @@ def get_parser():
     parser_take_group.add_argument('--hostclass', dest='hostclasses', default=[], action='append', type=str)
     parser_take_group.add_argument('--ami', dest='amis', default=[], action='append', type=str)
     parser_take_group.add_argument('--volume-id', dest='volume_id', type=str)
-    parser_take_group.add_argument('--disk-usage', dest='disk_usage', required=False, type=str,
-                                   help='A string representing the volume disk usage')
+    parser_take_group.add_argument('--tag', dest='tags', required=False, action='append', type=str,
+                                   help='The key-value pair used to tag the snapshot (example: --tag disk_usage:30MB)')
 
     parser_update = subparsers.add_parser(
         'update', help='Update snapshot used by new instances in a hostclass')
@@ -105,7 +105,8 @@ def run():
         aws.disco_storage.cleanup_ebs_snapshots(args.keep)
     elif args.mode == "capture":
         if args.volume_id:
-            snapshot_id = aws.disco_storage.take_snapshot(args.volume_id, disk_usage=args.disk_usage)
+            extra_snapshot_tags = dict(map(lambda x: x.split(':'), args.tags))
+            snapshot_id = aws.disco_storage.take_snapshot(args.volume_id, snapshot_tags=extra_snapshot_tags)
             print("Successfully created snapshot: {0}".format(snapshot_id))
         else:
             instances = instances_from_args(aws, args)

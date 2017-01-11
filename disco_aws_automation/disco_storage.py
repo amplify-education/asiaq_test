@@ -333,7 +333,7 @@ class DiscoStorage(object):
                 for snapshot in snapshots_to_delete:
                     self.delete_snapshot(snapshot.id)
 
-    def take_snapshot(self, volume_id, disk_usage=None):
+    def take_snapshot(self, volume_id, snapshot_tags=None):
         """Takes a snapshot of an attached volume"""
         volume = self.connection.get_all_volumes(volume_ids=[volume_id])[0]
 
@@ -344,9 +344,9 @@ class DiscoStorage(object):
             tags = {'hostclass': instance.tags['hostclass'],
                     'env': instance.tags['environment'],
                     'productline': instance.tags['productline']}
-            if disk_usage:
-                logger.info("Add disk usage to tags")
-                tags['disk_usage'] = disk_usage
+            if snapshot_tags:
+                logger.info("Update tags list with " + str(snapshot_tags))
+                tags.update(snapshot_tags)
         else:
             raise RuntimeError("The volume specified is not attched to an instance. "
                                "Snapshotting that is not supported.")

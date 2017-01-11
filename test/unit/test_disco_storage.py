@@ -8,9 +8,11 @@ import dateutil.parser as dateparser
 import boto3
 from mock import MagicMock
 from moto import mock_ec2
+import logging
 
 from disco_aws_automation import DiscoStorage
 
+logger = logging.getLogger(__name__)
 
 class DiscoStorageTests(TestCase):
     """Test DiscoStorage class"""
@@ -178,8 +180,9 @@ class DiscoStorageTests(TestCase):
         """Test taking a snapshot of an attached volume and adding the disk_usage as tag"""
         volume_id = self._test_take_snapshot_create_volume()
 
-        snapshot_id = self.storage.take_snapshot(volume_id=volume_id, disk_usage="25Gi")
+        snapshot_id = self.storage.take_snapshot(volume_id=volume_id, snapshot_tags={'disk_usage': '25Gi',
+                                                                                  'new_tag': 'value'})
 
         self._test_take_snapshot_validate_results(snapshot_id, {'env': 'unittestenv', 'hostclass': 'mhcmock',
                                                                 'productline': 'mock_productline',
-                                                                'disk_usage': '25Gi'})
+                                                                'disk_usage': '25Gi', 'new_tag':'value'})
