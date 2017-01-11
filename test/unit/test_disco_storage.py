@@ -169,9 +169,9 @@ class DiscoStorageTests(TestCase):
 
         snapshot_id = self.storage.take_snapshot(volume_id=volume_id)
 
-        self._test_take_snapshot_validate_results(snapshot_id, {'env': 'unittestenv',
-                                              'hostclass': 'mhcmock',
-                                              'productline': 'mock_productline'})
+        self._test_take_snapshot_validate_results(snapshot_id,
+                                                  {'env': 'unittestenv', 'hostclass': 'mhcmock',
+                                                   'productline': 'mock_productline'})
 
     @mock_ec2
     def test_take_snapshot_with_disk_usage(self):
@@ -180,6 +180,6 @@ class DiscoStorageTests(TestCase):
 
         snapshot_id = self.storage.take_snapshot(volume_id=volume_id, disk_usage="25Gi")
 
-        self._test_take_snapshot_validate_results(snapshot_id, {'env': 'unittestenv',
-                                                   'hostclass': 'mhcmock',
-                                                   'productline': 'mock_productline', 'disk_usage': '25Gi'})
+        self._test_take_snapshot_validate_results(snapshot_id, {'env': 'unittestenv', 'hostclass': 'mhcmock',
+                                                                'productline': 'mock_productline',
+                                                                'disk_usage': '25Gi'})
