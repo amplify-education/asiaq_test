@@ -9,6 +9,7 @@ import logging
 import getpass
 import re
 import time
+import uuid
 from os import path
 
 import boto
@@ -198,7 +199,8 @@ class DiscoBake(object):
         Executes an init script that was dropped off by disco_aws_data.
         Hostclass and Hostname are passed in as arguments
         """
-        logger.info("Running remote init script %s.", script)
+        bake_id = uuid.uuid1().hex
+        logger.info("Running remote init script %s with bake_id %s.", script, bake_id)
         script = "{0}/init/{1}".format(self.option("data_destination"), script)
 
         repo = self.repo_instance()
@@ -208,7 +210,7 @@ class DiscoBake(object):
         else:
             repo_ip = self.repo_instance().private_ip_address
 
-        self.remotecmd(instance, [script, hostclass, repo_ip], log_on_error=True, forward_agent=True)
+        self.remotecmd(instance, [script, hostclass, repo_ip, bake_id], log_on_error=True, forward_agent=True)
 
     def ami_stages(self):
         """ Return list of configured ami stages"""
@@ -374,6 +376,7 @@ class DiscoBake(object):
                 hostclass, ami_id=source_ami_id, map_snapshot=False),
             instance_type=self.option("bakery_instance_type"),
             key_name=self.option("bake_key"),
+            instance_profile_name=self.hc_option_default(hostclass, "bake_instance_profile", None),
             network_interfaces=interfaces)
         instance = reservation.instances[0]
         try:
