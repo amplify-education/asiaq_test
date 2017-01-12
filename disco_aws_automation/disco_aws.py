@@ -19,6 +19,7 @@ from .disco_log_metrics import DiscoLogMetrics
 from .disco_elb import DiscoELB
 from .disco_alarm import DiscoAlarm
 from .disco_autoscale import DiscoAutoscale
+from .disco_spotinst import DiscoSpotinst
 from .disco_aws_util import (
     is_truthy,
     size_as_recurrence_map,
@@ -59,7 +60,7 @@ class DiscoAWS(object):
     # Too many arguments, but we want to mock a lot of things out, so...
     # pylint: disable=too-many-arguments
     def __init__(self, config, environment_name=None, boto2_conn=None, vpc=None, remote_exec=None,
-                 storage=None, autoscale=None, elb=None, log_metrics=None, alarms=None):
+                 storage=None, autoscale=None, spotinst=None, elb=None, log_metrics=None, alarms=None):
 
         if not environment_name and not vpc:
             raise ProgrammerError("Either 'vpc' or 'environment_name' must always be specified.")
@@ -74,6 +75,7 @@ class DiscoAWS(object):
         self._disco_remote_exec = remote_exec or None  # lazily initialized
         self._disco_storage = storage or None  # lazily initialized
         self._autoscale = autoscale or None  # lazily initialized
+        self._spotinst = spotinst or None  # lazily initialized
         self._elb = elb or None  # lazily initialized
         self._log_metrics = log_metrics or None  # lazily initialized
         self._alarms = alarms or None  # lazily initialized
@@ -98,6 +100,13 @@ class DiscoAWS(object):
         if not self._autoscale:
             self._autoscale = DiscoAutoscale(environment_name=self.environment_name)
         return self._autoscale
+
+    @property
+    def spotinst(self):
+        """Lazily creates disco spotinst object"""
+        if not self._spotinst:
+            self._spotinst = DiscoSpotinst(environment_name=self.environment_name)
+        return self._spotinst
 
     @property
     def log_metrics(self):
