@@ -16,7 +16,7 @@ from .disco_aws_util import get_tag_value, is_truthy
 from .disco_route53 import DiscoRoute53
 from .disco_acm import DiscoACM
 from .disco_iam import DiscoIAM
-from .exceptions import CommandError, AsiaqConfigError, TimeoutError
+from .exceptions import CommandError, TimeoutError
 from .resource_helper import throttled_call
 from .disco_aws_util import chunker
 
@@ -457,18 +457,27 @@ class DiscoELBPortConfig(object):
     def __init__(self, port_mappings):
         self.port_mappings = port_mappings
 
-    @classmethod
-    def from_config(cls, disco_aws, hostclass):
+    def __eq__(self, other):
+        return self.port_mappings == other.port_mappings
+
+    @staticmethod
+    def from_config(disco_aws, hostclass):
         """
         Construct a DiscoELBPortConfig instance from configuration
         """
-        internal_ports_by_protocol = cls._protocols_by_port(disco_aws, hostclass, 'elb_instance')
-        external_ports_by_protocol = cls._protocols_by_port(disco_aws, hostclass, 'elb')
+        internal_ports_by_protocol = DiscoELBPortConfig._protocols_by_port(
+            disco_aws,
+            hostclass,
+            'elb_instance'
+        )
+        external_ports_by_protocol = DiscoELBPortConfig._protocols_by_port(disco_aws, hostclass, 'elb')
 
-        if len(internal_ports_by_protocol) != len(external_ports_by_protocol):
-            raise AsiaqConfigError(
-                'ELB for hostclass %s must have the same number of internal and external ports' % hostclass
-            )
+        combined = DiscoELBPortConfig._zip_with_defaults(
+            internal_ports_by_protocol,
+            external_ports_by_protocol,
+            lambda x: x,
+            lambda x: x
+        )
 
         return DiscoELBPortConfig(
             [
@@ -478,57 +487,61 @@ class DiscoELBPortConfig(object):
                     external_port,
                     external_protocol
                 )
-                for (internal_port, internal_protocol), (external_port, external_protocol) in zip(
-                    cls._protocols_by_port(disco_aws, hostclass, 'elb_instance'),
-                    cls._protocols_by_port(disco_aws, hostclass, 'elb')
-                )
+                for (internal_port, internal_protocol), (external_port, external_protocol) in combined
             ]
         )
 
     @staticmethod
     def _protocols_by_port(disco_aws, hostclass, config_prefix):
-        def _default_protocol_for_port(port):
-            return {80: 'HTTP', 443: 'HTTPS'}.get(int(port), 'TCP')
-
-        def _default_port_for_protocol(protocol):
-            return {'HTTP': 80, 'HTTPS': 443}[protocol]
-
-        def _zip_with_defaults(x_things, y_things, default_x, default_y):
-            return [
-                (
-                    default_x(y) if x is None else x,
-                    default_y(x) if y is None else y,
-                )
-                for x, y in izip_longest(
-                    x_things,
-                    y_things,
-                    fillvalue=None
-                )
-            ]
-
-        def _list_from_hostclass_option(option):
-            values = disco_aws.hostclass_option_default(hostclass, option, '')
-
-            return values.split(',') if values else []
-
         ports = [
             int(port)
-            for port in _list_from_hostclass_option(
+            for port in DiscoELBPortConfig._list_from_hostclass_option(
+                disco_aws,
+                hostclass,
                 '%s_port' % config_prefix
             )
         ]
-        protocols = _list_from_hostclass_option('%s_protocol' % config_prefix)
+        protocols = DiscoELBPortConfig._list_from_hostclass_option(
+            disco_aws,
+            hostclass,
+            '%s_protocol' % config_prefix
+        )
         protocols = [protocol.strip() for protocol in protocols]
 
-        return _zip_with_defaults(
+        return DiscoELBPortConfig._zip_with_defaults(
             ports,
             protocols,
-            _default_port_for_protocol,
-            _default_protocol_for_port
+            DiscoELBPortConfig._default_port_for_protocol,
+            DiscoELBPortConfig._default_protocol_for_port
         ) or [(80, 'HTTP')]
 
-    def __eq__(self, other):
-        return self.port_mappings == other.port_mappings
+    @staticmethod
+    def _default_protocol_for_port(port):
+        return {80: 'HTTP', 443: 'HTTPS'}.get(int(port), 'TCP')
+
+    @staticmethod
+    def _default_port_for_protocol(protocol):
+        return {'HTTP': 80, 'HTTPS': 443}[protocol]
+
+    @staticmethod
+    def _zip_with_defaults(x_things, y_things, default_x, default_y):
+        return [
+            (
+                default_x(y) if x is None else x,
+                default_y(x) if y is None else y,
+            )
+            for x, y in izip_longest(
+                x_things,
+                y_things,
+                fillvalue=None
+            )
+        ]
+
+    @staticmethod
+    def _list_from_hostclass_option(disco_aws, hostclass, option):
+        values = disco_aws.hostclass_option_default(hostclass, option, '')
+
+        return values.split(',') if values else []
 
 
 DiscoELBPortMapping = namedtuple(
