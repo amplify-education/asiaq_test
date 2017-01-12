@@ -345,7 +345,6 @@ class DiscoStorage(object):
                     'env': instance.tags['environment'],
                     'productline': instance.tags['productline']}
             if snapshot_tags:
-                logger.info("Update tags list with " + str(snapshot_tags))
                 tags.update(snapshot_tags)
         else:
             raise RuntimeError("The volume specified is not attched to an instance. "
