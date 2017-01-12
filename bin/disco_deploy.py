@@ -97,13 +97,13 @@ def run():
             result = deploy.test(dry_run=args["--dry-run"], deployment_strategy=args["--strategy"])
         except Exception:
             result = False
-        sys.exit(1 if result else 0)
+        sys.exit(0 if result else 1)
     elif args["update"]:
         try:
             result = deploy.update(dry_run=args["--dry-run"], deployment_strategy=args["--strategy"])
         except Exception:
             result = False
-        sys.exit(1 if result else 0)
+        sys.exit(0 if result else 1)
     elif args["list"]:
         missing = "-" if len(pipeline_definition) else ""
         if args["--tested"]:
