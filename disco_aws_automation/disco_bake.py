@@ -512,7 +512,7 @@ class DiscoBake(object):
         if product_line:
             filters["tag:productline"] = product_line
 
-        amis = self.connection.get_all_images(owners=['self'], filters=filters)
+        amis = self.get_amis(filters=filters)
 
         if excluded_amis:
             amis = [ami for ami in amis if ami.id not in excluded_amis]
