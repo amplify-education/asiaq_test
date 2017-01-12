@@ -106,7 +106,9 @@ def run():
         aws.disco_storage.cleanup_ebs_snapshots(args.keep)
     elif args.mode == "capture":
         if args.volume_id:
-            extra_snapshot_tags = dict(tag_item.split(':') for tag_item in args.tags)
+            extra_snapshot_tags = None
+            if (args.tags):
+                extra_snapshot_tags = dict(tag_item.split(':') for tag_item in args.tags)
             snapshot_id = aws.disco_storage.take_snapshot(args.volume_id, snapshot_tags=extra_snapshot_tags)
             print("Successfully created snapshot: {0}".format(snapshot_id))
         else:

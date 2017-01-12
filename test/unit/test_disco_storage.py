@@ -128,7 +128,7 @@ class DiscoStorageTests(TestCase):
         self.assertEquals(False, snapshots[0].encrypted)
         self.assertEquals('mock_productline', snapshots[0].tags['productline'])
 
-    def _test_take_snapshot_create_volume(self):
+    def _create_volume(self):
         """Create the volume for the take_snapshot unit tests"""
         client = boto3.client('ec2')
         ec2 = boto3.resource('ec2')
@@ -154,7 +154,7 @@ class DiscoStorageTests(TestCase):
         )
         return volume['VolumeId']
 
-    def _test_take_snapshot_validate_results(self, snapshot_id, tags):
+    def _validate_snapshot_fields(self, snapshot_id, tags):
         """Validate the take_snapshot unit tests"""
         snapshots = self.storage.get_snapshots('mhcmock')
         self.assertEquals(len(snapshots), 1)
@@ -165,22 +165,22 @@ class DiscoStorageTests(TestCase):
     @mock_ec2
     def test_take_snapshot(self):
         """Test taking a snapshot of an attached volume"""
-        volume_id = self._test_take_snapshot_create_volume()
+        volume_id = self._create_volume()
 
         snapshot_id = self.storage.take_snapshot(volume_id=volume_id)
 
-        self._test_take_snapshot_validate_results(snapshot_id,
-                                                  {'env': 'unittestenv', 'hostclass': 'mhcmock',
+        self._validate_snapshot_fields(snapshot_id,
+                                       {'env': 'unittestenv', 'hostclass': 'mhcmock',
                                                    'productline': 'mock_productline'})
 
     @mock_ec2
     def test_take_snapshot_with_disk_usage(self):
         """Test taking a snapshot of an attached volume and adding the disk_usage as tag"""
-        volume_id = self._test_take_snapshot_create_volume()
+        volume_id = self._create_volume()
 
         snapshot_id = self.storage.take_snapshot(volume_id=volume_id, snapshot_tags={'disk_usage': '25Gi',
                                                                                      'new_tag': 'value'})
 
-        self._test_take_snapshot_validate_results(snapshot_id, {'env': 'unittestenv', 'hostclass': 'mhcmock',
+        self._validate_snapshot_fields(snapshot_id, {'env': 'unittestenv', 'hostclass': 'mhcmock',
                                                                 'productline': 'mock_productline',
                                                                 'disk_usage': '25Gi', 'new_tag': 'value'})
