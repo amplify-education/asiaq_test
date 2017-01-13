@@ -171,7 +171,7 @@ class DiscoStorageTests(TestCase):
 
         self._validate_snapshot_fields(snapshot_id,
                                        {'env': 'unittestenv', 'hostclass': 'mhcmock',
-                                                   'productline': 'mock_productline'})
+                                        'productline': 'mock_productline'})
 
     @mock_ec2
     def test_take_snapshot_with_disk_usage(self):
@@ -182,5 +182,5 @@ class DiscoStorageTests(TestCase):
                                                                                      'new_tag': 'value'})
 
         self._validate_snapshot_fields(snapshot_id, {'env': 'unittestenv', 'hostclass': 'mhcmock',
-                                                                'productline': 'mock_productline',
-                                                                'disk_usage': '25Gi', 'new_tag': 'value'})
+                                                     'productline': 'mock_productline',
+                                                     'disk_usage': '25Gi', 'new_tag': 'value'})
