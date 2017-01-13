@@ -482,13 +482,13 @@ class DiscoBake(object):
             amis, key=DiscoBake._ami_sort_key, reverse=True)
         return set(amis_sorted_by_creation_time_desc[max_count:])
 
-    def get_amis(self, image_ids=None, filters=None):
+    def get_amis(self, image_ids=None, filters=None, owners=None):
         """
         Returns images owned by a trusted account (including ourselves)
         """
         trusted_accounts = list(set(self.option_default("trusted_account_ids", "").split()) | set(['self']))
         return self.connection.get_all_images(
-            image_ids=image_ids, owners=trusted_accounts, filters=filters)
+            image_ids=image_ids, owners=owners or trusted_accounts, filters=filters)
 
     def cleanup_amis(self, restrict_hostclass, product_line, stage, min_age, min_count, dry_run,
                      excluded_amis):
@@ -515,7 +515,7 @@ class DiscoBake(object):
         if product_line:
             filters["tag:productline"] = product_line
 
-        amis = self.get_amis(filters=filters)
+        amis = self.get_amis(filters=filters, owners=['self'])
 
         if excluded_amis:
             amis = [ami for ami in amis if ami.id not in excluded_amis]
