@@ -17,17 +17,10 @@ SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group/'
 class DiscoSpotinst(object):
     '''Class orchestrating elastigroups'''
 
-    def __init__(self, environment_name, token, session=None):
+    def __init__(self, environment_name, token=None, session=None):
         self.environment_name = environment_name
         self._token = token or None
-        self._session = session
-
-        # Insert auth token in header
-        self._session.headers.update(
-            {
-              "Authorization": "Bearer {}".format(self._token)
-            }
-        )
+        self._session = session or None
 
     @property
     def token(self):
@@ -42,13 +35,23 @@ class DiscoSpotinst(object):
         }
         '''
         token_file = json.load(open(expanduser('~')+'/.aws/spotinst_api_token'))
-        return token_file['token']
+        if token_file:
+            self._token = token_file['token']
+        return self._token
 
     @property
     def session(self):
         '''Lazily create session object'''
         if not self._session:
             self._session = requests.Session()
+
+        # Insert auth token in header
+        self._session.headers.update(
+            {
+              "Content-Type" : "application/json",
+              "Authorization": "Bearer {}".format(self.token)
+            }
+        )
         return self._session
 
     def get_new_groupname(self, hostclass):
@@ -66,174 +69,56 @@ class DiscoSpotinst(object):
         '''Returns the hostclass when given an elastigroup name'''
         return groupname.split('_')[1]
 
-    def _get_group_generator(self, group_names=None):
+    def _get_group_generator(self):
         '''Yields elastigroups in current environment'''
-        groups = self._session.get(SPOTINST_API).json()['response']['items']
+        groups = self.session.get(SPOTINST_API).json()['response']['items']
         for group in self._filter_by_environment(groups):
             yield group
 
+    def _get_instance_generator(self, instance_ids=None, hostclass=None, group_name=None):
+        '''Yields elastigroup instances in current environment'''
+        pass
+
     def get_instances(self, instance_ids=None, hostclass=None, group_name=None):
-        '''Returns autoscaled instances in the current environment'''
+        '''Returns elastigroup instances in the current environment'''
         return list(self._get_instance_generator(instance_ids=instance_ids, hostclass=hostclass,
                                                  group_name=group_name))
 
-
-    def get_config(self, *args, **kwargs):
-        '''Returns a new launch configuration'''
-        config = boto.ec2.autoscale.launchconfig.LaunchConfiguration(
-            connection=self.connection, *args, **kwargs
-        )
-        throttled_call(self.connection.create_launch_configuration, config)
-        return config
-
-    def delete_config(self, config_name):
-        '''Delete a specific Launch Configuration'''
-        throttled_call(self.connection.delete_launch_configuration, config_name)
-        logger.info("Deleting launch configuration %s", config_name)
-
-    def clean_configs(self):
-        '''Delete unused Launch Configurations in current environment'''
-        logger.info("Cleaning up unused launch configurations in %s", self.environment_name)
-        for config in self._get_config_generator():
-            try:
-                self.delete_config(config.name)
-            except BotoServerError:
-                pass
-
-    def delete_groups(self, hostclass=None, group_name=None, force=False):
-        '''Delete elastigroups, filtering on either hostclass or the group_name.'''
-        groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
-        for group in groups:
-            try:
-                throttled_call(group.delete, force_delete=force)
-                logger.info("Deleting group %s", group.name)
-                self.delete_config(group.launch_config_name)
-            except BotoServerError as exc:
-                logger.info("Unable to delete group %s due to: %s. Force delete is set to %s",
-                            group.name, exc.message, force)
-
-    def clean_groups(self, force=False):
-        '''Delete all elastigroups in the current environment'''
-        self.delete_groups()
-
+    def delete_groups(self, hostclass=None):
+        '''Delete elastigroups, filtering on hostclass.'''
+        groups = self.get_existing_groups(hostclass=hostclass)
+        group_ids = [ group["id"] for group in groups
+                      if hostclass in group["name"] ]
+        for group_id in group_ids:
+            self.session.delete(SPOTINST_API + group)
 
     @staticmethod
-    def create_elastiscale_tags(group_name, tags):
+    def create_elastigroup_tags(tags):
         '''Given a python dictionary return list of elastigroups tags'''
         return [{tagKey: key, tagValue: value} for key, value in tags.iteritems()] if tags else None
 
-    def update_group(self, group, launch_config, vpc_zone_id=None,
-                     min_size=None, max_size=None, desired_size=None,
-                     termination_policies=None, tags=None,
-                     load_balancers=None):
-        '''Update an existing autoscaling group'''
-        group.launch_config_name = launch_config
-        if vpc_zone_id:
-            group.vpc_zone_identifier = vpc_zone_id
-        if min_size is not None:
-            group.min_size = min_size
-        if max_size is not None:
-            group.max_size = max_size
-        if desired_size is not None:
-            group.desired_capacity = desired_size
-        if termination_policies:
-            group.termination_policies = termination_policies
-        throttled_call(group.update)
-        if tags:
-            throttled_call(self.connection.create_or_update_tags,
-                           DiscoAutoscale.create_autoscale_tags(group.name, tags))
-        if load_balancers:
-            self.update_elb(elb_names=load_balancers, group_name=group.name)
-        return group
-
-    def create_group(self, hostclass, launch_config, vpc_zone_id,
-                     min_size=None, max_size=None, desired_size=None,
-                     termination_policies=None, tags=None,
-                     load_balancers=None):
+    def create_group(self, hostclass, group_config, vpc_zone_id, image_id,
+                     min_size=None, max_size=None, desired_size=None, tags=None):
         '''
-        Create an autoscaling group.
-
-        The group must not already exist. Use get_group() instead if you want to update a group if it
-        exits or create it if it does not.
-        '''
-        _min_size = min_size or 0
-        _max_size = max([min_size, max_size, desired_size, 0])
-        _desired_capacity = desired_size or max_size
-        #termination_policies = termination_policies or DEFAULT_TERMINATION_POLICIES
-        group_name = self.get_new_groupname(hostclass)
-        group = boto.ec2.autoscale.group.AutoScalingGroup(
-            connection=self.connection,
-            name=group_name,
-            launch_config=launch_config,
-            #load_balancers=load_balancers,
-            default_cooldown=None,
-            health_check_type=None,
-            health_check_period=None,
-            placement_group=None,
-            vpc_zone_identifier=vpc_zone_id,
-            desired_capacity=_desired_capacity,
-            min_size=_min_size,
-            max_size=_max_size,
-            tags=DiscoAutoscale.create_autoscale_tags(group_name, tags),
-            #termination_policies=termination_policies,
-            instance_id=None)
-        throttled_call(self.connection.create_auto_scaling_group, group)
-        return group
-
-    # pylint: disable=too-many-arguments
-    def get_group(self, hostclass, launch_config, vpc_zone_id=None,
-                  min_size=None, max_size=None, desired_size=None,
-                  termination_policies=None, tags=None,
-                  load_balancers=None, create_if_exists=False,
-                  group_name=None):
-        '''
-        Returns autoscaling group.
-        This updates an existing autoscaling group if it exists,
-        otherwise this creates a new autoscaling group.
-
-        NOTE: Deleting tags is not currently supported.
-        '''
-        # Check if an autoscaling group already exists.
-        existing_group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
-        if create_if_exists or not existing_group:
-            group = self.create_group(
-                hostclass=hostclass, launch_config=launch_config, vpc_zone_id=vpc_zone_id,
-                min_size=min_size, max_size=max_size, desired_size=desired_size,
-                termination_policies=termination_policies, tags=tags, load_balancers=load_balancers)
-        else:
-            group = self.update_group(
-                group=existing_group, launch_config=launch_config,
-                vpc_zone_id=vpc_zone_id, min_size=min_size, max_size=max_size, desired_size=desired_size,
-                termination_policies=termination_policies, tags=tags, load_balancers=load_balancers)
-
-        # Create default scaling policies
-        self.create_policy(
-            group_name=group.name,
-            policy_name='up',
-            policy_type='SimpleScaling',
-            adjustment_type='PercentChangeInCapacity',
-            scaling_adjustment='10',
-            min_adjustment_magnitude='1'
-        )
-        self.create_policy(
-            group_name=group.name,
-            policy_name='down',
-            policy_type='SimpleScaling',
-            adjustment_type='PercentChangeInCapacity',
-            scaling_adjustment='-10',
-            min_adjustment_magnitude='1'
+        Create an elastigroup.'''
+        group_config = self.create_elastigroup_config(
+            group_name = self.get_new_groupname(hostclass),
+            desired_size = desired_size,
+            min_size = min_size,
+            max_size = max_size,
+            image_id = image_id,
+            tags=self.create_elastigroup_tags(tags)
         )
 
-        return group
+        self.session.post(API, json=group_config)
 
-    def get_existing_groups(self, hostclass=None, group_name=None):
+    def get_existing_groups(self, hostclass):
         '''
         Returns all elastigroups for a given hostclass, sorted by most recent creation. If no
-        autoscaling groups can be found, returns an empty list.
+        elastigroup can be found, returns an empty list.
         '''
-        groups = list(self._get_group_generator(group_names=[group_name]))
-        filtered_groups = [group for group in groups
-                           if not hostclass or self.get_hostclass(group.name) == hostclass]
+        groups = list(self._get_group_generator())
+        filtered_groups = [group for group in groups if hostclass in group["name"]]
         filtered_groups.sort(key=lambda group: group["updatedAt"], reverse=True)
         return filtered_groups
 
@@ -256,24 +141,30 @@ class DiscoSpotinst(object):
             raise TooManyAutoscalingGroups("There are too many autoscaling groups for {}.".format(hostclass))
 
     def terminate(self, instance_id, decrement_capacity=True):
-        """
-        Terminates an instance using the autoscaling API.
+        '''
+        Terminate instances using the spotinst API.
+
+        Detaching instances from elastigroup will delete them.
 
         When decrement_capacity is True this allows us to avoid
         autoscaling immediately replacing a terminated instance.
-        """
-        throttled_call(self.connection.terminate_instance,
-                       instance_id, decrement_capacity=decrement_capacity)
+        '''
+        pass
 
     def create_elastigroup_config(
             self,
             group_name,
+            image_id,
+            user_data,
+            account_id,
+            instance_profile_name,
+            tags,
             availabilityVsCost="balanced",
             desired_size=1,
             min_size=1,
             max_size=1,
             spot="m3.medium",
-            keyPair="bake"
+            key_pair="bake"
     ):
         '''
         Creates a new elastigroup configuration. Handles the logic of constructing the correct autoscaling policy request,
@@ -283,7 +174,7 @@ class DiscoSpotinst(object):
         elastigroup_config = { "group": group }
         group = {
             "name": group_name,
-            "description": "Spotinst elastigroup: {}".format(group_name)
+            "description": "Spotinst elastigroup: {}".format(group_name),
             "capacity": capacity,
             "compute": compute
         }
@@ -308,6 +199,21 @@ class DiscoSpotinst(object):
         ]
 
         compute["product"] = "Linux/UNIX"
+        compute["launchSpecification"] = launchSpecification
+
+        launchSpecification = {
+            "securityGroupIds": [ metanetwork_sg ],
+            "monitoring": false,
+            "ebsOptimized": false,
+            "imageId": image_id,
+            "keyPair": key_pair,
+            "userData": b64encode(user_data),
+            "iamRole": {
+                "arn": "arn:aws:iam::{}:instance-profile/{}"
+                .format(account_id, instance_profile_name)
+            },
+            "tags": tags
+        }
 
 
         logger.info(
