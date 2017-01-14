@@ -238,6 +238,7 @@ class DiscoDeploy(object):
         are not replaced by the new AMI.
 
         '''
+        ami_test_failed = False
         hostclass = DiscoBake.ami_hostclass(ami)
 
         if not pipeline_dict:
@@ -249,7 +250,7 @@ class DiscoDeploy(object):
         )
 
         if dry_run:
-            return True
+            return
 
         # Generate the two pipelines we'll need, one with double instance sizing for deployment, and another
         # that has correct instance sizing for the final form of the ASG.
@@ -268,13 +269,13 @@ class DiscoDeploy(object):
 
         self._disco_aws.spinup([new_hostclass_dict], testing=True)
 
-        ami_is_tested = False
         if self.wait_for_smoketests(ami.id, rollback_hostclass_dict["desired_size"]):
             self._promote_ami(ami, "tested")
-            ami_is_tested = True
         else:
             self._promote_ami(ami, "failed")
             rollback_hostclass_dict.pop("ami", None)
+            logger.error("AMI smoke test failed.")
+            ami_test_failed = True
 
         if old_group:
             self._disco_aws.terminate(self._get_new_instances(ami.id), use_autoscaling=True)
@@ -284,7 +285,8 @@ class DiscoDeploy(object):
         else:
             self._disco_autoscale.delete_groups(hostclass=hostclass, force=True)
 
-        return ami_is_tested
+        if ami_test_failed:
+            raise RuntimeError("Smoke test for non-deploy Hostclass %s AMI %s failed", hostclass, ami.id)
 
     def _get_old_instances(self, new_ami_id):
         '''Returns instances of the hostclass of new_ami_id that are not running new_ami_id'''
@@ -339,6 +341,7 @@ class DiscoDeploy(object):
         Deploys AMIs inside the same autoscaling group, and destroys old instances on successful passing,
         otherwise destroys the new instances and rolls back the ASG's configuration.
         '''
+        ami_test_failed = False
         hostclass = DiscoBake.ami_hostclass(ami)
 
         logger.info(
@@ -349,13 +352,13 @@ class DiscoDeploy(object):
         )
 
         if dry_run:
-            return True
+            return
 
         if not pipeline_dict:
             pipeline_dict = {}
 
         if old_group and run_tests and not self.run_integration_tests(ami):
-            raise Exception("Failed pre-test -- not testing AMI {}".format(ami.id))
+            raise RuntimeError("Failed pre-test -- not testing AMI {}".format(ami.id))
 
         # Generate the two pipelines we'll need, one with double instance sizing for deployment, and another
         # that has correct instance sizing for the final form of the ASG.
@@ -383,9 +386,11 @@ class DiscoDeploy(object):
                 # Create scheduled actions on the ASG.
                 self._create_scaling_schedule(pipeline_dict, hostclass=hostclass)
                 self._promote_ami(ami, "tested")
-                return True
+                return
             else:
                 self._promote_ami(ami, "failed")
+                logger.error("AMI smoke test failed.")
+                ami_test_failed = True
         except (MaintenanceModeError, IntegrationTestError):
             logger.exception("Failed to run integration test")
 
@@ -402,7 +407,11 @@ class DiscoDeploy(object):
 
         self._disco_aws.terminate(self._get_new_instances(ami.id), use_autoscaling=True)
         self._disco_aws.spinup([post_hostclass_dict])
-        return False
+
+        if ami_test_failed:
+            raise RuntimeError("Testing of deployable hostclass %s AMI %s failed", hostclass, ami.id)
+
+        raise RuntimeError("Failed to run integration test")
 
     # This method handles blue/green from end to end, so it has a lot of logic in it. We should at some point
     # look at breaking it up a bit and/or the feasibility of that.
@@ -423,7 +432,7 @@ class DiscoDeploy(object):
                     DEPLOYMENT_STRATEGY_BLUE_GREEN)
 
         if dry_run:
-            return True
+            return
 
         # Default pipeline dict to being an empty dictionary so that it works with the generate pipeline
         # functions as well as the scheduled actions functions
@@ -444,7 +453,7 @@ class DiscoDeploy(object):
         except TooManyAutoscalingGroups:
             logger.exception("Too many autoscaling groups exist. Unable to determine which ASG to delete,"
                              "so refusing to do anything. Manual cleanup probably required.")
-            return False
+            raise
         except Exception:
             logger.exception("Spinning up a new autoscaling group failed")
 
@@ -465,7 +474,7 @@ class DiscoDeploy(object):
                 if uses_elb:
                     # Destroy the testing ELB
                     self._disco_elb.delete_elb(hostclass, testing=True)
-            return False
+            raise RuntimeError("Spinning up a new autoscaling group failed")
 
         new_group = self._disco_autoscale.get_existing_group(hostclass=hostclass, throw_on_two_groups=False)
 
@@ -507,7 +516,7 @@ class DiscoDeploy(object):
                             if uses_elb:
                                 # Destroy the testing ELB
                                 self._disco_elb.delete_elb(hostclass, testing=True)
-                            return False
+                            raise
 
                     # Create scheduled actions on the new ASG now that we will likely keep it.
                     self._create_scaling_schedule(pipeline_dict, group_name=new_group.name)
@@ -522,7 +531,7 @@ class DiscoDeploy(object):
                     if uses_elb:
                         # Destroy the testing ELB
                         self._disco_elb.delete_elb(hostclass, testing=True)
-                    return True
+                    return
                 else:
                     # Otherwise, we need to keep the old group and destroy the new one
                     if deployable:
@@ -546,7 +555,9 @@ class DiscoDeploy(object):
 
                     # If deployable was False, return True, otherwise we're here because testing mode broke,
                     # so return False
-                    return not deployable or False
+                    if deployable:
+                        raise RuntimeError(reason)
+                    return
             else:
                 self._promote_ami(ami, "failed")
         except (MaintenanceModeError, IntegrationTestError):
@@ -557,7 +568,11 @@ class DiscoDeploy(object):
         if uses_elb:
             # Destroy the testing ELB
             self._disco_elb.delete_elb(hostclass, testing=True)
-        return False
+        if not smoke_tests:
+            reason = "AMI smoke test failed."
+        else:
+            reason = "AMI integration test failed."
+        raise RuntimeError(reason)
 
     def _create_scaling_schedule(self, pipeline_dict, group_name=None, hostclass=None):
         """ Create scaling schedules from the pipeline dictionary """
@@ -723,28 +738,32 @@ class DiscoDeploy(object):
                 old_group=group,
                 deployable=deployable,
                 run_tests=testable,
-                dry_run=dry_run)
+                dry_run=dry_run
+            )
         elif not deployable:
-            return self.handle_nodeploy_ami(
+            self.handle_nodeploy_ami(
                 ami,
                 pipeline_dict=pipeline_hostclass_dict,
                 dry_run=dry_run,
-                old_group=group)
+                old_group=group
+            )
         elif testable:
-            return self.handle_tested_ami(
+            self.handle_tested_ami(
                 ami,
                 pipeline_dict=pipeline_hostclass_dict,
                 run_tests=True,
                 dry_run=dry_run,
-                old_group=group)
+                old_group=group
+            )
         elif pipeline_hostclass_dict:
-            return self.handle_tested_ami(
+            self.handle_tested_ami(
                 ami,
                 pipeline_dict=pipeline_hostclass_dict,
                 dry_run=dry_run,
-                old_group=group)
+                old_group=group
+            )
         else:
-            return self.handle_nodeploy_ami(
+            self.handle_nodeploy_ami(
                 ami,
                 pipeline_dict=None,
                 dry_run=dry_run,
@@ -756,7 +775,7 @@ class DiscoDeploy(object):
         hostclass = DiscoBake.ami_hostclass(ami)
         pipeline_dict = self._hostclasses.get(hostclass)
         if not pipeline_dict:
-            return False
+            raise RuntimeError("Pipeline Dictionary is not defined.")
 
         group = self._disco_autoscale.get_existing_group(hostclass)
         deployable = self.is_deployable(hostclass)
@@ -771,43 +790,46 @@ class DiscoDeploy(object):
             )
 
         if desired_deployment_strategy == DEPLOYMENT_STRATEGY_BLUE_GREEN:
-            return self.handle_blue_green_ami(
+            self.handle_blue_green_ami(
                 ami,
                 pipeline_dict=pipeline_dict,
                 old_group=group,
                 deployable=deployable,
                 run_tests=testable,
-                dry_run=dry_run)
+                dry_run=dry_run
+            )
         elif not deployable:
-            return self.handle_nodeploy_ami(
+            self.handle_nodeploy_ami(
                 ami,
                 pipeline_dict=pipeline_dict,
                 dry_run=dry_run,
-                old_group=group)
+                old_group=group
+            )
         else:
-            return self.handle_tested_ami(
+            self.handle_tested_ami(
                 ami,
                 pipeline_dict=pipeline_dict,
                 dry_run=dry_run,
-                old_group=group)
+                old_group=group
+            )
 
     def test(self, dry_run=False, deployment_strategy=None):
         '''Tests a single untested AMI and marks it as tested or failed'''
         amis = self.get_test_amis()
         if len(amis):
-            return self.test_ami(random.choice(amis), dry_run, deployment_strategy)
+            self.test_ami(random.choice(amis), dry_run, deployment_strategy)
         else:
             logger.info("No 'untested' AMIs found.")
-            return False
+            raise RuntimeError("No 'untested' AMIs found.")
 
     def update(self, dry_run=False, deployment_strategy=None):
         '''Updates a single autoscaling group with a newer AMI'''
         amis = self.get_update_amis()
         if len(amis):
-            return self.update_ami(random.choice(amis), dry_run, deployment_strategy)
+            self.update_ami(random.choice(amis), dry_run, deployment_strategy)
         else:
             logger.info("No new 'tested' AMIs found.")
-            return False
+            raise RuntimeError("No new 'tested' AMIs found.")
 
     def hostclass_option(self, hostclass, key):
         '''
