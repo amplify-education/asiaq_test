@@ -1474,7 +1474,8 @@ When capturing a new snapshot the following tags are added automatically to the 
 -   `productline` The productline of the associated with the volume
 
 You can also add your own tags using the --tag option.
-For example the following command capture a new snapshot and tag the snapshot using the tag Key "disk_usage" and the tag value 400MB
+For example the following command capture a new snapshot and tag the snapshot
+using the tag Key "disk_usage" and the tag value 400MB
 
     disco_snapshot.py --env production --volume-id vol-001 --tags disk-usage:400MB
 
