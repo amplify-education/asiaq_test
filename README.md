@@ -1477,7 +1477,7 @@ You can also add your own tags using the --tag option.
 For example the following command capture a new snapshot and tag the snapshot
 using the tag Key "disk_usage" and the tag value 400MB
 
-    disco_snapshot.py --env production --volume-id vol-001 --tags disk-usage:400MB
+    disco_snapshot.py --env production --volume-id vol-001 --tag disk-usage:400MB
 
 There is also a create command that allows you to create the initial
 EBS volume snapshot for a hostclass. This initial volume will not be
