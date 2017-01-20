@@ -819,8 +819,7 @@ class DiscoDeploy(object):
         if len(amis):
             self.test_ami(random.choice(amis), dry_run, deployment_strategy)
         else:
-            logger.info("No 'untested' AMIs found.")
-            raise RuntimeError("No 'untested' AMIs found.")
+            logger.error("No 'untested' AMIs found.")
 
     def update(self, dry_run=False, deployment_strategy=None):
         '''Updates a single autoscaling group with a newer AMI'''
@@ -828,8 +827,7 @@ class DiscoDeploy(object):
         if len(amis):
             self.update_ami(random.choice(amis), dry_run, deployment_strategy)
         else:
-            logger.info("No new 'tested' AMIs found.")
-            raise RuntimeError("No new 'tested' AMIs found.")
+            logger.error("No new 'tested' AMIs found.")
 
     def hostclass_option(self, hostclass, key):
         '''
