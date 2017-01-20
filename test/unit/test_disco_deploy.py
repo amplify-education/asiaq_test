@@ -1270,7 +1270,7 @@ class DiscoDeployTests(TestCase):
         '''Test test without amis'''
         self._ci_deploy.get_test_amis = MagicMock(return_value=[])
         self._ci_deploy.test_ami = MagicMock()
-        self.assertRaises(RuntimeError, self._ci_deploy.test)
+        self._ci_deploy.test()
         self.assertEqual(self._ci_deploy.test_ami.call_count, 0)
 
     def test_update_with_amis(self):
@@ -1283,7 +1283,7 @@ class DiscoDeployTests(TestCase):
         '''Test update without amis'''
         self._ci_deploy.get_update_amis = MagicMock(return_value=[])
         self._ci_deploy.update_ami = MagicMock()
-        self.assertRaises(RuntimeError, self._ci_deploy.update)
+        self._ci_deploy.update()
         self.assertEqual(self._ci_deploy.update_ami.call_count, 0)
 
     def test_pending_ami(self):
