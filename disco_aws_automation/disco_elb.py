@@ -110,16 +110,25 @@ class DiscoELB(object):
             hostclass += "-test"
         return hostclass + '-' + self.vpc.environment_name + '.' + domain_name
 
-    def _setup_health_check(self, elb_id, health_check_url, instance_protocol, instance_port,
-                            elb_name):
-        if instance_protocol.upper() in ('HTTP', 'HTTPS'):
+    def _setup_health_check(
+            self,
+            elb_id,
+            health_check_url,
+            port_mapping,
+            elb_name
+    ):
+        if port_mapping.internal_protocol.upper() in ('HTTP', 'HTTPS'):
             if not health_check_url:
                 logger.warning("No health check url configured for ELB %s", elb_name)
                 health_check_url = '/'
         else:
             health_check_url = ''
 
-        target = '{}:{}{}'.format(instance_protocol, instance_port, health_check_url)
+        target = '{}:{}{}'.format(
+            port_mapping.internal_protocol,
+            port_mapping.internal_port,
+            health_check_url
+        )
 
         throttled_call(self.elb_client.configure_health_check,
                        LoadBalancerName=elb_id,
@@ -250,14 +259,25 @@ class DiscoELB(object):
 
         self.route53.create_record(hosted_zone_name, cname, 'CNAME', elb['DNSName'])
 
-        for mapping in port_config.port_mappings:
+        http_mappings = [
+            mapping for mapping in port_config.port_mappings
+            if mapping.internal_protocol in ['HTTP', 'HTTPS']
+        ]
+        if http_mappings:
             self._setup_health_check(
                 elb_id,
                 health_check_url,
-                mapping.internal_protocol,
-                mapping.internal_port,
+                http_mappings[0],
                 elb_name
             )
+        else:
+            self._setup_health_check(
+                elb_id,
+                health_check_url,
+                port_config.port_mappings[0],
+                elb_name
+            )
+
         self._setup_sticky_cookies(
             elb_id,
             [mapping.external_port for mapping in port_config.port_mappings],

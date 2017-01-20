@@ -1,6 +1,6 @@
 """Tests of disco_elb"""
 from unittest import TestCase
-from mock import MagicMock
+from mock import MagicMock, ANY
 from moto import mock_elb
 from disco_aws_automation import DiscoELB
 from disco_aws_automation.disco_elb import DiscoELBPortConfig, DiscoELBPortMapping
@@ -46,12 +46,24 @@ class DiscoELBTests(TestCase):
         self.iam.get_certificate_arn.return_value = TEST_CERTIFICATE_ARN_IAM
 
     # pylint: disable=too-many-arguments, R0914
-    def _create_elb(self, hostclass=TEST_HOSTCLASS, public=False, tls=False,
-                    instance_protocols=('HTTP',), instance_ports=(80,),
-                    elb_protocols=('HTTP',), elb_ports=(80,),
-                    idle_timeout=None, connection_draining_timeout=None,
-                    sticky_app_cookie=None, existing_cookie_policy=None, testing=False,
-                    cross_zone_load_balancing=True, cert_name=None):
+    def _create_elb(
+            self,
+            hostclass=TEST_HOSTCLASS,
+            public=False,
+            tls=False,
+            instance_protocols=('HTTP',),
+            instance_ports=(80,),
+            elb_protocols=('HTTP',),
+            elb_ports=(80,),
+            idle_timeout=None,
+            connection_draining_timeout=None,
+            sticky_app_cookie=None,
+            existing_cookie_policy=None,
+            testing=False,
+            cross_zone_load_balancing=True,
+            cert_name=None,
+            health_check_url='/'
+    ):
         sticky_policies = [existing_cookie_policy] if existing_cookie_policy else []
         mock_describe = MagicMock(return_value={'PolicyDescriptions': sticky_policies})
         self.disco_elb.elb_client.describe_load_balancer_policies = mock_describe
@@ -64,7 +76,7 @@ class DiscoELBTests(TestCase):
             security_groups=['sec-1'],
             subnets=[],
             hosted_zone_name=TEST_DOMAIN_NAME,
-            health_check_url="/",
+            health_check_url=health_check_url,
             port_config=DiscoELBPortConfig(
                 [
                     DiscoELBPortMapping(internal_port, internal_protocol, external_port, external_protocol)
@@ -295,6 +307,124 @@ class DiscoELBTests(TestCase):
             Subnets=[],
             SecurityGroups=['sec-1'],
             Scheme='internal')
+
+    @mock_elb
+    def test_get_elb_http_health_check(self):
+        """
+        Creating an ELB creates a health check for the first HTTP or HTTPS instance listener
+        """
+        # HTTP first
+        elb_client = self.disco_elb.elb_client
+        elb_client.configure_health_check = MagicMock(wraps=elb_client.configure_health_check)
+        self._create_elb(
+            instance_protocols=['HTTP', 'HTTP'],
+            instance_ports=[80, 80],
+            elb_protocols=['HTTP', 'HTTPS'],
+            elb_ports=[80, 443],
+            health_check_url='/health/check/endpoint/'
+        )
+
+        elb_client.configure_health_check.assert_called_once_with(
+            LoadBalancerName=ANY,
+            HealthCheck={
+                'Target': 'HTTP:80/health/check/endpoint/',
+                'Interval': 5,
+                'Timeout': 4,
+                'UnhealthyThreshold': 2,
+                'HealthyThreshold': 2
+            }
+        )
+
+        # HTTPS first
+        elb_client = self.disco_elb.elb_client
+        elb_client.configure_health_check = MagicMock(wraps=elb_client.configure_health_check)
+        self._create_elb(
+            instance_protocols=['HTTPS', 'HTTP'],
+            instance_ports=[443, 80],
+            elb_protocols=['HTTP', 'HTTPS'],
+            elb_ports=[80, 443],
+            health_check_url='/health/check/endpoint/'
+        )
+
+        elb_client.configure_health_check.assert_called_once_with(
+            LoadBalancerName=ANY,
+            HealthCheck={
+                'Target': 'HTTPS:443/health/check/endpoint/',
+                'Interval': 5,
+                'Timeout': 4,
+                'UnhealthyThreshold': 2,
+                'HealthyThreshold': 2
+            }
+        )
+
+        # HTTP after TCP
+        elb_client.configure_health_check = MagicMock(wraps=elb_client.configure_health_check)
+        self._create_elb(
+            instance_protocols=['TCP', 'HTTP'],
+            instance_ports=[9001, 4271],
+            elb_protocols=['TCP', 'HTTPS'],
+            elb_ports=[9001, 443],
+            health_check_url='/health/check/endpoint/'
+        )
+
+        elb_client.configure_health_check.assert_called_once_with(
+            LoadBalancerName=ANY,
+            HealthCheck={
+                'Target': 'HTTP:4271/health/check/endpoint/',
+                'Interval': 5,
+                'Timeout': 4,
+                'UnhealthyThreshold': 2,
+                'HealthyThreshold': 2
+            }
+        )
+
+        # HTTPS after TCP
+        elb_client.configure_health_check = MagicMock(wraps=elb_client.configure_health_check)
+        self._create_elb(
+            instance_protocols=['TCP', 'HTTPS'],
+            instance_ports=[9001, 4271],
+            elb_protocols=['TCP', 'HTTPS'],
+            elb_ports=[9001, 443],
+            health_check_url='/health/check/endpoint/'
+        )
+
+        elb_client.configure_health_check.assert_called_once_with(
+            LoadBalancerName=ANY,
+            HealthCheck={
+                'Target': 'HTTPS:4271/health/check/endpoint/',
+                'Interval': 5,
+                'Timeout': 4,
+                'UnhealthyThreshold': 2,
+                'HealthyThreshold': 2
+            }
+        )
+
+    @mock_elb
+    def test_get_elb_tcp_health_check(self):
+        """
+        If there are no HTTP(S) instance listeners, create_elb creates a health check for the first listener
+        """
+        # HTTP first
+        elb_client = self.disco_elb.elb_client
+        elb_client.configure_health_check = MagicMock(wraps=elb_client.configure_health_check)
+        self._create_elb(
+            instance_protocols=['TCP', 'TCP'],
+            instance_ports=[9001, 9002],
+            elb_protocols=['TCP', 'TCP'],
+            elb_ports=[9001, 9002],
+            health_check_url='/health/check/endpoint/'
+        )
+
+        elb_client.configure_health_check.assert_called_once_with(
+            LoadBalancerName=ANY,
+            HealthCheck={
+                'Target': 'TCP:9001',
+                'Interval': 5,
+                'Timeout': 4,
+                'UnhealthyThreshold': 2,
+                'HealthyThreshold': 2
+            }
+        )
 
     @mock_elb
     def test_get_elb_with_idle_timeout(self):

@@ -1897,7 +1897,7 @@ Options:
 -   `domain_name` Top level domain name to use as a suffix for all ELB domain names
 -   `elb` Create an ELB for this hostclass
 -   `elb_meta_network` [Optional] Meta network to run ELB in, defaults to same meta network as instances
--   `elb_health_check_url` [Default /] The heartbeat end-point to test instance health
+-   `elb_health_check_url` [Default /] The heartbeat end-point to test instance health.  Note that if you have multiple port mappings, the health check will use the first mapping using HTTP(S) on the instance side.  If there are no HTTP(S) mappings, the health check will use the first mapping.
 -   `elb_instance_port` [Default inferred from protocol] A comma separated list of port numbers that your services are running on
 -   `elb_instance_protocol` [Default inferred from port] A comma separated list of instance protocols.  The protocols should be in the same order as the instance ports. HTTP | HTTPS | SSL | TCP
 -   `elb_port` [Default inferred from protocol] Comma separated list of port numbers to expose in the ELB.
