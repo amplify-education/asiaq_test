@@ -19,7 +19,7 @@ from .disco_log_metrics import DiscoLogMetrics
 from .disco_elb import DiscoELB
 from .disco_alarm import DiscoAlarm
 from .disco_autoscale import DiscoAutoscale
-from .disco_spotinst import DiscoSpotinst
+from .disco_elastigroup import DiscoElastigroup
 from .disco_aws_util import (
     is_truthy,
     size_as_recurrence_map,
@@ -60,7 +60,7 @@ class DiscoAWS(object):
     # Too many arguments, but we want to mock a lot of things out, so...
     # pylint: disable=too-many-arguments
     def __init__(self, config, environment_name=None, boto2_conn=None, vpc=None, remote_exec=None,
-                 storage=None, autoscale=None, spotinst=None, elb=None, log_metrics=None, alarms=None):
+                 storage=None, autoscale=None, elastigroup=None, elb=None, log_metrics=None, alarms=None):
 
         if not environment_name and not vpc:
             raise ProgrammerError("Either 'vpc' or 'environment_name' must always be specified.")
@@ -75,7 +75,7 @@ class DiscoAWS(object):
         self._disco_remote_exec = remote_exec or None  # lazily initialized
         self._disco_storage = storage or None  # lazily initialized
         self._autoscale = autoscale or None  # lazily initialized
-        self._spotinst = spotinst or None  # lazily initialized
+        self._elastigroup = elastigroup or None  # lazily initialized
         self._elb = elb or None  # lazily initialized
         self._log_metrics = log_metrics or None  # lazily initialized
         self._alarms = alarms or None  # lazily initialized
@@ -102,11 +102,11 @@ class DiscoAWS(object):
         return self._autoscale
 
     @property
-    def spotinst(self):
-        """Lazily creates disco spotinst object"""
-        if not self._spotinst:
-            self._spotinst = DiscoSpotinst(environment_name=self.environment_name)
-        return self._spotinst
+    def elastigroup(self):
+        """Lazily creates disco elastigroup object"""
+        if not self._elastigroup:
+            self._elastigroup = DiscoElastigroup(environment_name=self.environment_name)
+        return self._elastigroup
 
     @property
     def log_metrics(self):
@@ -412,18 +412,18 @@ class DiscoAWS(object):
 
         self.log_metrics.update(hostclass)
 
-        launch_config = self.autoscale.get_config(
-            name=lc_name,
-            image_id=ami.id,
-            key_name=DiscoAWS._nonify(self.hostclass_option(hostclass, "ssh_key_name")),
-            security_groups=[meta_network.security_group.id],
-            block_device_mappings=block_device_mappings,
-            instance_type=instance_type,
-            instance_monitoring=monitoring_enabled,
-            instance_profile_name=self.hostclass_option_default(hostclass, "instance_profile_name"),
-            ebs_optimized=self.disco_storage.is_ebs_optimized(instance_type),
-            user_data="\n".join(['{0}="{1}"'.format(key, value) for key, value in user_data.iteritems()]),
-            associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")))
+        # launch_config = self.autoscale.get_config(
+        #     name=lc_name,
+        #     image_id=ami.id,
+        #     key_name=DiscoAWS._nonify(self.hostclass_option(hostclass, "ssh_key_name")),
+        #     security_groups=[meta_network.security_group.id],
+        #     block_device_mappings=block_device_mappings,
+        #     instance_type=instance_type,
+        #     instance_monitoring=monitoring_enabled,
+        #     instance_profile_name=self.hostclass_option_default(hostclass, "instance_profile_name"),
+        #     ebs_optimized=self.disco_storage.is_ebs_optimized(instance_type),
+        #     user_data="\n".join(['{0}="{1}"'.format(key, value) for key, value in user_data.iteritems()]),
+        #     associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")))
 
         self.create_floating_interfaces(meta_network, hostclass)
 
@@ -431,40 +431,43 @@ class DiscoAWS(object):
 
         chaos = is_truthy(chaos or self.hostclass_option_default(hostclass, "chaos", "True"))
 
-        group = self.autoscale.get_group(
-            hostclass=hostclass, launch_config=launch_config.name,
-            vpc_zone_id=",".join([subnet['SubnetId'] for subnet
-                                  in self.get_subnets(meta_network, hostclass)]),
+        self.elastigroup.create_group(
+            hostclass=hostclass,
+            image_id=ami.id,
+            subnets = self.get_subnets(meta_network, hostclass),
+            key_name=DiscoAWS._nonify(self.hostclass_option(hostclass, "ssh_key_name")),
             min_size=size_as_minimum_int_or_none(min_size),
             max_size=size_as_maximum_int_or_none(max_size),
             desired_size=size_as_maximum_int_or_none(desired_size),
-            termination_policies=termination_policies,
+            instance_profile_name=self.hostclass_option_default(hostclass, "instance_profile_name"),
+            ebs_optimized=self.disco_storage.is_ebs_optimized(instance_type),
+            security_groups=[meta_network.security_group.id],
             tags={"hostclass": hostclass,
                   "owner": user_data["owner"],
                   "environment": self.environment_name,
                   "chaos": chaos,
                   "is_testing": "1" if testing else "0"},
-            load_balancers=[elb['LoadBalancerName']] if elb else [],
-            create_if_exists=create_if_exists,
-            group_name=group_name
+            user_data="\n".join(['{0}="{1}"'.format(key, value) for key, value in user_data.iteritems()]),
+            instance_monitoring=monitoring_enabled,
+            spot_instances=instance_type
         )
 
-        self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group.name)
+        #self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group.name)
 
         # Create alarms and custom metrics for the hostclass, if is not being used for testing
-        if not testing:
-            self.alarms.create_alarms(hostclass, group.name)
+        #if not testing:
+        #    self.alarms.create_alarms(hostclass, group.name)
 
-        logger.info("Spun up %s instances of %s from %s into group %s",
-                    size_as_maximum_int_or_none(desired_size), hostclass, ami.id, group.name)
+        #logger.info("Spun up %s instances of %s from %s into group %s",
+        #            size_as_maximum_int_or_none(desired_size), hostclass, ami.id, group.name)
 
-        return {
-            "hostclass": hostclass,
-            "no_destroy": no_destroy,
-            "launch_config": lc_name,
-            "group_name": group.name,
-            "chaos": chaos
-        }
+        # return {
+        #     "hostclass": hostclass,
+        #     "no_destroy": no_destroy,
+        #     #"launch_config": lc_name,
+        #     "group_name": group.name,
+        #     "chaos": chaos
+        # }
 
     def stop(self, instances):
         """ Stop (aka shutdown) instances """
@@ -695,116 +698,116 @@ class DiscoAWS(object):
                     group_name=group_name)
                 for (hostclass, termination_policies, hdict) in hostclass_iter]
 
-            self.smoketest(self.wait_for_autoscaling_instances(
-                [_hc for _hc in metadata if _hc["hostclass"] in flammable]))
+            # self.smoketest(self.wait_for_autoscaling_instances(
+            #     [_hc for _hc in metadata if _hc["hostclass"] in flammable]))
 
-    @staticmethod
-    def _instance_count_lt_min_size(group, all_instances):
-        group_instances = [_i for _i in all_instances if _i.group_name == group.name]
-        return len(group_instances) < group.min_size
+    # @staticmethod
+    # def _instance_count_lt_min_size(group, all_instances):
+    #     group_instances = [_i for _i in all_instances if _i.group_name == group.name]
+    #     return len(group_instances) < group.min_size
+    #
+    # def wait_for_autoscaling_instances(self, metadata_list, timeout=AUTOSCALE_TIMEOUT):
+    #     """
+    #     Wait for autoscaling groups to spinup, returns instance id's of spun up machines
+    #     """
+    #     start_time = time.time()
+    #     max_time = start_time + timeout
+    #
+    #     name_to_group = {group.name: group for group in self.autoscale.get_existing_groups()}
+    #     yet_to_scale = group_names = set([meta["group_name"] for meta in metadata_list])
+    #
+    #     while True:
+    #         auto_instances = self.autoscale.get_instances()
+    #         logger.debug("yet_to_scale: %s", yet_to_scale)
+    #         yet_to_scale = [gname for gname in yet_to_scale
+    #                         if DiscoAWS._instance_count_lt_min_size(name_to_group[gname], auto_instances)]
+    #         if not yet_to_scale or (time.time() >= max_time):
+    #             break
+    #         logger.info("Waiting for %s autoscaling groups to reach min_size", len(yet_to_scale))
+    #         time.sleep(AUTOSCALE_POLL_INTERVAL)
+    #
+    #     if yet_to_scale:
+    #         raise TimeoutError(
+    #             "Timed out waiting for {0} to reach autoscale min_size after {1}s."
+    #             .format(" ".join([gname for gname in yet_to_scale]), timeout))
+    #
+    #     if metadata_list:
+    #         logger.info("Waited for %s autoscaling groups to reach min_size in %s seconds",
+    #                     len(metadata_list), int(0.5 + time.time() - start_time))
+    #
+    #     instance_ids = [instance.instance_id for instance in auto_instances
+    #                     if instance.group_name in group_names]
+    #
+    #     return self.instances(instance_ids=instance_ids) if instance_ids else []
+    #
+    # def wait_for_autoscaling(self, ami_id, min_count, timeout=AUTOSCALE_TIMEOUT):
+    #     """
+    #     Wait for at least min_count instances of a particular AMI to spin up.
+    #     raises TimeoutError if min_count hosts do not exist by timeout seconds
+    #     """
+    #     start_time = time.time()
+    #     max_time = start_time + timeout
+    #
+    #     instances = []
+    #     while time.time() < max_time:
+    #         instances = self.instances_from_amis([ami_id])
+    #         if len(instances) >= min_count:
+    #             return
+    #         time.sleep(AUTOSCALE_POLL_INTERVAL)
+    #
+    #     raise TimeoutError(
+    #         "Timed out waiting for {} {} to hosts to spin up after {}s."
+    #         .format(min_count, ami_id, timeout))
 
-    def wait_for_autoscaling_instances(self, metadata_list, timeout=AUTOSCALE_TIMEOUT):
-        """
-        Wait for autoscaling groups to spinup, returns instance id's of spun up machines
-        """
-        start_time = time.time()
-        max_time = start_time + timeout
-
-        name_to_group = {group.name: group for group in self.autoscale.get_existing_groups()}
-        yet_to_scale = group_names = set([meta["group_name"] for meta in metadata_list])
-
-        while True:
-            auto_instances = self.autoscale.get_instances()
-            logger.debug("yet_to_scale: %s", yet_to_scale)
-            yet_to_scale = [gname for gname in yet_to_scale
-                            if DiscoAWS._instance_count_lt_min_size(name_to_group[gname], auto_instances)]
-            if not yet_to_scale or (time.time() >= max_time):
-                break
-            logger.info("Waiting for %s autoscaling groups to reach min_size", len(yet_to_scale))
-            time.sleep(AUTOSCALE_POLL_INTERVAL)
-
-        if yet_to_scale:
-            raise TimeoutError(
-                "Timed out waiting for {0} to reach autoscale min_size after {1}s."
-                .format(" ".join([gname for gname in yet_to_scale]), timeout))
-
-        if metadata_list:
-            logger.info("Waited for %s autoscaling groups to reach min_size in %s seconds",
-                        len(metadata_list), int(0.5 + time.time() - start_time))
-
-        instance_ids = [instance.instance_id for instance in auto_instances
-                        if instance.group_name in group_names]
-
-        return self.instances(instance_ids=instance_ids) if instance_ids else []
-
-    def wait_for_autoscaling(self, ami_id, min_count, timeout=AUTOSCALE_TIMEOUT):
-        """
-        Wait for at least min_count instances of a particular AMI to spin up.
-        raises TimeoutError if min_count hosts do not exist by timeout seconds
-        """
-        start_time = time.time()
-        max_time = start_time + timeout
-
-        instances = []
-        while time.time() < max_time:
-            instances = self.instances_from_amis([ami_id])
-            if len(instances) >= min_count:
-                return
-            time.sleep(AUTOSCALE_POLL_INTERVAL)
-
-        raise TimeoutError(
-            "Timed out waiting for {} {} to hosts to spin up after {}s."
-            .format(min_count, ami_id, timeout))
-
-    def smoketest(self, instance_list, timeout=SMOKETEST_TIMEOUT):
-        """
-        Repeatedly smoketests instances in list until they all pass.
-        raises TimeoutError if all hosts do not pass by timeout seconds
-        """
-        yet_to_pass = instance_list
-        start_time = time.time()
-        max_time = start_time + timeout
-
-        while True:
-            smokey = []
-            logger.debug("yet_to_pass: %s", yet_to_pass)
-            for instance in yet_to_pass:
-                try:
-                    self.smoketest_once(instance)
-                except TimeoutError:
-                    smokey.append(instance)
-            yet_to_pass = smokey
-            if not yet_to_pass or (time.time() >= max_time):
-                break
-            logger.info("Waiting for %s host[s] to pass smoke test", len(yet_to_pass))
-            time.sleep(SMOKETEST_POLL_INTERVAL)
-
-        if yet_to_pass:
-            raise TimeoutError(
-                "Timed out waiting for {0} to pass smoketest after {1}s."
-                .format(" ".join([inst.id for inst in yet_to_pass]), timeout))
-
-        if instance_list:
-            logger.info("Smoke tested %s host[s] in %s seconds",
-                        len(instance_list), int(0.5 + time.time() - start_time))
-
-    def smoketest_once(self, instance):
-        """
-        Runs smoke test of one host once
-        """
-        try:
-            if DiscoAWS.is_terminal_state(instance):
-                raise SmokeTestError(
-                    "Terminal smoketest error, {0} is in terminal state {1}."
-                    .format(instance, instance.state))
-            if not instance.tags.get("smoketest"):
-                raise TimeoutError("Instance %s hasn't passed smoketests yet." % instance.id)
-        except EC2ResponseError as err:
-            if err.code == "InvalidInstanceID.NotFound":
-                raise TimeoutError("AWS doesn't think %s exists yet" % instance.id)
-            else:
-                raise
-        return True
+    # def smoketest(self, instance_list, timeout=SMOKETEST_TIMEOUT):
+    #     """
+    #     Repeatedly smoketests instances in list until they all pass.
+    #     raises TimeoutError if all hosts do not pass by timeout seconds
+    #     """
+    #     yet_to_pass = instance_list
+    #     start_time = time.time()
+    #     max_time = start_time + timeout
+    #
+    #     while True:
+    #         smokey = []
+    #         logger.debug("yet_to_pass: %s", yet_to_pass)
+    #         for instance in yet_to_pass:
+    #             try:
+    #                 self.smoketest_once(instance)
+    #             except TimeoutError:
+    #                 smokey.append(instance)
+    #         yet_to_pass = smokey
+    #         if not yet_to_pass or (time.time() >= max_time):
+    #             break
+    #         logger.info("Waiting for %s host[s] to pass smoke test", len(yet_to_pass))
+    #         time.sleep(SMOKETEST_POLL_INTERVAL)
+    #
+    #     if yet_to_pass:
+    #         raise TimeoutError(
+    #             "Timed out waiting for {0} to pass smoketest after {1}s."
+    #             .format(" ".join([inst.id for inst in yet_to_pass]), timeout))
+    #
+    #     if instance_list:
+    #         logger.info("Smoke tested %s host[s] in %s seconds",
+    #                     len(instance_list), int(0.5 + time.time() - start_time))
+    #
+    # def smoketest_once(self, instance):
+    #     """
+    #     Runs smoke test of one host once
+    #     """
+    #     try:
+    #         if DiscoAWS.is_terminal_state(instance):
+    #             raise SmokeTestError(
+    #                 "Terminal smoketest error, {0} is in terminal state {1}."
+    #                 .format(instance, instance.state))
+    #         if not instance.tags.get("smoketest"):
+    #             raise TimeoutError("Instance %s hasn't passed smoketests yet." % instance.id)
+    #     except EC2ResponseError as err:
+    #         if err.code == "InvalidInstanceID.NotFound":
+    #             raise TimeoutError("AWS doesn't think %s exists yet" % instance.id)
+    #         else:
+    #             raise
+    #     return True
 
     @staticmethod
     def is_running(instance):
