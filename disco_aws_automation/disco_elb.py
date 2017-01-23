@@ -492,12 +492,25 @@ class DiscoELBPortConfig(object):
         )
         external_ports_by_protocol = DiscoELBPortConfig._protocols_by_port(disco_aws, hostclass, 'elb')
 
-        combined = DiscoELBPortConfig._zip_with_defaults(
-            internal_ports_by_protocol,
-            external_ports_by_protocol,
-            lambda x: x,
-            lambda x: x
-        )
+        if len(internal_ports_by_protocol) == 1:
+            # If we have a single internal port and protocol, replicate it to
+            # match the number of external ports and protocols, so that it
+            # matches the old behavior.
+            # TODO:  Revisit whether this makes sense going forward
+            combined = DiscoELBPortConfig._zip_with_defaults(
+                internal_ports_by_protocol,
+                external_ports_by_protocol,
+                lambda _: internal_ports_by_protocol[0],
+                lambda _: internal_ports_by_protocol[0]
+            )
+        else:
+            # Otherwise set internal = external for any mismatches
+            combined = DiscoELBPortConfig._zip_with_defaults(
+                internal_ports_by_protocol,
+                external_ports_by_protocol,
+                lambda x: x,
+                lambda x: x
+            )
 
         return DiscoELBPortConfig(
             [
@@ -526,7 +539,7 @@ class DiscoELBPortConfig(object):
             hostclass,
             '%s_protocol' % config_prefix
         )
-        protocols = [protocol.strip() for protocol in protocols]
+        protocols = [protocol.strip().upper() for protocol in protocols]
 
         return DiscoELBPortConfig._zip_with_defaults(
             ports,
