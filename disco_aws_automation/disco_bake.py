@@ -369,7 +369,7 @@ class DiscoBake(object):
         interfaces = self.vpc.networks["tunnel"].create_interfaces_specification(public_ip=True)
 
         image = None
-        
+
         # Don't map the snapshot on bake.  Bake scripts shouldn't need the snapshotted volume.
         bake_profile = self.hc_option_default(hostclass, "bake_instance_profile", None)
         device_map = self.disco_storage.configure_storage(hostclass, ami_id=source_ami_id, map_snapshot=False)
