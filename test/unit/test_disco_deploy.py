@@ -1328,6 +1328,39 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.update()
         self.assertEqual(self._ci_deploy.update_ami.call_count, 0)
 
+    def test_update_with_restrict_ami(self):
+        '''Test test with spcified restrict amis'''
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcbar 2'].id]
+        amis = [self._amis_by_name['mhcbar 2']]
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=amis)
+        self._ci_deploy.get_update_amis = MagicMock(return_value=[])
+        self._ci_deploy.update_ami = MagicMock()
+        self._ci_deploy.update()
+        self.assertEqual(self._ci_deploy.get_update_amis.call_count, 0)
+        self._ci_deploy._disco_bake.list_amis.assert_called_with(ami_ids=[self._amis_by_name['mhcbar 2'].id])
+        self.assertEqual(self._ci_deploy.update_ami.call_count, 1)
+
+    def test_update_with_invalid_restrict_ami(self):
+        '''Test test with spcified restrict amis'''
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcbar 2'].id]
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=[])
+        self._ci_deploy.get_update_amis = MagicMock(return_value=[])
+        self._ci_deploy.update_ami = MagicMock()
+        self._ci_deploy.update()
+        self.assertEqual(self._ci_deploy.get_update_amis.call_count, 0)
+        self._ci_deploy._disco_bake.list_amis.assert_called_with(ami_ids=[self._amis_by_name['mhcbar 2'].id])
+        self.assertEqual(self._ci_deploy.update_ami.call_count, 0)
+
+    def test_update_wo_restrict_ami(self):
+        '''Test test with spcified restrict amis'''
+        amis = [self._amis_by_name['mhcbar 2']]
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=[])
+        self._ci_deploy.get_update_amis = MagicMock(return_value=[self._amis_by_name['mhcbar 2']])
+        self._ci_deploy.update_ami = MagicMock()
+        self._ci_deploy.update()
+        self.assertEqual(self._ci_deploy.get_update_amis.call_count, 1)
+        self.assertEqual(self._ci_deploy.update_ami.call_count, 1)
+
     def test_pending_ami(self):
         '''Ensure pending AMIs are not considered for deployment'''
         expected_ami = self.add_ami('mhcfoo 10', 'untested', 'pending')

@@ -835,12 +835,19 @@ class DiscoDeploy(object):
 
 
     def update(self, dry_run=False, deployment_strategy=None):
-        '''Updates a single autoscaling group with a newer AMI'''
-        amis = self.get_update_amis()
+        '''
+        Updates a single autoscaling group with a newer AMI or AMI specified in the --ami option
+        If the ami id is specify using the option --ami then run update using the specified ami
+        independently of its stage,
+        Otherwise uses the most recent tested or un tagged ami
+        '''
+        amis = self.get_amis_by_ids() if self._restrict_amis else self.get_update_amis()
         if len(amis):
             self.update_ami(random.choice(amis), dry_run, deployment_strategy)
         else:
-            logger.error("No new 'tested' AMIs found.")
+            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
+                else "No 'untested' AMIs found."
+            logger.error(reason)
 
     def hostclass_option(self, hostclass, key):
         '''
