@@ -326,6 +326,15 @@ class DiscoDeployTests(TestCase):
                          ['mhcfoo 6', 'mhcbluegreennondeployable 2',
                           'mhcbluegreen 2', 'mhctimedautoscale 1'])
 
+    def test_get_amis_by_ids_with_restrict_ami(self):
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcbar 2'].id]
+        amis = [self._amis_by_name['mhcbar 2']]
+        self._ci_deploy._disco_bake.get_amis = MagicMock(return_value=amis)
+        self.assertEquals(self._ci_deploy.get_amis_by_ids(),[self._amis_by_name['mhcbar 2']])
+
+    def test_get_amis_by_ids_no_restrict_ami(self):
+        self.assertIsNone(self._ci_deploy.get_amis_by_ids())
+
     def test_get_failed_amis(self):
         '''Tests that we can find the next untested ami to test for each hostclass'''
         self.assertEqual([ami.name for ami in self._ci_deploy.get_failed_amis()],
@@ -1272,6 +1281,39 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.test_ami = MagicMock()
         self._ci_deploy.test()
         self.assertEqual(self._ci_deploy.test_ami.call_count, 0)
+
+    def test_test_with_restrict_ami(self):
+        '''Test test with spcified restrict amis'''
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcbar 2'].id]
+        amis = [self._amis_by_name['mhcbar 2']]
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=amis)
+        self._ci_deploy.get_test_amis = MagicMock(return_value=[])
+        self._ci_deploy.test_ami = MagicMock()
+        self._ci_deploy.test()
+        self.assertEqual(self._ci_deploy.get_test_amis.call_count, 0)
+        self._ci_deploy._disco_bake.list_amis.assert_called_with(ami_ids=[self._amis_by_name['mhcbar 2'].id])
+        self.assertEqual(self._ci_deploy.test_ami.call_count, 1)
+
+    def test_test_with_invalid_restrict_ami(self):
+        '''Test test with spcified restrict amis'''
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcbar 2'].id]
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=[])
+        self._ci_deploy.get_test_amis = MagicMock(return_value=[])
+        self._ci_deploy.test_ami = MagicMock()
+        self._ci_deploy.test()
+        self.assertEqual(self._ci_deploy.get_test_amis.call_count, 0)
+        self._ci_deploy._disco_bake.list_amis.assert_called_with(ami_ids=[self._amis_by_name['mhcbar 2'].id])
+        self.assertEqual(self._ci_deploy.test_ami.call_count, 0)
+
+    def test_test_wo_restrict_ami(self):
+        '''Test test with spcified restrict amis'''
+        amis = [self._amis_by_name['mhcbar 2']]
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=[])
+        self._ci_deploy.get_test_amis = MagicMock(return_value=[self._amis_by_name['mhcbar 2']])
+        self._ci_deploy.test_ami = MagicMock()
+        self._ci_deploy.test()
+        self.assertEqual(self._ci_deploy.get_test_amis.call_count, 1)
+        self.assertEqual(self._ci_deploy.test_ami.call_count, 1)
 
     def test_update_with_amis(self):
         '''Test update with amis'''

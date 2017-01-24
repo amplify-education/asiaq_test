@@ -122,6 +122,11 @@ class DiscoDeploy(object):
         '''Returns latest failed AMI for each hostclass'''
         return self.get_latest_ami_in_stage_dict('failed')
 
+    def get_amis_by_ids(self):
+        '''Returns the AMI Objects for the specified ami_ids stored in the config variable restrict_amis'''
+        if self._restrict_amis is not None:
+            return self.all_stage_amis
+
     def get_items_newer_in_second_map(self, first, second):
         '''Returns AMIs from second dict which are newer than the corresponding item in the first dict'''
         return [ami for (hostclass, ami) in second.iteritems()
@@ -814,12 +819,20 @@ class DiscoDeploy(object):
             )
 
     def test(self, dry_run=False, deployment_strategy=None):
-        '''Tests a single untested AMI and marks it as tested or failed'''
-        amis = self.get_test_amis()
+        '''
+        Tests a single AMI and marks it as tested or failed.
+        If the ami id is specify using the option --ami then run test on the specified ami
+        independently of its stage,
+        Otherwise use the most recent untested ami for the hostclass
+        '''
+        amis = self.get_amis_by_ids() if self._restrict_amis else self.get_test_amis()
         if len(amis):
             self.test_ami(random.choice(amis), dry_run, deployment_strategy)
         else:
-            logger.error("No 'untested' AMIs found.")
+            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
+                else "No 'untested' AMIs found."
+            logger.error(reason)
+
 
     def update(self, dry_run=False, deployment_strategy=None):
         '''Updates a single autoscaling group with a newer AMI'''
