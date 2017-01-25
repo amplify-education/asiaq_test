@@ -83,6 +83,7 @@ class DiscoSSM(object):
 
         if bucket_name is not None:
             try:
+                # Head bucket checks if a bucket exists and throws an exception if it doesn't
                 self.s3.head_bucket(Bucket=bucket_name)
                 arguments["OutputS3BucketName"] = bucket_name
             except ClientError:
