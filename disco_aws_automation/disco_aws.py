@@ -573,9 +573,19 @@ class DiscoAWS(object):
             if instance.tags.get("hostclass", "-") in hostclasses
         ]
 
-    def instances_from_amis(self, ami_ids):
-        """Returns instances matching any of a list of AMI ids"""
-        return self.instances(filters={"image_id": ami_ids})
+    def instances_from_amis(self, ami_ids, group_name=None, create_date=None):
+        """Returns instances matching any of a list of AMI ids and filtered by ASG name and created date"""
+        if group_name:
+            return self.instances_from_asgs([group_name])
+        elif create_date is None:
+            return self.instances(filters={"image_id": ami_ids})
+        else:
+            instances = self.instances(filters={"image_id": ami_ids})
+            return [
+                instance
+                for instance in instances
+                if instance.launch_time >= create_date
+            ]
 
     def instances_from_asgs(self, asgs):
         """Returns instances matching any of a list of autoscaling group names"""
@@ -717,7 +727,8 @@ class DiscoAWS(object):
 
         return self.instances(instance_ids=instance_ids) if instance_ids else []
 
-    def wait_for_autoscaling(self, ami_id, min_count, timeout=AUTOSCALE_TIMEOUT):
+    def wait_for_autoscaling(self, ami_id, min_count, timeout=AUTOSCALE_TIMEOUT, group_name=None,
+                             create_date=None):
         """
         Wait for at least min_count instances of a particular AMI to spin up.
         raises TimeoutError if min_count hosts do not exist by timeout seconds
@@ -727,7 +738,13 @@ class DiscoAWS(object):
 
         instances = []
         while time.time() < max_time:
-            instances = self.instances_from_amis([ami_id])
+            if group_name:
+                instances = self.instances_from_asgs([group_name])
+            elif create_date:
+                instances = self.instances_from_amis([ami_id], create_date)
+            else:
+                instances = self.instances_from_amis([ami_id])
+
             if len(instances) >= min_count:
                 return
             time.sleep(AUTOSCALE_POLL_INTERVAL)

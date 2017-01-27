@@ -187,7 +187,7 @@ class DiscoDeploy(object):
         return (hostclass in self._hostclasses and
                 self._hostclasses[hostclass].get("integration_test")) or None
 
-    def wait_for_smoketests(self, ami_id, min_count):
+    def wait_for_smoketests(self, ami_id, min_count, group_name=None, create_date=None):
         '''
         Waits for smoketests to complete for an AMI.
 
@@ -195,13 +195,13 @@ class DiscoDeploy(object):
         '''
 
         try:
-            self._disco_aws.wait_for_autoscaling(ami_id, min_count)
+            self._disco_aws.wait_for_autoscaling(ami_id, min_count, group_name, create_date)
         except TimeoutError:
             logger.info("autoscaling timed out")
             return False
 
         try:
-            self._disco_aws.smoketest(self._disco_aws.instances_from_amis([ami_id]))
+            self._disco_aws.smoketest(self._disco_aws.instances_from_amis([ami_id], group_name, create_date))
         except TimeoutError:
             logger.info("smoketest timed out")
             return False
@@ -452,6 +452,12 @@ class DiscoDeploy(object):
             ami=ami
         )
 
+        same_ami = False
+        if old_group:
+            # get the ami id used in the running old group instance
+            instances_in_old_group = self._disco_autoscale.get_instances(group_name=old_group.name)
+            same_ami = instances_in_old_group[0].image_id == ami
+
         try:
             # Spinup our new autoscaling group in testing mode, making one even if one already exists.
             self._disco_aws.spinup([new_group_config], create_if_exists=True, testing=True)
@@ -487,7 +493,8 @@ class DiscoDeploy(object):
             raise RuntimeError("Old group and new group should not be the same.")
 
         try:
-            smoke_tests = self.wait_for_smoketests(ami.id, new_group_config["desired_size"] or 1)
+            smoke_tests = self.wait_for_smoketests(ami.id, new_group_config["desired_size"] or 1,
+                                                   group_name=new_group.name)
             if smoke_tests and run_tests:
                 # If smoke tests passed and we should run integration tests, run them
                 integration_tests = self.run_integration_tests(ami, wait_for_elb=uses_elb)
@@ -563,7 +570,7 @@ class DiscoDeploy(object):
                     if deployable:
                         raise RuntimeError(reason)
                     return
-            else:
+            elif not same_ami:
                 self._promote_ami(ami, "failed")
         except (MaintenanceModeError, IntegrationTestError):
             logger.exception("Failed to run integration test")
@@ -832,7 +839,6 @@ class DiscoDeploy(object):
             reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
                 else "No 'untested' AMIs found."
             logger.error(reason)
-
 
     def update(self, dry_run=False, deployment_strategy=None):
         '''
