@@ -3,6 +3,7 @@ This module has a bunch of functions about waiting for an AWS resource to become
 """
 import logging
 import time
+from random import randint
 
 from botocore.exceptions import ClientError
 from boto.exception import EC2ResponseError, BotoServerError
@@ -38,7 +39,7 @@ def tag2dict(tags):
 
 
 def find_or_create(find, create):
-    """Given a find and a create function, create a resource iff it doesn't exist"""
+    """Given a find and a create function, create a resource if it doesn't exist"""
     result = find()
     if result:
         return result
@@ -60,8 +61,8 @@ def keep_trying(max_time, fun, *args, **kwargs):
     cause a max_time delay.
     """
 
-    last_delay = 0
-    curr_delay = 1
+    base = 3
+    sleep = 1
     expire_time = time.time() + max_time
     while True:
         try:
@@ -71,10 +72,8 @@ def keep_trying(max_time, fun, *args, **kwargs):
                 logger.exception("Failed to run %s.", fun)
             if time.time() > expire_time:
                 raise
-            time.sleep(curr_delay)
-            delay_register = last_delay
-            last_delay = curr_delay
-            curr_delay = min(curr_delay + delay_register, MAX_POLL_INTERVAL)
+            time.sleep(sleep)
+            sleep = min(MAX_POLL_INTERVAL, randint(base, sleep * 3))
 
 
 def throttled_call(fun, *args, **kwargs):
@@ -87,8 +86,8 @@ def throttled_call(fun, *args, **kwargs):
     (up to MAX_POLL_INTERVAL seconds).
     """
     max_time = 5 * 60
-    last_delay = 0
-    curr_delay = 1
+    base = 3
+    sleep = 1
     expire_time = time.time() + max_time
     while True:
         try:
@@ -105,15 +104,15 @@ def throttled_call(fun, *args, **kwargs):
             if (error_code not in ("Throttling", "RequestLimitExceeded")) or (time.time() > expire_time):
                 raise
 
-            time.sleep(curr_delay)
-            delay_register = last_delay
-            last_delay = curr_delay
-            curr_delay = min(curr_delay + delay_register, MAX_POLL_INTERVAL)
+            time.sleep(sleep)
+            sleep = min(MAX_POLL_INTERVAL, randint(base, sleep * 3))
 
 
 def wait_for_state(resource, state, timeout=15 * 60, state_attr='state'):
     """Wait for an AWS resource to reach a specified state"""
     time_passed = 0
+    base = 3
+    sleep = 1
     while True:
         try:
             resource.update()
@@ -132,14 +131,16 @@ def wait_for_state(resource, state, timeout=15 * 60, state_attr='state'):
                 "Timed out waiting for {0} to change state to {1} after {2}s."
                 .format(resource, state, time_passed))
 
-        time.sleep(STATE_POLL_INTERVAL)
-        time_passed += STATE_POLL_INTERVAL
+        time.sleep(sleep)
+        sleep = min(MAX_POLL_INTERVAL, randint(base, sleep * 3))
 
 
 def wait_for_state_boto3(describe_func, params_dict, resources_name,
                          expected_state, state_attr='state', timeout=15 * 60):
     """Wait for an AWS resource to reach a specified state using the boto3 library"""
     time_passed = 0
+    base = 3
+    sleep = 1
     while True:
         try:
             resources = describe_func(**params_dict)[resources_name]
@@ -170,8 +171,8 @@ def wait_for_state_boto3(describe_func, params_dict, resources_name,
                 "state to {0} after {1}s:\n{2}"
                 .format(expected_state, time_passed, params_dict))
 
-        time.sleep(STATE_POLL_INTERVAL)
-        time_passed += STATE_POLL_INTERVAL
+        time.sleep(sleep)
+        sleep = min(MAX_POLL_INTERVAL, randint(base, sleep * 3))
 
 
 def wait_for_sshable(remotecmd, instance, timeout=15 * 60, quiet=False):
