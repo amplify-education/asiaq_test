@@ -452,12 +452,6 @@ class DiscoDeploy(object):
             ami=ami
         )
 
-        same_ami = False
-        if old_group:
-            # get the ami id used in the running old group instance
-            instances_in_old_group = self._disco_autoscale.get_instances(group_name=old_group.name)
-            same_ami = instances_in_old_group[0].image_id == ami
-
         try:
             # Spinup our new autoscaling group in testing mode, making one even if one already exists.
             self._disco_aws.spinup([new_group_config], create_if_exists=True, testing=True)
@@ -570,7 +564,7 @@ class DiscoDeploy(object):
                     if deployable:
                         raise RuntimeError(reason)
                     return
-            elif not same_ami:
+            else:
                 self._promote_ami(ami, "failed")
         except (MaintenanceModeError, IntegrationTestError):
             logger.exception("Failed to run integration test")

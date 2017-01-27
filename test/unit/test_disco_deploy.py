@@ -5,6 +5,8 @@ from __future__ import print_function
 import random
 from unittest import TestCase
 
+from datetime import datetime
+
 import boto.ec2.instance
 from mock import MagicMock, create_autospec, call
 
