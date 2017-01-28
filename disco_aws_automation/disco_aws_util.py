@@ -7,6 +7,7 @@ import sys
 from logging import getLogger, DEBUG
 from functools import wraps
 
+import dateutil
 from boto.exception import EC2ResponseError
 from botocore.exceptions import ClientError
 
@@ -25,6 +26,10 @@ def get_tag_value(tag_list, key):
         if tag["Key"] == key:
             return tag["Value"]
     return None
+
+
+def get_instance_launch_time(instance):
+    return dateutil.parser.parse(instance.launch_time).replace(tzinfo=None)
 
 
 def is_truthy(value):
