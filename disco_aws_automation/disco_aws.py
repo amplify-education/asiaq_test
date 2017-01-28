@@ -21,6 +21,7 @@ from .disco_alarm import DiscoAlarm
 from .disco_autoscale import DiscoAutoscale
 from .disco_aws_util import (
     is_truthy,
+    get_instance_launch_time,
     size_as_recurrence_map,
     size_as_minimum_int_or_none,
     size_as_maximum_int_or_none
@@ -584,7 +585,7 @@ class DiscoAWS(object):
             return [
                 instance
                 for instance in instances
-                if instance.launch_time >= create_date
+                if get_instance_launch_time(instance) >= create_date
             ]
 
     def instances_from_asgs(self, asgs):
