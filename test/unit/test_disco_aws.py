@@ -822,21 +822,24 @@ class DiscoAWSTests(TestCase):
         self.assertEqual(aws.instances_from_amis('ami-12345678', group_name='test_group'), instances)
         aws.instances_from_asgs.assert_called_with(['test_group'])
 
-    # @patch_disco_aws
-    # def test_instances_from_amis_with_create_date(self, mock_config, **kwargs):
-    #     '''test get instances using ami ids and with date after a specified date time'''
-    #     aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME)
-    #     now = datetime.utcnow()
-    #     logger.error(str(now))
-    #     yesterday = datetime.utcnow() - timedelta(days=1)
-    #     instances = [{"InstanceId": "i-123123aa", "launch_time": str(now) }, {"InstanceId": "i-123123ff",
-    #                                                                     "launch_time": str(yesterday)}]
-    #     aws.instances = MagicMock(return_value=instances)
-    #     self.assertEqual(aws.instances_from_amis('ami-12345678', create_date=now), [{"InstanceId":
-    #                                                                                      "i-123123aa",
-    #                                                                                  "launch_time": str(now)
-    #                                                                                  }])
-    #     aws.instances.assert_called_with(filters={"image_id":'ami-12345678'})
+    @patch_disco_aws
+    def test_instances_from_amis_with_create_date(self, mock_config, **kwargs):
+        '''test get instances using ami ids and with date after a specified date time'''
+        aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME)
+        now = datetime.utcnow()
+
+        instance1 = create_autospec(boto.ec2.instance.Instance)
+        instance1.id = "i-123123aa"
+        instance1.launch_time = str(now + timedelta(minutes=10))
+        instance2 = create_autospec(boto.ec2.instance.Instance)
+        instance2.id = "i-123123ff"
+        instance2.launch_time = str(now - timedelta(days=1))
+        instances = [instance1, instance2]
+
+        aws.instances = MagicMock(return_value=instances)
+        self.assertEqual(aws.instances_from_amis('ami-12345678', create_date=now),
+                         [instance1])
+        aws.instances.assert_called_with(filters={"image_id":'ami-12345678'})
 
     @patch_disco_aws
     def test_wait_for_autoscaling_using_amiid(self, mock_config, **kwargs):
