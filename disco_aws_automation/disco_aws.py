@@ -416,7 +416,9 @@ class DiscoAWS(object):
 
         chaos = is_truthy(chaos or self.hostclass_option_default(hostclass, "chaos", "True"))
 
-        if bool(self.config('spotinst', hostclass)) and not self.config('elb', hostclass):
+        elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
+
+        if is_truthy(self.config('spotinst', hostclass)):
             self.elastigroup.create_group(
                 hostclass=hostclass,
                 image_id=ami.id,
@@ -434,11 +436,12 @@ class DiscoAWS(object):
                       "chaos": chaos,
                       "is_testing": "1" if testing else "0"},
                 user_data="\n".join(['{0}="{1}"'.format(key, value) for key, value in user_data.iteritems()]),
+                associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")),
                 instance_monitoring=monitoring_enabled,
-                spot_instances=instance_type
+                instance_type=instance_type,
+                load_balancers=[elb['LoadBalancerName']] if elb else []
             )
         else:
-            elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
             launch_config = self.autoscale.get_config(
                 name=lc_name,
                 image_id=ami.id,
@@ -633,7 +636,10 @@ class DiscoAWS(object):
         .. warning:: This currently does a dirty shutdown, no attempt is made to preserve logs.
         """
         for hostclass in hostclasses:
-            self.autoscale.delete_groups(hostclass=hostclass, force=True)
+            if is_truthy(self.config('spotinst', hostclass)):
+                self.elastigroup.delete_groups(hostclass)
+            else:
+                self.autoscale.delete_groups(hostclass=hostclass, force=True)
 
             self.elb.delete_elb(hostclass)
 

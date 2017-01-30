@@ -80,29 +80,10 @@ class DiscoElastigroup(object):
         filtered_groups.sort(key=lambda group: group["updatedAt"], reverse=True)
         return filtered_groups
 
-    # def get_existing_group(self, hostclass=None, group_name=None, throw_on_two_groups=True):
-    #     """
-    #     Returns the elastigroup object for the given hostclass or group name, or None if no
-    #     elastigroup exists.
-    #
-    #     If two or more autoscaling groups exist for a hostclass, then this method will throw an exception,
-    #     unless 'throw_on_two_groups' is False. Then if there are two groups the most recently created
-    #     autoscaling group will be returned. If there are more than two autoscaling groups, this method will
-    #     always throw an exception.
-    #     """
-    #     groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
-    #     if not groups:
-    #         return None
-    #     elif len(groups) == 1 or (len(groups) == 2 and not throw_on_two_groups):
-    #         return groups[0]
-    #     else:
-    #         raise TooManyAutoscalingGroups("There are too many autoscaling groups for {}.".format(hostclass))
-
     def get_group_ids(self,hostclass):
         """Returns list of elastigroup ids pertaining to a hostclass"""
         groups = self.get_existing_groups(hostclass)
-        group_ids = [ group["id"] for group in groups
-                      if hostclass in group["name"] ]
+        group_ids = [ group["id"] for group in groups if hostclass in group["name"] ]
         return group_ids
 
     def get_group_instances(self,group_id):
@@ -111,8 +92,9 @@ class DiscoElastigroup(object):
         return [ instance['instanceId'] for instance in instances ]
 
     def create_elastigroup_config(self, hostclass, availability_vs_cost, desired_size, min_size, max_size,
-                                  spot_instances, zones, security_groups, instance_monitoring, ebs_optimized, image_id,
-                                  key_name, user_data, instance_profile_name, tags):
+                                  instance_type, zones, load_balancers, security_groups, instance_monitoring,
+                                  ebs_optimized, image_id, key_name, associate_public_ip_address, user_data, tags,
+                                  instance_profile_name):
         """Create new elastigroup configuration"""
         group_name = self.get_new_groupname(hostclass)
         strategy = {
@@ -132,7 +114,7 @@ class DiscoElastigroup(object):
 
         compute["instanceTypes"] = {
             "ondemand": "t2.micro",
-            "spot": spot_instances.split(',')
+            "spot": instance_type.split(',')
         }
 
         compute["availabilityZones"] = [ {'name': zone, 'subnetIds': [subnet_id]}
@@ -140,21 +122,38 @@ class DiscoElastigroup(object):
 
         compute["product"] = "Linux/UNIX"
 
+        network_interfaces = [
+                    { "deleteOnTermination": True,
+                      "deviceIndex": 0,
+                      "associatePublicIpAddress": associate_public_ip_address}
+            ] if associate_public_ip_address else None
+
         launch_specification = {
+            "loadBalancersConfig": {
+                "loadBalancers": [ { "name": elb, "type": "CLASSIC" } for elb in load_balancers ] \
+                    if load_balancers else None
+            },
             "securityGroupIds": security_groups,
             "monitoring": instance_monitoring,
             "ebsOptimized": ebs_optimized,
             "imageId": image_id,
             "keyPair": key_name,
+            "networkInterfaces": network_interfaces,
             "userData": b64encode(str(user_data)),
+            "tags": self._create_elastigroup_tags(tags),
             "iamRole": {
                 "arn": "arn:aws:iam::{}:instance-profile/{}"
                 .format(self.account_id, instance_profile_name)
-            },
-            "tags": self._create_elastigroup_tags(tags)
+            }
         }
 
         compute["launchSpecification"] = launch_specification
+        # compute["ebsVolumePool"] = [
+        #     {
+        #         "deviceName": "/dev/xvda",
+        #         "volumeIds": [ ebs_volume ]
+        #     }
+        # ] if ebs_volume else None
 
         group = {
             "name": group_name,
@@ -182,9 +181,9 @@ class DiscoElastigroup(object):
         return zones
 
     def create_group(self, hostclass, availability_vs_cost="balanced", desired_size=None,  min_size=None, max_size=None,
-                     spot_instances=None, subnets=None, security_groups=None, instance_monitoring=None,
-                     ebs_optimized=None, image_id=None, key_name=None, user_data=None, instance_profile_name=None,
-                     tags=None):
+                     instance_type=None, subnets=None, load_balancers=None, security_groups=None,
+                     instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
+                     associate_public_ip_address=None, user_data=None, tags=None, instance_profile_name=None):
         """Create an elastigroup for a given hostclass"""
         group_config = self.create_elastigroup_config(
             hostclass=hostclass,
@@ -192,16 +191,18 @@ class DiscoElastigroup(object):
             desired_size=desired_size,
             min_size=min_size,
             max_size=max_size,
-            spot_instances=spot_instances,
+            instance_type=instance_type,
+            load_balancers=load_balancers,
             zones=self._create_az_subnets_dict(subnets),
             security_groups=security_groups,
             instance_monitoring=instance_monitoring,
             ebs_optimized=ebs_optimized,
             image_id=image_id,
             key_name=key_name,
+            associate_public_ip_address=associate_public_ip_address,
             user_data=user_data,
-            instance_profile_name=instance_profile_name,
-            tags=tags
+            tags=tags,
+            instance_profile_name=instance_profile_name
         )
         self.session.post(SPOTINST_API, data=group_config)
 
