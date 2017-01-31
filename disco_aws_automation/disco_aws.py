@@ -439,7 +439,8 @@ class DiscoAWS(object):
                 associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")),
                 instance_monitoring=monitoring_enabled,
                 instance_type=instance_type,
-                load_balancers=[elb['LoadBalancerName']] if elb else []
+                load_balancers=[elb['LoadBalancerName']] if elb else [],
+                block_device_mappings=block_device_mappings
             )
         else:
             launch_config = self.autoscale.get_config(

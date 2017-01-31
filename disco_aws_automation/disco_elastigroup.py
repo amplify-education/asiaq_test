@@ -94,7 +94,7 @@ class DiscoElastigroup(object):
     def create_elastigroup_config(self, hostclass, availability_vs_cost, desired_size, min_size, max_size,
                                   instance_type, zones, load_balancers, security_groups, instance_monitoring,
                                   ebs_optimized, image_id, key_name, associate_public_ip_address, user_data, tags,
-                                  instance_profile_name):
+                                  instance_profile_name, block_device_mappings):
         """Create new elastigroup configuration"""
         group_name = self.get_new_groupname(hostclass)
         strategy = {
@@ -122,6 +122,20 @@ class DiscoElastigroup(object):
 
         compute["product"] = "Linux/UNIX"
 
+        bdms = []
+        for name, ebs in block_device_mappings[0].iteritems():
+            if any([ebs.size, ebs.iops, ebs.snapshot_id]):
+                bdm = {'deviceName': name, 'ebs': {'deleteOnTermination': ebs.delete_on_termination}}
+                if ebs.size:
+                    bdm['ebs']['volumeSize'] = ebs.size
+                if ebs.iops:
+                    bdm['ebs']['iops'] = ebs.iops
+                if ebs.volume_type:
+                    bdm['ebs']['volumeType'] = ebs.volume_type
+                if ebs.snapshot_id:
+                    bdm['ebs']['snapshotId'] = ebs.snapshot_id
+                bdms.append(bdm)
+
         network_interfaces = [
                     { "deleteOnTermination": True,
                       "deviceIndex": 0,
@@ -138,6 +152,7 @@ class DiscoElastigroup(object):
             "ebsOptimized": ebs_optimized,
             "imageId": image_id,
             "keyPair": key_name,
+            "blockDeviceMappings": bdms,
             "networkInterfaces": network_interfaces,
             "userData": b64encode(str(user_data)),
             "tags": self._create_elastigroup_tags(tags),
@@ -148,12 +163,6 @@ class DiscoElastigroup(object):
         }
 
         compute["launchSpecification"] = launch_specification
-        # compute["ebsVolumePool"] = [
-        #     {
-        #         "deviceName": "/dev/xvda",
-        #         "volumeIds": [ ebs_volume ]
-        #     }
-        # ] if ebs_volume else None
 
         group = {
             "name": group_name,
@@ -183,7 +192,8 @@ class DiscoElastigroup(object):
     def create_group(self, hostclass, availability_vs_cost="balanced", desired_size=None,  min_size=None, max_size=None,
                      instance_type=None, subnets=None, load_balancers=None, security_groups=None,
                      instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
-                     associate_public_ip_address=None, user_data=None, tags=None, instance_profile_name=None):
+                     associate_public_ip_address=None, user_data=None, tags=None, instance_profile_name=None,
+                     block_device_mappings=None):
         """Create an elastigroup for a given hostclass"""
         group_config = self.create_elastigroup_config(
             hostclass=hostclass,
@@ -202,7 +212,8 @@ class DiscoElastigroup(object):
             associate_public_ip_address=associate_public_ip_address,
             user_data=user_data,
             tags=tags,
-            instance_profile_name=instance_profile_name
+            instance_profile_name=instance_profile_name,
+            block_device_mappings=block_device_mappings
         )
         self.session.post(SPOTINST_API, data=group_config)
 
