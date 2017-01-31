@@ -213,7 +213,7 @@ def backoff(cycle):
     """This function takes as input an integer that represents a cycle count,
         calculates jitter and executes sleep for the calculated time.
         The invoking function should increment 'cycle' before calling this function.
-        The minimum value 'cycle'can take is 1
+        The minimum value 'cycle' can take is 1
         """
     base = 3
     time.sleep(min(MAX_POLL_INTERVAL, randint(base, cycle * 3)))
