@@ -29,6 +29,11 @@ def get_tag_value(tag_list, key):
 
 
 def get_instance_launch_time(instance):
+    """
+    extract the launch time fro the instance and return a datetime object
+    :param instance:
+    :return:
+    """
     return dateutil.parser.parse(instance.launch_time).replace(tzinfo=None)
 
 

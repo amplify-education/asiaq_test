@@ -811,7 +811,7 @@ class DiscoAWSTests(TestCase):
         instances = [{"InstanceId": "i-123123aa"}]
         aws.instances = MagicMock(return_value=instances)
         self.assertEqual(aws.instances_from_amis('ami-12345678'), instances)
-        aws.instances.assert_called_with(filters={"image_id":'ami-12345678'})
+        aws.instances.assert_called_with(filters={"image_id": 'ami-12345678'})
 
     @patch_disco_aws
     def test_instances_from_amis_with_group_name(self, mock_config, **kwargs):
@@ -839,7 +839,7 @@ class DiscoAWSTests(TestCase):
         aws.instances = MagicMock(return_value=instances)
         self.assertEqual(aws.instances_from_amis('ami-12345678', create_date=now),
                          [instance1])
-        aws.instances.assert_called_with(filters={"image_id":'ami-12345678'})
+        aws.instances.assert_called_with(filters={"image_id": 'ami-12345678'})
 
     @patch_disco_aws
     def test_wait_for_autoscaling_using_amiid(self, mock_config, **kwargs):
@@ -851,7 +851,7 @@ class DiscoAWSTests(TestCase):
         aws.instances_from_amis.assert_called_with(['ami-12345678'])
 
     @patch_disco_aws
-    def test_wait_for_autoscaling_(self, mock_config, **kwargs):
+    def test_wait_for_autoscaling_using_gp_name(self, mock_config, **kwargs):
         '''test wait for autoscaling using the group name to identify the instances'''
         aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME)
         instances = [{"InstanceId": "i-123123aa"}]
@@ -860,7 +860,7 @@ class DiscoAWSTests(TestCase):
         aws.instances_from_asgs.assert_called_with(['test_group'])
 
     @patch_disco_aws
-    def test_wait_for_autoscaling_(self, mock_config, **kwargs):
+    def test_wait_for_autoscaling_using_time(self, mock_config, **kwargs):
         '''test wait for autoscaling using the ami id to identify the instances and the launch time'''
         aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME)
         instances = [{"InstanceId": "i-123123aa"}]
