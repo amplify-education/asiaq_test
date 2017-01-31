@@ -209,6 +209,7 @@ def check_written_s3(object_name, expected_written_length, written_length):
             "{0} is not written correctly to S3 bucket".format(object_name)
         )
 
+
 def backoff(cycle):
     """This function takes as input an integer that represents a cycle count,
         calculates jitter and executes sleep for the calculated time.
