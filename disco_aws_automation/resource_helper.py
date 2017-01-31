@@ -61,8 +61,7 @@ def keep_trying(max_time, fun, *args, **kwargs):
     cause a max_time delay.
     """
 
-    base = 3
-    sleep = 1
+    cycle = 0
     expire_time = time.time() + max_time
     while True:
         try:
@@ -72,8 +71,8 @@ def keep_trying(max_time, fun, *args, **kwargs):
                 logger.exception("Failed to run %s.", fun)
             if time.time() > expire_time:
                 raise
-            time.sleep(sleep)
-            sleep = min(MAX_POLL_INTERVAL, randint(base, sleep * 3))
+            cycle += 1
+            backoff(cycle)
 
 
 def throttled_call(fun, *args, **kwargs):
@@ -86,8 +85,7 @@ def throttled_call(fun, *args, **kwargs):
     (up to MAX_POLL_INTERVAL seconds).
     """
     max_time = 5 * 60
-    base = 3
-    sleep = 1
+    cycle = 0
     expire_time = time.time() + max_time
     while True:
         try:
@@ -104,15 +102,14 @@ def throttled_call(fun, *args, **kwargs):
             if (error_code not in ("Throttling", "RequestLimitExceeded")) or (time.time() > expire_time):
                 raise
 
-            time.sleep(sleep)
-            sleep = min(MAX_POLL_INTERVAL, randint(base, sleep * 3))
+            cycle += 1
+            backoff(cycle)
 
 
 def wait_for_state(resource, state, timeout=15 * 60, state_attr='state'):
     """Wait for an AWS resource to reach a specified state"""
     time_passed = 0
-    base = 3
-    sleep = 1
+    cycle = 0
     while True:
         try:
             resource.update()
@@ -131,16 +128,15 @@ def wait_for_state(resource, state, timeout=15 * 60, state_attr='state'):
                 "Timed out waiting for {0} to change state to {1} after {2}s."
                 .format(resource, state, time_passed))
 
-        time.sleep(sleep)
-        sleep = min(MAX_POLL_INTERVAL, randint(base, sleep * 3))
+        cycle += 1
+        backoff(cycle)
 
 
 def wait_for_state_boto3(describe_func, params_dict, resources_name,
                          expected_state, state_attr='state', timeout=15 * 60):
     """Wait for an AWS resource to reach a specified state using the boto3 library"""
     time_passed = 0
-    base = 3
-    sleep = 1
+    cycle = 0
     while True:
         try:
             resources = describe_func(**params_dict)[resources_name]
@@ -171,8 +167,8 @@ def wait_for_state_boto3(describe_func, params_dict, resources_name,
                 "state to {0} after {1}s:\n{2}"
                 .format(expected_state, time_passed, params_dict))
 
-        time.sleep(sleep)
-        sleep = min(MAX_POLL_INTERVAL, randint(base, sleep * 3))
+        cycle += 1
+        backoff(cycle)
 
 
 def wait_for_sshable(remotecmd, instance, timeout=15 * 60, quiet=False):
@@ -212,3 +208,12 @@ def check_written_s3(object_name, expected_written_length, written_length):
         raise S3WritingError(
             "{0} is not written correctly to S3 bucket".format(object_name)
         )
+
+def backoff(cycle):
+    """This function takes as input an integer that represents a cycle count,
+        calculates jitter and executes sleep for the calculated time.
+        The invoking function should increment 'cycle' before calling this function.
+        The minimum value 'cycle'can take is 1
+        """
+    base = 3
+    time.sleep(min(MAX_POLL_INTERVAL, randint(base, cycle * 3)))
