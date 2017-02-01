@@ -63,11 +63,11 @@ class DiscoElastigroup(object):
             if group['name'].startswith("{0}_".format(self.environment_name))
         ]
 
-    def get_hostclass(self, groupname):
+    def get_hostclass(self, group_name):
         """Returns the hostclass when given an elastigroup name"""
-        return groupname.split('_')[1]
+        return group_name.split('_')[1]
 
-    def get_existing_groups(self, hostclass):
+    def get_existing_groups(self, hostclass=None, group_name=None):
         """
         Returns all elastigroups for a given hostclass, sorted by most recent creation. If no
         elastigroup can be found, returns an empty list.
@@ -76,14 +76,15 @@ class DiscoElastigroup(object):
             groups = self.session.get(SPOTINST_API).json()['response']['items']
         except KeyError:
             return []
-        filtered_groups = [group for group in groups if hostclass in group["name"]]
-        filtered_groups.sort(key=lambda group: group["updatedAt"], reverse=True)
+        filtered_groups = [group for group in groups
+                           if not hostclass or self.get_hostclass(group_name) == hostclass]
+        filtered_groups.sort(key=lambda group: group["name"], reverse=True)
         return filtered_groups
 
-    def get_group_ids(self, hostclass):
-        """Returns list of elastigroup ids pertaining to a hostclass"""
-        groups = self.get_existing_groups(hostclass)
-        group_ids = [group["id"] for group in groups if hostclass in group["name"]]
+    def get_group_ids(self, hostclass=None, group_name=None):
+        """Returns list of elastigroup ids filtered by hostclass or group_name"""
+        groups = self.get_existing_groups(hostclass, group_name)
+        group_ids = [group["id"] for group in groups]
         return group_ids
 
     def get_group_instances(self, group_id):
@@ -103,7 +104,7 @@ class DiscoElastigroup(object):
         capacity = dict(target=desired_size, minimum=min_size, maximum=max_size, unit="instance")
 
         compute = {"instanceTypes": {
-            "ondemand": "t2.micro",
+            "ondemand": "t2.small",
             "spot": instance_type.split(',')
         }, "availabilityZones": [{'name': zone, 'subnetIds': [subnet_id]}
                                  for zone, subnet_id in zones.iteritems()], "product": "Linux/UNIX"}
@@ -170,7 +171,7 @@ class DiscoElastigroup(object):
         return json.dumps(elastigroup_config)
 
     def _create_elastigroup_tags(self, tags):
-        """Given a python dictionary, return list of elastigroups tags"""
+        """Given a python dictionary, it returns a list of elastigroup tags"""
         return [{'tagKey': key, 'tagValue': str(value)}
                 for key, value in tags.iteritems()] if tags else None
 
@@ -180,15 +181,16 @@ class DiscoElastigroup(object):
             zones[subnet['AvailabilityZone']] = subnet['SubnetId']
         return zones
 
-    def create_group(self, hostclass, availability_vs_cost="balanced", desired_size=None, min_size=None,
+    def update_group(self, hostclass, availability_vs_cost="balanced", desired_size=None, min_size=None,
                      max_size=None, instance_type=None, subnets=None, load_balancers=None,
                      security_groups=None, instance_monitoring=None, ebs_optimized=None, image_id=None,
                      key_name=None, associate_public_ip_address=None, user_data=None, tags=None,
                      instance_profile_name=None, block_device_mappings=None):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
-        """Create an elastigroup for a given hostclass"""
-        group_config = self.create_elastigroup_config(
+        """Updates an existing elastigroup if it exists,
+        otherwise this creates a new elastigroup."""
+        kwargs = dict(
             hostclass=hostclass,
             availability_vs_cost=availability_vs_cost,
             desired_size=desired_size,
@@ -208,17 +210,22 @@ class DiscoElastigroup(object):
             instance_profile_name=instance_profile_name,
             block_device_mappings=block_device_mappings
         )
-        self.session.post(SPOTINST_API, data=group_config)
+        group_config = self.create_elastigroup_config(**kwargs)
+        if self.get_existing_groups(hostclass):
+            group_id = self.get_group_ids(hostclass)[0]
+            self.session.put(SPOTINST_API + group_id, data=group_config)
+        else:
+            self.session.post(SPOTINST_API, data=group_config)
 
-    def delete_group(self, group_id):
+    def delete_group(self, group_id, force=None):
         """Delete an elastigroup by group id"""
-        self.session.delete(SPOTINST_API + group_id)
+        self.session.delete(SPOTINST_API + group_id, force)
 
-    def delete_groups(self, hostclass):
-        """Delete all elastigroups pertaining to a hostclass"""
-        group_ids = self.get_group_ids(hostclass)
+    def delete_groups(self, hostclass=None, group_name=None, force=False):
+        """Delete all elastigroups based on hostclass or group name"""
+        group_ids = self.get_group_ids(hostclass, group_name)
         for group_id in group_ids:
-            self.delete_group(group_id)
+            self.delete_group(group_id, force)
 
     # def terminate(self, instance_id, decrement_capacity=True):
     #     """

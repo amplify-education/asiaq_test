@@ -311,6 +311,14 @@ class DiscoAutoscale(object):
 
         return group
 
+    def list_groups(self, hostclass=None, group_name=None):
+        """
+        :param hostclass:
+        :param group_name:
+        :return: List of autoscaling groups for a hostclass or group name
+        """
+        pass
+
     def get_existing_groups(self, hostclass=None, group_name=None):
         """
         Returns all autoscaling groups for a given hostclass, sorted by most recent creation. If no

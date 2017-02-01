@@ -408,7 +408,7 @@ class DiscoAWS(object):
         elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
 
         if is_truthy(self.config('spotinst', hostclass)):
-            self.elastigroup.create_group(
+            self.elastigroup.update_group(
                 hostclass=hostclass,
                 image_id=ami.id,
                 subnets=self.get_subnets(meta_network, hostclass),
