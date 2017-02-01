@@ -121,6 +121,8 @@ class DiscoElastigroup(object):
                 if ebs.snapshot_id:
                     bdm['ebs']['snapshotId'] = ebs.snapshot_id
                 bdms.append(bdm)
+            else:
+                bdms = None
 
         network_interfaces = [
             {"deleteOnTermination": True,
