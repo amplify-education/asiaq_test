@@ -409,7 +409,8 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._disco_aws.wait_for_autoscaling = MagicMock(side_effect=TimeoutError())
         self._ci_deploy._disco_aws.smoketest = MagicMock(return_value=True)
         self.assertEqual(self._ci_deploy.wait_for_smoketests('ami-12345678', 2), False)
-        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2, None, None)
+        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2,
+                                                                           group_name=None, create_date=None)
         self.assertEqual(self._ci_deploy._disco_aws.smoketest.call_count, 0)
 
     def test_wait_for_smoketests_does_smoke(self):
@@ -418,7 +419,8 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._disco_aws.smoketest = MagicMock(return_value=True)
         self._ci_deploy._disco_aws.instances_from_amis = MagicMock(return_value=['a', 'b'])
         self.assertEqual(self._ci_deploy.wait_for_smoketests('ami-12345678', 2), True)
-        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2, None, None)
+        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2,
+                                                                           group_name=None, create_date=None)
         self._ci_deploy._disco_aws.instances_from_amis.assert_called_with(['ami-12345678'], None, None)
         self._ci_deploy._disco_aws.smoketest.assert_called_with(['a', 'b'])
 
@@ -428,7 +430,8 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._disco_aws.smoketest = MagicMock(side_effect=TimeoutError())
         self._ci_deploy._disco_aws.instances_from_amis = MagicMock(return_value=['a', 'b'])
         self.assertEqual(self._ci_deploy.wait_for_smoketests('ami-12345678', 2), False)
-        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2, None, None)
+        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2,
+                                                                           group_name=None, create_date=None)
         self._ci_deploy._disco_aws.instances_from_amis.assert_called_with(['ami-12345678'], None, None)
         self._ci_deploy._disco_aws.smoketest.assert_called_with(['a', 'b'])
 
@@ -439,8 +442,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._disco_aws.instances_from_amis = MagicMock(return_value=['a', 'b'])
         self.assertEqual(self._ci_deploy.wait_for_smoketests('ami-12345678', 2, group_name='test_group'),
                          True)
-        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2, 'test_group',
-                                                                           None)
+        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2,
+                                                                           group_name='test_group',
+                                                                           create_date=None)
         self._ci_deploy._disco_aws.instances_from_amis.assert_called_with(['ami-12345678'], 'test_group',
                                                                           None)
         self._ci_deploy._disco_aws.smoketest.assert_called_with(['a', 'b'])
@@ -452,8 +456,8 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._disco_aws.instances_from_amis = MagicMock(return_value=['a', 'b'])
         now = datetime.utcnow()
         self.assertEqual(self._ci_deploy.wait_for_smoketests('ami-12345678', 2, create_date=now), True)
-        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2, None,
-                                                                           now)
+        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2,
+                                                                           group_name=None, create_date=now)
         self._ci_deploy._disco_aws.instances_from_amis.assert_called_with(['ami-12345678'], None,
                                                                           now)
         self._ci_deploy._disco_aws.smoketest.assert_called_with(['a', 'b'])

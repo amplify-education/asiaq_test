@@ -197,7 +197,8 @@ class DiscoDeploy(object):
         '''
 
         try:
-            self._disco_aws.wait_for_autoscaling(ami_id, min_count, group_name, create_date)
+            self._disco_aws.wait_for_autoscaling(ami_id, min_count,
+                                                 group_name=group_name, create_date=create_date)
         except TimeoutError:
             logger.info("autoscaling timed out")
             return False
