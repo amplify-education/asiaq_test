@@ -2,14 +2,14 @@
 import logging
 import time
 import json
-import requests
-
 from os.path import expanduser
 from base64 import b64encode
+import requests
 
 logger = logging.getLogger(__name__)
 
 SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group/'
+
 
 class DiscoElastigroup(object):
     """Class orchestrating elastigroups"""
@@ -32,7 +32,7 @@ class DiscoElastigroup(object):
           "token": "f7e6c5abb51bb04fcaa411b7b70cce414c821bf719f7db0679b296e588630515"
         }
         """
-        token_file = json.load(open(expanduser('~')+'/.aws/spotinst_api_token'))
+        token_file = json.load(open(expanduser('~') + '/.aws/spotinst_api_token'))
         if token_file:
             self._token = token_file['token']
         return self._token
@@ -46,8 +46,8 @@ class DiscoElastigroup(object):
         # Insert auth token in header
         self._session.headers.update(
             {
-              "Content-Type" : "application/json",
-              "Authorization": "Bearer {}".format(self.token)
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {}".format(self.token)
             }
         )
         return self._session
@@ -80,47 +80,33 @@ class DiscoElastigroup(object):
         filtered_groups.sort(key=lambda group: group["updatedAt"], reverse=True)
         return filtered_groups
 
-    def get_group_ids(self,hostclass):
+    def get_group_ids(self, hostclass):
         """Returns list of elastigroup ids pertaining to a hostclass"""
         groups = self.get_existing_groups(hostclass)
-        group_ids = [ group["id"] for group in groups if hostclass in group["name"] ]
+        group_ids = [group["id"] for group in groups if hostclass in group["name"]]
         return group_ids
 
-    def get_group_instances(self,group_id):
+    def get_group_instances(self, group_id):
         """Returns list of instance ids in a group"""
         instances = self.session.get(SPOTINST_API + group_id + '/status').json()['response']['items']
-        return [ instance['instanceId'] for instance in instances ]
+        return [instance['instanceId'] for instance in instances]
 
     def create_elastigroup_config(self, hostclass, availability_vs_cost, desired_size, min_size, max_size,
                                   instance_type, zones, load_balancers, security_groups, instance_monitoring,
-                                  ebs_optimized, image_id, key_name, associate_public_ip_address, user_data, tags,
-                                  instance_profile_name, block_device_mappings):
+                                  ebs_optimized, image_id, key_name, associate_public_ip_address, user_data,
+                                  tags, instance_profile_name, block_device_mappings):
+        # Pylint thinks this function has too many arguments and too many local variables
+        # pylint: disable=R0913, R0914
         """Create new elastigroup configuration"""
         group_name = self.get_new_groupname(hostclass)
-        strategy = {
-            'risk': 100,
-            'availabilityVsCost': availability_vs_cost,
-            'fallbackToOd': True
-    }
+        strategy = dict(risk=100, availabilityVsCost=availability_vs_cost, fallbackToOd=True)
+        capacity = dict(target=desired_size, minimum=min_size, maximum=max_size, unit="instance")
 
-        capacity = {
-            "target": desired_size,
-            "minimum": min_size,
-            "maximum": max_size,
-            "unit": "instance"
-        }
-
-        compute = {}
-
-        compute["instanceTypes"] = {
+        compute = {"instanceTypes": {
             "ondemand": "t2.micro",
             "spot": instance_type.split(',')
-        }
-
-        compute["availabilityZones"] = [ {'name': zone, 'subnetIds': [subnet_id]}
-            for zone, subnet_id in zones.iteritems() ]
-
-        compute["product"] = "Linux/UNIX"
+        }, "availabilityZones": [{'name': zone, 'subnetIds': [subnet_id]}
+                                 for zone, subnet_id in zones.iteritems()], "product": "Linux/UNIX"}
 
         bdms = []
         for name, ebs in block_device_mappings[0].iteritems():
@@ -137,15 +123,19 @@ class DiscoElastigroup(object):
                 bdms.append(bdm)
 
         network_interfaces = [
-                    { "deleteOnTermination": True,
-                      "deviceIndex": 0,
-                      "associatePublicIpAddress": associate_public_ip_address}
-            ] if associate_public_ip_address else None
+            {"deleteOnTermination": True,
+             "deviceIndex": 0,
+             "associatePublicIpAddress": associate_public_ip_address}
+        ] if associate_public_ip_address else None
+
+        if load_balancers:
+            elbs = [{"name": elb, "type": "CLASSIC"} for elb in load_balancers]
+        else:
+            elbs = None
 
         launch_specification = {
             "loadBalancersConfig": {
-                "loadBalancers": [ { "name": elb, "type": "CLASSIC" } for elb in load_balancers ] \
-                    if load_balancers else None
+                "loadBalancers": elbs
             },
             "securityGroupIds": security_groups,
             "monitoring": instance_monitoring,
@@ -157,8 +147,7 @@ class DiscoElastigroup(object):
             "userData": b64encode(str(user_data)),
             "tags": self._create_elastigroup_tags(tags),
             "iamRole": {
-                "arn": "arn:aws:iam::{}:instance-profile/{}"
-                .format(self.account_id, instance_profile_name)
+                "arn": "arn:aws:iam::{}:instance-profile/{}".format(self.account_id, instance_profile_name)
             }
         }
 
@@ -175,13 +164,13 @@ class DiscoElastigroup(object):
         logger.info(
             "Creating elastigroup config for elastigroup '%s'", group_name)
 
-        elastigroup_config = { "group": group }
+        elastigroup_config = {"group": group}
         return json.dumps(elastigroup_config)
 
     def _create_elastigroup_tags(self, tags):
         """Given a python dictionary, return list of elastigroups tags"""
-        return [ {'tagKey': key, 'tagValue': str(value)}
-                for key, value in tags.iteritems() ] if tags else None
+        return [{'tagKey': key, 'tagValue': str(value)}
+                for key, value in tags.iteritems()] if tags else None
 
     def _create_az_subnets_dict(self, subnets):
         zones = {}
@@ -189,11 +178,13 @@ class DiscoElastigroup(object):
             zones[subnet['AvailabilityZone']] = subnet['SubnetId']
         return zones
 
-    def create_group(self, hostclass, availability_vs_cost="balanced", desired_size=None,  min_size=None, max_size=None,
-                     instance_type=None, subnets=None, load_balancers=None, security_groups=None,
-                     instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
-                     associate_public_ip_address=None, user_data=None, tags=None, instance_profile_name=None,
-                     block_device_mappings=None):
+    def create_group(self, hostclass, availability_vs_cost="balanced", desired_size=None, min_size=None,
+                     max_size=None, instance_type=None, subnets=None, load_balancers=None,
+                     security_groups=None, instance_monitoring=None, ebs_optimized=None, image_id=None,
+                     key_name=None, associate_public_ip_address=None, user_data=None, tags=None,
+                     instance_profile_name=None, block_device_mappings=None):
+        # Pylint thinks this function has too many arguments and too many local variables
+        # pylint: disable=R0913, R0914
         """Create an elastigroup for a given hostclass"""
         group_config = self.create_elastigroup_config(
             hostclass=hostclass,
