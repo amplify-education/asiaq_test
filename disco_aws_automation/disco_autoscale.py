@@ -207,7 +207,7 @@ class DiscoAutoscale(object):
         return [boto.ec2.autoscale.Tag(key=key, value=value, resource_id=group_name, propagate_at_launch=True)
                 for key, value in tags.iteritems()] if tags else None
 
-    def update_group(self, group, launch_config, vpc_zone_id=None,
+    def modify_group(self, group, launch_config, vpc_zone_id=None,
                      min_size=None, max_size=None, desired_size=None,
                      termination_policies=None, tags=None,
                      load_balancers=None):
@@ -286,7 +286,7 @@ class DiscoAutoscale(object):
                 min_size=min_size, max_size=max_size, desired_size=desired_size,
                 termination_policies=termination_policies, tags=tags, load_balancers=load_balancers)
         else:
-            group = self.update_group(
+            group = self.modify_group(
                 group=existing_group, launch_config=launch_config,
                 vpc_zone_id=vpc_zone_id, min_size=min_size, max_size=max_size, desired_size=desired_size,
                 termination_policies=termination_policies, tags=tags, load_balancers=load_balancers)
@@ -538,7 +538,7 @@ class DiscoAutoscale(object):
             old_snapshot_id = snapshot_bdm.snapshot_id
             snapshot_bdm.snapshot_id = snapshot_id
             snapshot_bdm.size = snapshot_size
-            self.update_group(self.get_existing_group(hostclass=hostclass, group_name=group_name),
+            self.modify_group(self.get_existing_group(hostclass=hostclass, group_name=group_name),
                               self._create_new_launchconfig(hostclass, launch_config).name)
             logger.info(
                 "Updating %s group's snapshot from %s to %s", hostclass or group_name, old_snapshot_id,
