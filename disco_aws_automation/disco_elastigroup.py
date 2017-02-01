@@ -100,8 +100,8 @@ class DiscoElastigroup(object):
         # pylint: disable=R0913, R0914
         """Create new elastigroup configuration"""
         group_name = self.get_new_groupname(hostclass)
-        strategy = dict(risk=100, availabilityVsCost=availability_vs_cost, fallbackToOd=True)
-        capacity = dict(target=desired_size, minimum=min_size, maximum=max_size, unit="instance")
+        strategy = {'risk': 100, 'availabilityVsCost': availability_vs_cost, 'fallbackToOd': True}
+        capacity = {'target': desired_size, 'minimum': min_size, 'maximum': max_size, 'unit': "instance"}
 
         compute = {"instanceTypes": {
             "ondemand": "t2.small",
@@ -190,7 +190,7 @@ class DiscoElastigroup(object):
         # pylint: disable=R0913, R0914
         """Updates an existing elastigroup if it exists,
         otherwise this creates a new elastigroup."""
-        kwargs = dict(
+        group_config = self.create_elastigroup_config(
             hostclass=hostclass,
             availability_vs_cost=availability_vs_cost,
             desired_size=desired_size,
@@ -210,22 +210,25 @@ class DiscoElastigroup(object):
             instance_profile_name=instance_profile_name,
             block_device_mappings=block_device_mappings
         )
-        group_config = self.create_elastigroup_config(**kwargs)
         if self.get_existing_groups(hostclass):
             group_id = self.get_group_ids(hostclass)[0]
             self.session.put(SPOTINST_API + group_id, data=group_config)
         else:
             self.session.post(SPOTINST_API, data=group_config)
 
-    def delete_group(self, group_id, force=None):
+    def _delete_group(self, group_id, force=False):
         """Delete an elastigroup by group id"""
-        self.session.delete(SPOTINST_API + group_id, force)
+        # pylint: disable=unused-argument
+        # We need argument `force` to match method in autoscale
+        self.session.delete(SPOTINST_API + group_id)
 
     def delete_groups(self, hostclass=None, group_name=None, force=False):
         """Delete all elastigroups based on hostclass or group name"""
+        # pylint: disable=unused-argument
+        # We need argument `force` to match method in autoscale
         group_ids = self.get_group_ids(hostclass, group_name)
         for group_id in group_ids:
-            self.delete_group(group_id, force)
+            self._delete_group(group_id)
 
     # def terminate(self, instance_id, decrement_capacity=True):
     #     """
