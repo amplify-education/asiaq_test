@@ -298,3 +298,9 @@ class DiscoRDSTests(unittest.TestCase):
         sg_group_id = self.rds.get_rds_security_group_id()
 
         self.assertEqual(MOCK_SG_GROUP_ID, sg_group_id)
+
+    def test_delete_db_instance(self):
+        """Test delete db instance"""
+        self.rds.delete_db_instance("id_1", True)
+        self.rds.client.delete_db_subnet_group.assert_called_with(DBSubnetGroupName="group_name")
+
