@@ -212,6 +212,7 @@ def backoff(cycle):
     calculates jitter and executes sleep for the calculated time.
     The value of 'cycle' must be an integer greater than 0.
     """
+    base = 3
     if cycle is None or cycle < 1:
         raise ValueError('Value of cycle must be int > 0')
 
