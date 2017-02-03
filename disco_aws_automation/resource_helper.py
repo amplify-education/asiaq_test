@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 STATE_POLL_INTERVAL = 2  # seconds
 INSTANCE_SSHABLE_POLL_INTERVAL = 15  # seconds
 
+
 def create_filters(filter_dict):
     """
     Converts a dict to a list of boto3 filters. The keys and value of the dict represent
