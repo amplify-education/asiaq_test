@@ -127,6 +127,7 @@ def wait_for_state(resource, state, timeout=15 * 60, state_attr='state'):
                 .format(resource, state, time_passed))
 
         cycle = backoff(cycle)
+        time_passed += STATE_POLL_INTERVAL
 
 
 def wait_for_state_boto3(describe_func, params_dict, resources_name,
@@ -165,6 +166,7 @@ def wait_for_state_boto3(describe_func, params_dict, resources_name,
                 .format(expected_state, time_passed, params_dict))
 
         cycle = backoff(cycle)
+        time_passed += STATE_POLL_INTERVAL
 
 
 def wait_for_sshable(remotecmd, instance, timeout=15 * 60, quiet=False):
