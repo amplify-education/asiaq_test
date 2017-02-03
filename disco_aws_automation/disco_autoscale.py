@@ -56,6 +56,10 @@ class DiscoAutoscale(object):
         '''Returns a new autoscaling group name when given a hostclass'''
         return self.environment_name + '_' + hostclass + "_" + str(int(time.time()))
 
+    def get_new_lc_name(self, hostclass):
+        """Create new launchconfig group name"""
+        return '{0}_{1}_{2}'.format(self.environment_name, hostclass, str(random.randrange(0, 9999999)))
+
     def _filter_by_environment(self, items):
         '''Filters autoscaling groups and launch configs by environment'''
         return [
@@ -308,7 +312,69 @@ class DiscoAutoscale(object):
             scaling_adjustment='-10',
             min_adjustment_magnitude='1'
         )
+        return group
 
+    def update_group(self, hostclass, desired_size=None, min_size=None, termination_policies=None,
+                     max_size=None, instance_type=None, subnets=None, load_balancers=None,
+                     security_groups=None, instance_monitoring=None, ebs_optimized=None, image_id=None,
+                     key_name=None, associate_public_ip_address=None, user_data=None, tags=None,
+                     instance_profile_name=None, block_device_mappings=None, create_if_exists=False,
+                     group_name=False):
+        """
+
+        :param hostclass:
+        :param desired_size:
+        :param min_size:
+        :param max_size:
+        :param instance_type:
+        :param subnets:
+        :param load_balancers:
+        :param security_groups:
+        :param instance_monitoring:
+        :param ebs_optimized:
+        :param image_id:
+        :param key_name:
+        :param associate_public_ip_address:
+        :param user_data:
+        :param tags:
+        :param instance_profile_name:
+        :param block_device_mappings:
+        :param create_if_exists:
+        :param termination_policies:
+        :param group_name:
+        :return autoscale group:
+        """
+        # Pylint thinks this function has too many arguments and too many local variables
+        # We need unused argument to match method in autoscale
+        # pylint: disable=R0913, R0914
+        # pylint: disable=unused-argument
+        launch_config = self.get_config(
+            name=self.get_new_lc_name(hostclass),
+            image_id=image_id,
+            key_name=key_name,
+            security_groups=security_groups,
+            block_device_mappings=block_device_mappings,
+            instance_type=instance_type,
+            instance_monitoring=instance_monitoring,
+            instance_profile_name=instance_profile_name,
+            ebs_optimized=ebs_optimized,
+            user_data=user_data,
+            associate_public_ip_address=associate_public_ip_address
+        )
+
+        group = self.get_group(
+            hostclass=hostclass,
+            launch_config=launch_config.name,
+            vpc_zone_id=",".join([subnet['SubnetId'] for subnet in subnets]),
+            min_size=min_size,
+            max_size=max_size,
+            desired_size=desired_size,
+            termination_policies=termination_policies,
+            tags=tags,
+            load_balancers=load_balancers,
+            create_if_exists=create_if_exists,
+            group_name=group_name
+        )
         return group
 
     def list_groups(self, hostclass=None, group_name=None):

@@ -72,13 +72,15 @@ class DiscoElastigroup(object):
         Returns all elastigroups for a given hostclass, sorted by most recent creation. If no
         elastigroup can be found, returns an empty list.
         """
+        # We need unused argument to match method in autoscale
+        # pylint: disable=unused-argument
         try:
             groups = self.session.get(SPOTINST_API).json()['response']['items']
         except KeyError:
             return []
         filtered_groups = [group for group in groups
-                           if not hostclass or self.get_hostclass(group_name) == hostclass]
-        filtered_groups.sort(key=lambda group: group["name"], reverse=True)
+                           if not hostclass or self.get_hostclass(group['name']) == hostclass]
+        filtered_groups.sort(key=lambda grp: grp["name"], reverse=True)
         return filtered_groups
 
     def get_group_ids(self, hostclass=None, group_name=None):
@@ -95,11 +97,13 @@ class DiscoElastigroup(object):
     def create_elastigroup_config(self, hostclass, availability_vs_cost, desired_size, min_size, max_size,
                                   instance_type, zones, load_balancers, security_groups, instance_monitoring,
                                   ebs_optimized, image_id, key_name, associate_public_ip_address, user_data,
-                                  tags, instance_profile_name, block_device_mappings):
+                                  tags, instance_profile_name, block_device_mappings, group_name):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
+        # We need unused argument to match method in autoscale
+        # pylint: disable=unused-argument
         """Create new elastigroup configuration"""
-        group_name = self.get_new_groupname(hostclass)
+        # group_name = self.get_new_groupname(hostclass)
         strategy = {'risk': 100, 'availabilityVsCost': availability_vs_cost, 'fallbackToOd': True}
         capacity = {'target': desired_size, 'minimum': min_size, 'maximum': max_size, 'unit': "instance"}
 
@@ -168,7 +172,8 @@ class DiscoElastigroup(object):
             "Creating elastigroup config for elastigroup '%s'", group_name)
 
         elastigroup_config = {"group": group}
-        return json.dumps(elastigroup_config)
+        # return json.dumps(elastigroup_config)
+        return elastigroup_config
 
     def _create_elastigroup_tags(self, tags):
         """Given a python dictionary, it returns a list of elastigroup tags"""
@@ -176,23 +181,27 @@ class DiscoElastigroup(object):
                 for key, value in tags.iteritems()] if tags else None
 
     def _create_az_subnets_dict(self, subnets):
+        """ Create a dictionary with key AZ and value subnet id"""
         zones = {}
         for subnet in subnets:
             zones[subnet['AvailabilityZone']] = subnet['SubnetId']
         return zones
 
-    def update_group(self, hostclass, availability_vs_cost="balanced", desired_size=None, min_size=None,
+    def update_group(self, hostclass, desired_size=None, min_size=None, termination_policies=None,
                      max_size=None, instance_type=None, subnets=None, load_balancers=None,
                      security_groups=None, instance_monitoring=None, ebs_optimized=None, image_id=None,
                      key_name=None, associate_public_ip_address=None, user_data=None, tags=None,
-                     instance_profile_name=None, block_device_mappings=None):
+                     instance_profile_name=None, block_device_mappings=None, create_if_exists=False,
+                     group_name=None):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
+        # We need unused argument to match method in autoscale
+        # pylint: disable=unused-argument
         """Updates an existing elastigroup if it exists,
         otherwise this creates a new elastigroup."""
         group_config = self.create_elastigroup_config(
             hostclass=hostclass,
-            availability_vs_cost=availability_vs_cost,
+            availability_vs_cost="balanced",
             desired_size=desired_size,
             min_size=min_size,
             max_size=max_size,
@@ -208,24 +217,29 @@ class DiscoElastigroup(object):
             user_data=user_data,
             tags=tags,
             instance_profile_name=instance_profile_name,
-            block_device_mappings=block_device_mappings
+            block_device_mappings=block_device_mappings,
+            group_name=group_name or self.get_new_groupname(hostclass)
         )
-        if self.get_existing_groups(hostclass):
-            group_id = self.get_group_ids(hostclass)[0]
-            self.session.put(SPOTINST_API + group_id, data=group_config)
+        group_ids = self.get_group_ids(hostclass)
+        if group_ids:
+            group_id = group_ids[0]
+            # Remove fields not allowed in update
+            del group_config['group']['capacity']['unit']
+            del group_config['group']['compute']['product']
+            self.session.put(SPOTINST_API + group_id, data=json.dumps(group_config))
         else:
-            self.session.post(SPOTINST_API, data=group_config)
+            self.session.post(SPOTINST_API, data=json.dumps(group_config))
 
     def _delete_group(self, group_id, force=False):
         """Delete an elastigroup by group id"""
-        # pylint: disable=unused-argument
         # We need argument `force` to match method in autoscale
+        # pylint: disable=unused-argument
         self.session.delete(SPOTINST_API + group_id)
 
     def delete_groups(self, hostclass=None, group_name=None, force=False):
         """Delete all elastigroups based on hostclass or group name"""
-        # pylint: disable=unused-argument
         # We need argument `force` to match method in autoscale
+        # pylint: disable=unused-argument
         group_ids = self.get_group_ids(hostclass, group_name)
         for group_id in group_ids:
             self._delete_group(group_id)

@@ -5,7 +5,7 @@ from ConfigParser import NoOptionError
 from collections import defaultdict
 import getpass
 import logging
-import random
+# import random
 import time
 from datetime import datetime
 import dateutil.parser
@@ -146,6 +146,16 @@ class DiscoAWS(object):
             self._disco_remote_exec = DiscoRemoteExec(buckets)
         return self._disco_remote_exec
 
+    def service(self, spotinst=False):
+        """
+        User either autoscale or elastigroup service, depending on
+        hostclass configuration in disco_aws.ini (e.g. spotinst=True)
+        """
+        if is_truthy(spotinst):
+            return self.elastigroup
+        else:
+            return self.autoscale
+
     def config(self, option, section=DEFAULT_CONFIG_SECTION, default=None):
         """Get a value from the config"""
         env_option = "{0}@{1}".format(option, self.environment_name)
@@ -185,7 +195,7 @@ class DiscoAWS(object):
             return default
 
     def create_userdata(self, hostclass, owner):
-        '''This is autoscaling group specific user data'''
+        """This is autoscaling group specific user data"""
         fixed_ip_hostclass = {}
         data = {}
 
@@ -389,10 +399,6 @@ class DiscoAWS(object):
         meta_network = self.get_meta_network(hostclass)
         instance_type = instance_type if instance_type else self.get_instance_type(hostclass)
 
-        # Use a human friendly name and append a random tail to avoid name collisions.
-        lc_name = '{0}_{1}_{2}'.format(
-            self.environment_name, hostclass, str(random.randrange(0, 9999999)))
-
         user_data = self.create_userdata(hostclass, owner)
 
         block_device_mappings = self.get_block_device_mappings(
@@ -407,62 +413,37 @@ class DiscoAWS(object):
 
         elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
 
-        if is_truthy(self.config('spotinst', hostclass)):
-            self.elastigroup.update_group(
-                hostclass=hostclass,
-                image_id=ami.id,
-                subnets=self.get_subnets(meta_network, hostclass),
-                key_name=DiscoAWS._nonify(self.hostclass_option(hostclass, "ssh_key_name")),
-                min_size=size_as_minimum_int_or_none(min_size),
-                max_size=size_as_maximum_int_or_none(max_size),
-                desired_size=size_as_maximum_int_or_none(desired_size),
-                instance_profile_name=self.hostclass_option_default(hostclass, "instance_profile_name"),
-                ebs_optimized=self.disco_storage.is_ebs_optimized(instance_type),
-                security_groups=[meta_network.security_group.id],
-                tags={"hostclass": hostclass,
-                      "owner": user_data["owner"],
-                      "environment": self.environment_name,
-                      "chaos": chaos,
-                      "is_testing": "1" if testing else "0"},
-                user_data="\n".join(['{0}="{1}"'.format(key, value) for key, value in user_data.iteritems()]),
-                associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")),
-                instance_monitoring=monitoring_enabled,
-                instance_type=instance_type,
-                load_balancers=[elb['LoadBalancerName']] if elb else [],
-                block_device_mappings=block_device_mappings
-            )
-        else:
-            launch_config = self.autoscale.get_config(
-                name=lc_name,
-                image_id=ami.id,
-                key_name=DiscoAWS._nonify(self.hostclass_option(hostclass, "ssh_key_name")),
-                security_groups=[meta_network.security_group.id],
-                block_device_mappings=block_device_mappings,
-                instance_type=instance_type,
-                instance_monitoring=monitoring_enabled,
-                instance_profile_name=self.hostclass_option_default(hostclass, "instance_profile_name"),
-                ebs_optimized=self.disco_storage.is_ebs_optimized(instance_type),
-                user_data="\n".join(['{0}="{1}"'.format(key, value) for key, value in user_data.iteritems()]),
-                associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")))
+        service = self.service(self.config('spotinst', hostclass))
 
-            group = self.autoscale.get_group(
-                hostclass=hostclass, launch_config=launch_config.name,
-                vpc_zone_id=",".join([subnet['SubnetId'] for subnet
-                                      in self.get_subnets(meta_network, hostclass)]),
-                min_size=size_as_minimum_int_or_none(min_size),
-                max_size=size_as_maximum_int_or_none(max_size),
-                desired_size=size_as_maximum_int_or_none(desired_size),
-                termination_policies=termination_policies,
-                tags={"hostclass": hostclass,
-                      "owner": user_data["owner"],
-                      "environment": self.environment_name,
-                      "chaos": chaos,
-                      "is_testing": "1" if testing else "0"},
-                load_balancers=[elb['LoadBalancerName']] if elb else [],
-                create_if_exists=create_if_exists,
-                group_name=group_name
-            )
+        group = service.update_group(
+            hostclass=hostclass,
+            image_id=ami.id,
+            subnets=self.get_subnets(meta_network, hostclass),
+            key_name=DiscoAWS._nonify(self.hostclass_option(hostclass, "ssh_key_name")),
+            min_size=size_as_minimum_int_or_none(min_size),
+            max_size=size_as_maximum_int_or_none(max_size),
+            desired_size=size_as_maximum_int_or_none(desired_size),
+            instance_profile_name=self.hostclass_option_default(hostclass, "instance_profile_name"),
+            ebs_optimized=self.disco_storage.is_ebs_optimized(instance_type),
+            security_groups=[meta_network.security_group.id],
+            tags={"hostclass": hostclass,
+                  "owner": user_data["owner"],
+                  "environment": self.environment_name,
+                  "chaos": chaos,
+                  "is_testing": "1" if testing else "0"},
+            user_data="\n".join(['{0}="{1}"'.format(key, value) for key, value in user_data.iteritems()]),
+            associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")),
+            instance_monitoring=monitoring_enabled,
+            instance_type=instance_type,
+            load_balancers=[elb['LoadBalancerName']] if elb else [],
+            block_device_mappings=block_device_mappings,
+            create_if_exists=create_if_exists,
+            termination_policies=termination_policies,
+            group_name=group_name
+        )
 
+        # Elastigroup does not return a group object
+        if not self.config('spotinst', hostclass):
             self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group.name)
 
             # Create alarms and custom metrics for the hostclass, if is not being used for testing
@@ -475,7 +456,7 @@ class DiscoAWS(object):
             return {
                 "hostclass": hostclass,
                 "no_destroy": no_destroy,
-                "launch_config": lc_name,
+                "launch_config": group.launch_config_name,
                 "group_name": group.name,
                 "chaos": chaos
             }
