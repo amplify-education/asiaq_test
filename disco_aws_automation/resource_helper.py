@@ -18,8 +18,6 @@ logger = logging.getLogger(__name__)
 
 STATE_POLL_INTERVAL = 2  # seconds
 INSTANCE_SSHABLE_POLL_INTERVAL = 15  # seconds
-MAX_POLL_INTERVAL = 60  # seconds
-
 
 def create_filters(filter_dict):
     """
@@ -52,9 +50,7 @@ def keep_trying(max_time, fun, *args, **kwargs):
     Execute function fun with args and kwargs until it does
     not throw exception or max time has passed.
 
-    After each failed attempt a delay is introduced of an
-    increasing number seconds following the fibonacci series
-    (up to MAX_POLL_INTERVAL seconds).
+    After each failed attempt a delay is introduced by backoff() function.
 
     Note: If you are only concerned about throttling use throttled_call
     instead. Any irrecoverable exception within a keep_trying will
@@ -79,9 +75,7 @@ def throttled_call(fun, *args, **kwargs):
     Execute function fun with args and kwargs until it does
     not throw a throttled exception or 5 minutes have passed.
 
-    After each failed attempt a delay is introduced of an
-    increasing number seconds following the fibonacci series
-    (up to MAX_POLL_INTERVAL seconds).
+    After each failed attempt a delay is introduced by backoff() function.
     """
     max_time = 5 * 60
     cycle = 1
@@ -215,8 +209,9 @@ def backoff(cycle):
     The value of 'cycle' must be an integer greater than 0.
     """
     base = 3
+    max_poll_interval = 60
     if cycle is None or cycle < 1:
         raise ValueError('Value of cycle must be int > 0')
 
-    time.sleep(min(MAX_POLL_INTERVAL, randint(base, cycle * 3)))
+    time.sleep(min(max_poll_interval, randint(base, cycle * 3)))
     return cycle + 1
