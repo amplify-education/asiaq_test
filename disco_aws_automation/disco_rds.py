@@ -601,7 +601,8 @@ class DiscoRDS(object):
                 try:
                     throttled_call(self.client.delete_db_subnet_group, DBSubnetGroupName=db_subnet_group_name)
                 except Exception as err:
-                    logger.debug("Unable to delete subnet group '%s': %s", db_subnet_group_name, repr(err))
+                    logger.exception("Unable to delete subnet group '%s': %s", db_subnet_group_name,
+                                     repr(err))
 
                 throttled_call(
                     self.client.delete_db_instance,

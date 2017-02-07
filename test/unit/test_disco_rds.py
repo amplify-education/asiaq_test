@@ -329,8 +329,8 @@ class DiscoRDSTests(unittest.TestCase):
         }
         with patch('__builtin__.raw_input', return_value='100GB'):
             self.assertRaises(SystemExit, self.rds.delete_db_instance, "unittestenv-db-name", True)
-            assert not self.rds.client.delete_db_subnet_group.called
-            assert not self.rds.client.delete_db_instance.called
+            self.assertFalse(self.rds.client.delete_db_subnet_group.called)
+            self.assertFalse(self.rds.client.delete_db_instance.called)
 
     def test_delete_db_instance_no_snapshot(self):
         """Test delete db instance no snapshot"""
