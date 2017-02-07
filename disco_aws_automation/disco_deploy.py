@@ -124,11 +124,6 @@ class DiscoDeploy(object):
         '''Returns latest failed AMI for each hostclass'''
         return self.get_latest_ami_in_stage_dict('failed')
 
-    def get_amis_by_ids(self):
-        '''Returns the AMI Objects for the specified ami_ids stored in the config variable restrict_amis'''
-        if self._restrict_amis is not None:
-            return self.all_stage_amis
-
     def get_items_newer_in_second_map(self, first, second):
         '''Returns AMIs from second dict which are newer than the corresponding item in the first dict'''
         return [ami for (hostclass, ami) in second.iteritems()
@@ -189,7 +184,7 @@ class DiscoDeploy(object):
         return (hostclass in self._hostclasses and
                 self._hostclasses[hostclass].get("integration_test")) or None
 
-    def wait_for_smoketests(self, ami_id, min_count, group_name=None, create_date=None):
+    def wait_for_smoketests(self, ami_id, min_count, group_name=None, launch_time=None):
         '''
         Waits for smoketests to complete for an AMI.
 
@@ -198,13 +193,13 @@ class DiscoDeploy(object):
 
         try:
             self._disco_aws.wait_for_autoscaling(ami_id, min_count,
-                                                 group_name=group_name, create_date=create_date)
+                                                 group_name=group_name, launch_time=launch_time)
         except TimeoutError:
             logger.info("autoscaling timed out")
             return False
 
         try:
-            self._disco_aws.smoketest(self._disco_aws.instances_from_amis([ami_id], group_name, create_date))
+            self._disco_aws.smoketest(self._disco_aws.instances_from_amis([ami_id], group_name, launch_time))
         except TimeoutError:
             logger.info("smoketest timed out")
             return False
@@ -279,7 +274,7 @@ class DiscoDeploy(object):
 
         self._disco_aws.spinup([new_hostclass_dict], testing=True)
 
-        if self.wait_for_smoketests(ami.id, rollback_hostclass_dict["desired_size"], now):
+        if self.wait_for_smoketests(ami.id, rollback_hostclass_dict["desired_size"], launch_time=now):
             self._promote_ami(ami, "tested")
         else:
             self._promote_ami(ami, "failed")
@@ -299,8 +294,13 @@ class DiscoDeploy(object):
             raise RuntimeError("Smoke test for non-deploy Hostclass %s AMI %s failed", hostclass, ami.id)
 
     def _get_old_instances(self, new_ami_id, launch_time=None):
-        '''Returns instances of the hostclass of new_ami_id that are not running new_ami_id
-        or using launch date
+        '''
+        Returns instances for the hostclass of new_ami_id that are not running new_ami_id
+        or which were launched before the specified launch time
+        :param new_ami_id: The new ami_id current used for the hostclass
+        :param launch_time: If launch time is specified only instances launched before the specified
+        launch time will be returned.
+        :return: List of instances
         '''
         hostclass = DiscoBake.ami_hostclass(self._disco_bake.connection.get_image(new_ami_id))
         all_ids = [inst.instance_id for inst in self._disco_autoscale.get_instances(hostclass=hostclass)]
@@ -310,8 +310,13 @@ class DiscoDeploy(object):
                 (launch_time and get_instance_launch_time(inst) < launch_time)]
 
     def _get_new_instances(self, new_ami_id, launch_time=None):
-        '''Returns instances running new_ami_id
-        If launch_date is specify, select only instance created after the specified date
+        '''
+        Returns instances running new_ami_id
+        If launch_time is specified, select only instances launched after the specified date
+        :param new_ami_id:
+        :param launch_time: If launch time is specified only instances launched after the specified
+        launch time will be returned.
+        :return: List of instances
         '''
         hostclass = DiscoBake.ami_hostclass(self._disco_bake.connection.get_image(new_ami_id))
         all_ids = [inst.instance_id for inst in self._disco_autoscale.get_instances(hostclass=hostclass)]
@@ -362,11 +367,6 @@ class DiscoDeploy(object):
         ami_test_failed = False
         hostclass = DiscoBake.ami_hostclass(ami)
 
-        try:
-            old_ami_id = self._disco_aws.instance_from_hostname(hostclass).image_id
-        except ValueError:
-            old_ami_id = None
-
         logger.info(
             "testing deployable hostclass %s AMI %s with %s deployment strategy",
             hostclass,
@@ -403,7 +403,7 @@ class DiscoDeploy(object):
         self._disco_aws.spinup([new_hostclass_dict])
 
         try:
-            if (self.wait_for_smoketests(ami.id, post_hostclass_dict["desired_size"], now) and
+            if (self.wait_for_smoketests(ami.id, post_hostclass_dict["desired_size"], launch_time=now) and
                     (not run_tests or self.run_tests_with_maintenance_mode(ami))):
                 # Roll forward with new configuration
                 self._disco_aws.terminate(self._get_old_instances(ami.id, launch_time=now),
@@ -428,10 +428,10 @@ class DiscoDeploy(object):
         old_ami_id = self._get_latest_other_image_id(ami.id)
         if old_ami_id:
             post_hostclass_dict["ami"] = old_ami_id
-        elif old_ami_id != ami:
+        else:
             logger.error("Unable to rollback to old AMI. Autoscaling group will use new AMI on next event!")
 
-        self._disco_aws.terminate(self._get_new_instances(ami.id, now), use_autoscaling=True)
+        self._disco_aws.terminate(self._get_new_instances(ami.id, launch_time=now), use_autoscaling=True)
         self._disco_aws.spinup([post_hostclass_dict])
 
         if ami_test_failed:
@@ -847,7 +847,7 @@ class DiscoDeploy(object):
         independently of its stage,
         Otherwise use the most recent untested ami for the hostclass
         '''
-        amis = self.get_amis_by_ids() if self._restrict_amis else self.get_test_amis()
+        amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
         if len(amis):
             self.test_ami(random.choice(amis), dry_run, deployment_strategy)
         else:
@@ -862,7 +862,7 @@ class DiscoDeploy(object):
         independently of its stage,
         Otherwise uses the most recent tested or un tagged ami
         '''
-        amis = self.get_amis_by_ids() if self._restrict_amis else self.get_update_amis()
+        amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
         if len(amis):
             self.update_ami(random.choice(amis), dry_run, deployment_strategy)
         else:
