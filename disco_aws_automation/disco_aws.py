@@ -574,18 +574,26 @@ class DiscoAWS(object):
             if instance.tags.get("hostclass", "-") in hostclasses
         ]
 
-    def instances_from_amis(self, ami_ids, group_name=None, create_date=None):
-        """Returns instances matching any of a list of AMI ids and filtered by ASG name and created date"""
+    def instances_from_amis(self, ami_ids, group_name=None, launch_time=None):
+        """
+        Returns instances matching any of a list of AMI ids and filtered by ASG name and Launch Time
+        :param ami_ids: List of AMI IDs used to select the list of returned instances
+        :param group_name: The ASG name, If the group name is specified, only instances belonging to the
+        group will be returned.
+        :param launch_time: If launch time is specified only instances launched on or after the specified
+        launch time will be returned.
+        :return: List of instances.
+        """
         if group_name:
             return self.instances_from_asgs([group_name])
-        elif create_date is None:
+        elif launch_time is None:
             return self.instances(filters={"image_id": ami_ids})
         else:
             instances = self.instances(filters={"image_id": ami_ids})
             return [
                 instance
                 for instance in instances
-                if get_instance_launch_time(instance) >= create_date
+                if get_instance_launch_time(instance) >= launch_time
             ]
 
     def instances_from_asgs(self, asgs):
@@ -729,7 +737,7 @@ class DiscoAWS(object):
         return self.instances(instance_ids=instance_ids) if instance_ids else []
 
     def wait_for_autoscaling(self, ami_id, min_count, timeout=AUTOSCALE_TIMEOUT, group_name=None,
-                             create_date=None):
+                             launch_time=None):
         """
         Wait for at least min_count instances of a particular AMI to spin up.
         raises TimeoutError if min_count hosts do not exist by timeout seconds
@@ -741,8 +749,8 @@ class DiscoAWS(object):
         while time.time() < max_time:
             if group_name:
                 instances = self.instances_from_asgs([group_name])
-            elif create_date:
-                instances = self.instances_from_amis([ami_id], create_date)
+            elif launch_time:
+                instances = self.instances_from_amis([ami_id], launch_time=launch_time)
             else:
                 instances = self.instances_from_amis([ami_id])
 

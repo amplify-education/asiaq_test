@@ -837,7 +837,7 @@ class DiscoAWSTests(TestCase):
         instances = [instance1, instance2]
 
         aws.instances = MagicMock(return_value=instances)
-        self.assertEqual(aws.instances_from_amis('ami-12345678', create_date=now),
+        self.assertEqual(aws.instances_from_amis('ami-12345678', launch_time=now),
                          [instance1])
         aws.instances.assert_called_with(filters={"image_id": 'ami-12345678'})
 
@@ -866,5 +866,5 @@ class DiscoAWSTests(TestCase):
         instances = [{"InstanceId": "i-123123aa"}]
         yesterday = datetime.utcnow() - timedelta(days=1)
         aws.instances_from_amis = MagicMock(return_value=instances)
-        aws.wait_for_autoscaling('ami-12345678', 1, create_date=yesterday)
-        aws.instances_from_amis.assert_called_with(['ami-12345678'], yesterday)
+        aws.wait_for_autoscaling('ami-12345678', 1, launch_time=yesterday)
+        aws.instances_from_amis.assert_called_with(['ami-12345678'], launch_time=yesterday)
