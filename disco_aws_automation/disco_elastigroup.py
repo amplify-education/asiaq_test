@@ -1,10 +1,12 @@
-"""Contains DiscoElastigroup class that orchestrates AWS Spotinst Elastigruops"""
+"""Contains DiscoElastigroup class that orchestrates AWS Spotinst Elastigroups"""
 import logging
 import time
 import json
 from os.path import expanduser
 from base64 import b64encode
 import requests
+
+from .exceptions import TooManyAutoscalingGroups
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,7 @@ class DiscoElastigroup(object):
         )
         return self._session
 
-    def get_new_groupname(self, hostclass):
+    def _get_new_groupname(self, hostclass):
         """Returns a new elastigroup name when given a hostclass"""
         return self.environment_name + '_' + hostclass + "_" + str(int(time.time()))
 
@@ -63,53 +65,74 @@ class DiscoElastigroup(object):
             if group['name'].startswith("{0}_".format(self.environment_name))
         ]
 
-    def get_hostclass(self, group_name):
+    def _get_hostclass(self, group_name):
         """Returns the hostclass when given an elastigroup name"""
         return group_name.split('_')[1]
 
-    def get_existing_groups(self, hostclass=None, group_name=None):
+    def _get_existing_groups(self, hostclass=None, group_name=None):
         """
-        Returns all elastigroups for a given hostclass, sorted by most recent creation. If no
+        Returns all elastigroups for a given hostclass or group name, sorted by most recent creation. If no
         elastigroup can be found, returns an empty list.
         """
-        # We need unused argument to match method in autoscale
-        # pylint: disable=unused-argument
         try:
             groups = self.session.get(SPOTINST_API).json()['response']['items']
         except KeyError:
             return []
+        if group_name:
+            hostclass = self._get_hostclass(group_name)
         filtered_groups = [group for group in groups
-                           if not hostclass or self.get_hostclass(group['name']) == hostclass]
-        filtered_groups.sort(key=lambda grp: grp["name"], reverse=True)
+                           if not hostclass or self._get_hostclass(group['name']) == hostclass]
+        filtered_groups.sort(key=lambda grp: grp['name'], reverse=True)
         return filtered_groups
 
-    def get_group_ids(self, hostclass=None, group_name=None):
-        """Returns list of elastigroup ids filtered by hostclass or group_name"""
-        groups = self.get_existing_groups(hostclass, group_name)
-        group_ids = [group["id"] for group in groups]
-        return group_ids
+    def get_existing_group(self, hostclass=None, group_name=None, throw_on_two_groups=True):
+        """
+        Returns the elastigroup dict for the given hostclass or group name, or None if
+        no elastigroup exists.
 
-    def get_group_instances(self, group_id):
+        If two or more elastigroups exist for a hostclass, then this method will throw an exception,
+        unless 'throw_on_two_groups' is False. Then if there are two groups the most recently created
+        elastigroup will be returned. If there are more than two elastigroups, this method will
+        always throw an exception.
+        """
+        groups = self._get_existing_groups(hostclass=hostclass, group_name=group_name)
+        if not groups:
+            return None
+        elif len(groups) == 1 or (len(groups) == 2 and not throw_on_two_groups):
+            return groups[0]
+        else:
+            raise TooManyAutoscalingGroups("There are too many elastigroups for {}.".format(hostclass))
+
+    def _get_group_instances(self, group_id):
         """Returns list of instance ids in a group"""
-        instances = self.session.get(SPOTINST_API + group_id + '/status').json()['response']['items']
-        return [instance['instanceId'] for instance in instances]
+        return self.session.get(SPOTINST_API + group_id + '/status').json()['response']['items']
 
-    def create_elastigroup_config(self, hostclass, availability_vs_cost, desired_size, min_size, max_size,
-                                  instance_type, zones, load_balancers, security_groups, instance_monitoring,
-                                  ebs_optimized, image_id, key_name, associate_public_ip_address, user_data,
-                                  tags, instance_profile_name, block_device_mappings, group_name):
+    def list_groups(self):
+        """Returns list of objects for display purposes for all groups"""
+        groups = self._get_existing_groups()
+        return [{'name': group['name'].ljust(35 + len(self.environment_name)),
+                 'image_id': group['compute']['launchSpecification']['imageId'],
+                 'group_cnt': len(self._get_group_instances(group['id'])),
+                 'min_size': group['capacity']['minimum'],
+                 'desired_capacity': group['capacity']['target'],
+                 'max_size': group['capacity']['maximum'],
+                 'type': 'spot'} for group in groups]
+
+    def _create_elastigroup_config(self, hostclass, availability_vs_cost, desired_size, min_size, max_size,
+                                   instance_type, zones, load_balancers, security_groups, instance_monitoring,
+                                   ebs_optimized, image_id, key_name, associate_public_ip_address, user_data,
+                                   tags, instance_profile_name, block_device_mappings, group_name):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
         # We need unused argument to match method in autoscale
         # pylint: disable=unused-argument
         """Create new elastigroup configuration"""
-        # group_name = self.get_new_groupname(hostclass)
         strategy = {'risk': 100, 'availabilityVsCost': availability_vs_cost, 'fallbackToOd': True}
         capacity = {'target': desired_size, 'minimum': min_size, 'maximum': max_size, 'unit': "instance"}
 
         compute = {"instanceTypes": {
             "ondemand": "t2.small",
-            "spot": instance_type.split(',')
+            "spot": instance_type.split(':')
         }, "availabilityZones": [{'name': zone, 'subnetIds': [subnet_id]}
                                  for zone, subnet_id in zones.iteritems()], "product": "Linux/UNIX"}
 
@@ -172,7 +195,6 @@ class DiscoElastigroup(object):
             "Creating elastigroup config for elastigroup '%s'", group_name)
 
         elastigroup_config = {"group": group}
-        # return json.dumps(elastigroup_config)
         return elastigroup_config
 
     def _create_elastigroup_tags(self, tags):
@@ -187,19 +209,18 @@ class DiscoElastigroup(object):
             zones[subnet['AvailabilityZone']] = subnet['SubnetId']
         return zones
 
-    def update_group(self, hostclass, desired_size=None, min_size=None, termination_policies=None,
-                     max_size=None, instance_type=None, subnets=None, load_balancers=None,
-                     security_groups=None, instance_monitoring=None, ebs_optimized=None, image_id=None,
-                     key_name=None, associate_public_ip_address=None, user_data=None, tags=None,
-                     instance_profile_name=None, block_device_mappings=None, create_if_exists=False,
-                     group_name=None):
+    def update_group(self, hostclass, desired_size=None, min_size=None, max_size=None, instance_type=None,
+                     load_balancers=None, subnets=None, security_groups=None, instance_monitoring=None,
+                     ebs_optimized=None, image_id=None, key_name=None, associate_public_ip_address=None,
+                     user_data=None, tags=None, instance_profile_name=None, block_device_mappings=None,
+                     group_name=None, create_if_exists=False, termination_policies=None):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
         # We need unused argument to match method in autoscale
         # pylint: disable=unused-argument
         """Updates an existing elastigroup if it exists,
         otherwise this creates a new elastigroup."""
-        group_config = self.create_elastigroup_config(
+        group_config = self._create_elastigroup_config(
             hostclass=hostclass,
             availability_vs_cost="balanced",
             desired_size=desired_size,
@@ -218,11 +239,11 @@ class DiscoElastigroup(object):
             tags=tags,
             instance_profile_name=instance_profile_name,
             block_device_mappings=block_device_mappings,
-            group_name=group_name or self.get_new_groupname(hostclass)
+            group_name=group_name or self._get_new_groupname(hostclass)
         )
-        group_ids = self.get_group_ids(hostclass)
-        if group_ids:
-            group_id = group_ids[0]
+        group = self.get_existing_group(hostclass)
+        if group:
+            group_id = group['id']
             # Remove fields not allowed in update
             del group_config['group']['capacity']['unit']
             del group_config['group']['compute']['product']
@@ -237,20 +258,34 @@ class DiscoElastigroup(object):
         self.session.delete(SPOTINST_API + group_id)
 
     def delete_groups(self, hostclass=None, group_name=None, force=False):
-        """Delete all elastigroups based on hostclass or group name"""
+        """Delete all elastigroups based on hostclass"""
         # We need argument `force` to match method in autoscale
         # pylint: disable=unused-argument
-        group_ids = self.get_group_ids(hostclass, group_name)
-        for group_id in group_ids:
-            self._delete_group(group_id)
+        groups = self._get_existing_groups(hostclass=hostclass, group_name=group_name)
+        for group in groups:
+            logger.info("Deleting group %s", group['name'])
+            self._delete_group(group['id'])
 
-    # def terminate(self, instance_id, decrement_capacity=True):
-    #     """
-    #     Terminate instances using the spotinst API.
-    #
-    #     Detaching instances from elastigroup will delete them.
-    #
-    #     When decrement_capacity is True this allows us to avoid
-    #     autoscaling immediately replacing a terminated instance.
-    #     """
-    #     pass
+    def _get_group_id_from_instance_id(self, instance_id):
+        groups = self._get_existing_groups()
+        for group in groups:
+            group_id = group['id']
+            instance_ids = [instance['instanceId'] for instance in self._get_group_instances(group_id)]
+            if instance_id in instance_ids:
+                return group_id
+
+    def terminate(self, instance_id, decrement_capacity=True):
+        """
+        Terminate instances using the spotinst API.
+
+        Detaching instances from elastigroup will delete them.
+
+        When decrement_capacity is True this allows us to avoid
+        autoscaling immediately replacing a terminated instance.
+        """
+        data = {"instancesToDetach": [instance_id],
+                "shouldTerminateInstances": True,
+                "shouldDecrementTargetCapacity": decrement_capacity,
+                "drainingTimeout": 1}
+        group_id = self._get_group_id_from_instance_id(instance_id)
+        self.session.put(SPOTINST_API + group_id + '/detachInstances', data=json.dumps(data))
