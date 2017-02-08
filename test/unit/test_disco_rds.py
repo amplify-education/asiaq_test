@@ -399,4 +399,4 @@ class DiscoRDSTests(unittest.TestCase):
         ]
         self.rds.delete_db_instance = MagicMock()
         self.assertRaises(RDSEnvironmentError, self.rds.delete_all_db_instances)
-        assert not self.rds.delete_db_instance.called
+        self.assertFalse(self.rds.delete_db_instance.called)
