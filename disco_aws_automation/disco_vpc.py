@@ -10,6 +10,7 @@ import socket
 import time
 from ConfigParser import ConfigParser
 
+from datetime import datetime
 from boto.exception import EC2ResponseError
 import boto3
 from botocore.exceptions import ClientError
@@ -439,7 +440,8 @@ class DiscoVPC(object):
         ec2 = boto3.resource('ec2')
         vpc = ec2.Vpc(self.vpc['VpcId'])
         tags = vpc.create_tags(Tags=[{'Key': 'Name', 'Value': self.environment_name},
-                                     {'Key': 'type', 'Value': self.environment_type}])
+                                     {'Key': 'type', 'Value': self.environment_type},
+                                     {'Key': 'create_date', 'Value': datetime.utcnow().isoformat()}])
         logger.debug("vpc: %s", self.vpc)
         logger.debug("vpc tags: %s", tags)
 
