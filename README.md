@@ -228,7 +228,7 @@ Bake a phase 1 AMI
 
 Follow the link in the error message, then hit continue, select Manual Launch, click the Accept Terms button, wait 30 seconds and then re-run the bake command.
 
-Apin up the build environment
+Spin up the build environment
 
     disco_aws.py --env build spinup --pipeline pipelines/build.csv
 
@@ -830,34 +830,39 @@ step and proceed to Destroying an Active Environment_.
 Autoscaling
 -----------
 
-When disco_aws.py is used to provision a hostclass it creates an
-autoscaling group. You don't generally need to deal with these directly,
-but if you would like to see the state of autoscaling groups you can use
-disco_autoscale.py.
+Asiaq supports two ways of autoscaling:
 
-You can list autoscaling configurations:
+* Autoscaling groups managed in AWS
+* Elastigroups managed in [Spotinst](https://spotinst.com/)
 
-   disco_autoscale.py listconfigs
+
+When *disco_aws.py* is used to provision a hostclass, it creates an autoscaling group. Depending on how a hostclass is configured in *disco_aws.ini*, e.g.:
+
+	[mhcmyhostclass]
+	spotinst=True
+
+the autoscaling group will be created in either AWS or Spotinst. You don't generally need to deal with these directly, but if you would like to see the state of autoscaling groups you can use disco_autoscale.py.
+
+You can list autoscaling configurations <sup>*</sup>:
+
+    disco_autoscale.py listconfigs
 
 You can list autoscaling groups:
 
-   disco_autoscale.py listgroups
+    disco_autoscale.py listgroups
 
-And you can list autoscaling policies:
+And you can list autoscaling policies <sup>*</sup>:
 
-   disco_autoscale.py listpolicies
+    disco_autoscale.py listpolicies
 
-There are also commands to delete each of these. Generally you can
-simply use disco_aws.py and disco_vpc.py and they will handle the
-details for you.
+<sup>*</sup> _Applies only to AWS autoscaling groups_
+
+There are also commands to delete each of these. Generally you can simply use *disco_aws.py* and *disco_vpc.py* and they will handle the details for you.
 
 Defining a new hostclass
 ------------------------
 
-A *hostclass* is our functional unit for deployment. Multiple machines
-may be instantiated from a single hostclass, but every machine in the
-hostclass has the same specific function, configuration and set of
-packages installed.
+A *hostclass* is our functional unit for deployment. Multiple machines may be instantiated from a single hostclass, but every machine in the hostclass has the same specific function, configuration and set of packages installed.
 
 When defining a new hostclass use the create command to start:
 
@@ -925,7 +930,7 @@ Provisioning a pipeline_ for more details.
 ##### Enhanced Networking
 By default, Asiaq does not set the enhanced networking attribute on AMIs that it builds. If you install enhanced networking compatible drivers (or your phase 1 AMI comes with them) and want to ensure that your hostclass is started with enhanced networking, you must configure this behavior in ```disco_aws.ini```. Below is an example of this:
 
-```ini
+```
 [mhcfoo]
 enhanced_networking=true
 ```
@@ -1008,18 +1013,7 @@ Logging within Asiaq is all done over syslog. All hosts come
 pre-configured with a local relaying rsyslog. To make use of it, send
 syslog to `UDP 514`, `TCP 514`, or `/dev/log`.
 
-All logs should have a
-[syslogtag](http://tools.ietf.org/html/rfc3164#section-4.1.3)
-corresponding to the application name. If its a custom Asiaq service
-then syslogtag should be of the following format
-`disco.$app_name.$log_type` ($log_type examples: app, errors, audit,
-stat). This tag is used to organize log files on log aggregator as well
-as makes it easy to search for logs through kibana. For services which
-log to syslog with
-[syslogtag](http://tools.ietf.org/html/rfc3164#section-4.1.3) but don't
-follow the `disco.$app_name.$log_type` convention additional rule should
-be added to `discoroot/etc/rsyslog.conf~mhcdiscologger`. Specifying
-which file the logs should be written to. For example:
+All logs should have a [syslogtag](http://tools.ietf.org/html/rfc3164#section-4.1.3) corresponding to the application name. If it is a custom Asiaq service, then syslogtag should be of the following format `disco.$app_name.$log_type` (log_type examples: app, errors, audit, stat). This tag is used to organize log files on log aggregator as well as makes it easy to search for logs through kibana. For services which log to syslog with [syslogtag](http://tools.ietf.org/html/rfc3164#section-4.1.3) but don't follow the `disco.$app_name.$log_type` convention, additional rule should be added to `discoroot/etc/rsyslog.conf~mhcdiscologger`, specifying which file the logs should be written to. For example:
 
     # Handle mongo logs
     :syslogtag, startswith, "mongod" /opt/wgen/log/mongo.log
@@ -1030,10 +1024,7 @@ All application should write logs over syslog instead of a local file.
 Network Configuration
 ---------------------
 
-Options which affect network are split into disco_aws.ini and
-disco_vpc.ini. Former is used for all configuration that is hostclass
-specific while disco_vpc.ini is used for environment wide
-configuration.
+Options which affect network are split into *disco_aws.ini* and *disco_vpc.ini*. Former is used for all configuration that is hostclass specific while disco_vpc.ini is used for environment wide configuration.
 
 ### Environment Network options
 
