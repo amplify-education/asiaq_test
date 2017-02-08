@@ -167,9 +167,9 @@ def run():
             print(format_str.format(
                 "Name".ljust(35 + len(environment_name)), "AMI", "min", "des", "max", "cnt", "type"))
         for group in groups:
-            print (format_str.format(group['name'], group['image_id'], group['min_size'],
-                                     group['desired_capacity'], group['max_size'],
-                                     group['group_cnt'], group['type']))
+            print (format_str.format(group['name'].ljust(35 + len(environment_name)),
+                                     group['image_id'], group['min_size'], group['desired_capacity'],
+                                     group['max_size'], group['group_cnt'], group['type']))
 
     elif args.mode == "cleangroups":
         autoscale.clean_groups()

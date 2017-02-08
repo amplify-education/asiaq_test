@@ -2,9 +2,12 @@
 import logging
 import time
 import json
+
 from os.path import expanduser
 from base64 import b64encode
+
 import requests
+import boto3
 
 from .exceptions import TooManyAutoscalingGroups
 
@@ -16,11 +19,11 @@ SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group/'
 class DiscoElastigroup(object):
     """Class orchestrating elastigroups"""
 
-    def __init__(self, environment_name, token=None, session=None):
+    def __init__(self, environment_name, token=None, session=None, account_id=None):
         self.environment_name = environment_name
-        self._token = token or None
-        self._session = session or None
-        self.account_id = '646102706174'
+        self._token = token
+        self._session = session
+        self._account_id = account_id
 
     @property
     def token(self):
@@ -30,7 +33,7 @@ class DiscoElastigroup(object):
         File format example:
 
         {
-          "name": "user_ampli
+          "name": "user_amplify",
           "token": "f7e6c5abb51bb04fcaa411b7b70cce414c821bf719f7db0679b296e588630515"
         }
         """
@@ -45,14 +48,22 @@ class DiscoElastigroup(object):
         if not self._session:
             self._session = requests.Session()
 
-        # Insert auth token in header
-        self._session.headers.update(
-            {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer {}".format(self.token)
-            }
-        )
+            # Insert auth token in header
+            self._session.headers.update(
+                {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer {}".format(self.token)
+                }
+            )
+
         return self._session
+
+    @property
+    def account_id(self):
+        """Account id of the current IAM user"""
+        if not self._account_id:
+            self._account_id = boto3.resource('iam').CurrentUser().arn.split(':')[4]
+        return self._account_id
 
     def _get_new_groupname(self, hostclass):
         """Returns a new elastigroup name when given a hostclass"""
@@ -110,7 +121,7 @@ class DiscoElastigroup(object):
     def list_groups(self):
         """Returns list of objects for display purposes for all groups"""
         groups = self._get_existing_groups()
-        return [{'name': group['name'].ljust(35 + len(self.environment_name)),
+        return [{'name': group['name'],
                  'image_id': group['compute']['launchSpecification']['imageId'],
                  'group_cnt': len(self._get_group_instances(group['id'])),
                  'min_size': group['capacity']['minimum'],
@@ -264,7 +275,7 @@ class DiscoElastigroup(object):
         groups = self._get_existing_groups(hostclass=hostclass, group_name=group_name)
         for group in groups:
             logger.info("Deleting group %s", group['name'])
-            self._delete_group(group['id'])
+            self._delete_group(group_id=group['id'])
 
     def _get_group_id_from_instance_id(self, instance_id):
         groups = self._get_existing_groups()
