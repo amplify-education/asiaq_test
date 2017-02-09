@@ -87,10 +87,11 @@ class DiscoElastigroup(object):
         """
         try:
             groups = self.session.get(SPOTINST_API).json()['response']['items']
+            groups = [group for group in groups if group['name'].startswith(self.environment_name)]
         except KeyError:
             return []
         if group_name:
-            hostclass = self._get_hostclass(group_name)
+            groups = [group for group in groups if group['name'] == group_name]
         filtered_groups = [group for group in groups
                            if not hostclass or self._get_hostclass(group['name']) == hostclass]
         filtered_groups.sort(key=lambda grp: grp['name'], reverse=True)

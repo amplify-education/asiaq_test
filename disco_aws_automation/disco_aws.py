@@ -607,10 +607,8 @@ class DiscoAWS(object):
         .. warning:: This currently does a dirty shutdown, no attempt is made to preserve logs.
         """
         for hostclass in hostclasses:
-            if is_truthy(self.config('spotinst', hostclass)):
-                self.elastigroup.delete_groups(hostclass)
-            else:
-                self.autoscale.delete_groups(hostclass=hostclass, force=True)
+            self.autoscale.delete_groups(hostclass=hostclass, force=True)
+            self.elastigroup.delete_groups(hostclass=hostclass)
 
             self.elb.delete_elb(hostclass)
 
