@@ -151,7 +151,7 @@ class DiscoAWS(object):
         User either autoscale or elastigroup service, depending on
         hostclass configuration in disco_aws.ini (e.g. spotinst=True)
         """
-        if is_truthy(spotinst):
+        if spotinst:
             return self.elastigroup
         else:
             return self.autoscale
@@ -359,13 +359,10 @@ class DiscoAWS(object):
 
         return elb
 
-    def provision(self, ami, hostclass=None,
-                  owner=None, instance_type=None, monitoring_enabled=True,
-                  extra_space=None, extra_disk=None, iops=None,
-                  no_destroy=False,
-                  min_size=None, desired_size=None, max_size=None,
-                  testing=False, termination_policies=None,
-                  chaos=None, create_if_exists=False, group_name=None):
+    def provision(self, ami, hostclass=None, owner=None, instance_type=None, monitoring_enabled=True,
+                  extra_space=None, extra_disk=None, iops=None, no_destroy=False, min_size=None,
+                  desired_size=None, max_size=None, testing=False, termination_policies=None, chaos=None,
+                  create_if_exists=False, group_name=None, spotinst=False):
         # TODO move key, instance_type, monitoring enabled, extra_space, extra_disk into config file.
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
@@ -391,6 +388,7 @@ class DiscoAWS(object):
         chaos -- when true we want these instances to be terminatable by the chaos process
         create_if_exists -- create a new autoscaling group even if one already exists
         group_name -- force reuse of an existing autoscaling group
+        spotinst -- use AWS autoscaling group or Spotinst elastigroup
         """
         # It's possible that the ami isn't available yet, so wait here
         wait_for_state(ami, u'available', 600)
@@ -413,7 +411,7 @@ class DiscoAWS(object):
 
         elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
 
-        service = self.service(self.config('spotinst', hostclass))
+        service = self.service(is_truthy(str(spotinst) or self.config('spotinst', hostclass)))
 
         group = service.update_group(
             hostclass=hostclass,
@@ -443,7 +441,7 @@ class DiscoAWS(object):
         )
 
         # Elastigroup does not return a group object
-        if not self.config('spotinst', hostclass):
+        if service == self.autoscale:
             self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group.name)
 
             # Create alarms and custom metrics for the hostclass, if is not being used for testing
@@ -641,7 +639,8 @@ class DiscoAWS(object):
               "min_size": None,
               "max_size": None,
               "termination_policies": None,
-              "chaos": "yes"
+              "chaos": "yes",
+              "spotinst": False
               },
             ...]
         """
@@ -688,7 +687,9 @@ class DiscoAWS(object):
                     termination_policies=termination_policies.split() if termination_policies else None,
                     chaos=hdict.get("chaos"),
                     create_if_exists=create_if_exists,
-                    group_name=group_name)
+                    group_name=group_name,
+                    spotinst=hdict.get("spotinst")
+                )
                 for (hostclass, termination_policies, hdict) in hostclass_iter]
 
             if metadata[0]:
