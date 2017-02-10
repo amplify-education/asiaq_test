@@ -56,7 +56,7 @@ class DiscoAutoscale(object):
         '''Returns a new autoscaling group name when given a hostclass'''
         return self.environment_name + '_' + hostclass + "_" + str(int(time.time()))
 
-    def get_new_lc_name(self, hostclass):
+    def get_launch_config_name(self, hostclass):
         """Create new launchconfig group name"""
         return '{0}_{1}_{2}'.format(self.environment_name, hostclass, str(random.randrange(0, 9999999)))
 
@@ -327,7 +327,7 @@ class DiscoAutoscale(object):
         # pylint: disable=R0913, R0914
         # pylint: disable=unused-argument
         launch_config = self.get_config(
-            name=self.get_new_lc_name(hostclass),
+            name=self.get_launch_config_name(hostclass),
             image_id=image_id,
             key_name=key_name,
             security_groups=security_groups,
