@@ -31,6 +31,9 @@ def parse_arguments():
     parser_create.add_argument('--skip-enis', dest='skip_enis', action='store_const',
                                const=True, default=False,
                                help="Skip pre-allocating ENIs with static IPs used by hostclasses.")
+    parser_create.add_argument('--tag', dest='tags', required=False, action='append', type=str,
+                               help="The key-value pair used to tag the VPC"
+                                    " (Example: --tag productline:astronauts).")
 
     parser_destroy = subparsers.add_parser(
         'destroy', help='Delete environment releasing all non-persistent resources.')
@@ -85,7 +88,8 @@ def create_vpc_command(args):
         print("VPC with same name already exists.")
         sys.exit(1)
     else:
-        vpc = DiscoVPC(args.vpc_name, args.vpc_type, skip_enis_pre_allocate=args.skip_enis)
+        vpc = DiscoVPC(args.vpc_name, args.vpc_type, skip_enis_pre_allocate=args.skip_enis,
+                       vpc_tags=args.tags)
         print("VPC {0}({1}) has been created".format(args.vpc_name, vpc.get_vpc_id()))
 
 
