@@ -5,7 +5,6 @@ from ConfigParser import NoOptionError
 from collections import defaultdict
 import getpass
 import logging
-# import random
 import time
 from datetime import datetime
 import dateutil.parser
