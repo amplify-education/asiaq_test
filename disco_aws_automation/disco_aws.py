@@ -40,6 +40,7 @@ from .disco_vpc import DiscoVPC
 from .resource_helper import (
     keep_trying,
     wait_for_state,
+    throttled_call
 )
 from .exceptions import (
     AMIError,
@@ -470,10 +471,10 @@ class DiscoAWS(object):
                     if use_autoscaling:
                         self.autoscale.terminate(instance.id)
                 if not use_autoscaling:
-                    self.connection.terminate_instances(instance_ids)
+                    throttled_call(self.connection.terminate_instances, instance_ids)
                 logger.info("terminated: %s", instances)
             else:
-                self.connection.stop_instances(instance_ids)
+                throttled_call(self.connection.stop_instances, instance_ids)
                 logger.info("stopped: %s", instances)
         else:
             logger.info("No unterminated instances")
