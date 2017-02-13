@@ -332,6 +332,7 @@ class DiscoAWS(object):
                 health_check_url=self.hostclass_option_default(hostclass, "elb_health_check_url"),
                 port_config=DiscoELBPortConfig.from_config(self, hostclass),
                 elb_public=is_truthy(self.hostclass_option_default(hostclass, "elb_public", "no")),
+                elb_dns_alias=self.hostclass_option_default(hostclass, "elb_dns_alias"),
                 sticky_app_cookie=self.hostclass_option_default(hostclass, "elb_sticky_app_cookie", None),
                 idle_timeout=int(self.hostclass_option_default(hostclass, "elb_idle_timeout", 300)),
                 connection_draining_timeout=int(self.hostclass_option_default(hostclass,
