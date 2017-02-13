@@ -332,7 +332,7 @@ class DiscoAutoscale(object):
             key_name=key_name,
             security_groups=security_groups,
             block_device_mappings=block_device_mappings,
-            instance_type=instance_type,
+            instance_type=instance_type.split(':')[0],
             instance_monitoring=instance_monitoring,
             instance_profile_name=instance_profile_name,
             ebs_optimized=ebs_optimized,

@@ -537,7 +537,7 @@ class DiscoVPC(object):
     def _destroy_instances(self):
         """ Find all instances in vpc and terminate them """
         autoscale = DiscoAutoscale(environment_name=self.environment_name)
-        autoscale.clean_groups(force=True)
+        autoscale.delete_groups(force=True)
         elastigroup = DiscoElastigroup(environment_name=self.environment_name)
         elastigroup.delete_groups()
         reservations = throttled_call(self.boto3_ec2.describe_instances,

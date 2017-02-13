@@ -2,8 +2,8 @@
 import logging
 import time
 import json
+import os
 
-from os.path import expanduser
 from base64 import b64encode
 
 import requests
@@ -28,19 +28,16 @@ class DiscoElastigroup(object):
     @property
     def token(self):
         """
-        Returns spotinst auth token from JSON file in ~/.aws/spotinst_api_token
+        Returns spotinst auth token from environment variable SPOTINST_TOKEN
 
-        File format example:
-
-        {
-          "name": "user_amplify",
-          "token": "f7e6c5abb51bb04fcaa411b7b70cce414c821bf719f7db0679b296e588630515"
-        }
+        Environment variable example:
+        SPOTINST_TOKEN=d7e6c5abb51bb04fcaa411b7b70cce414c931bf719f7db0674b296e588630515
         """
-        token_file = json.load(open(expanduser('~') + '/.aws/spotinst_api_token'))
-        if token_file:
-            self._token = token_file['token']
-        return self._token
+        try:
+            token = os.environ['SPOTINST_TOKEN']
+            return token
+        except KeyError:
+            logger.info('Create environment variable "SPOTINST_TOKEN"')
 
     @property
     def session(self):
@@ -139,11 +136,12 @@ class DiscoElastigroup(object):
         # We need unused argument to match method in autoscale
         # pylint: disable=unused-argument
         """Create new elastigroup configuration"""
-        strategy = {'risk': 100, 'availabilityVsCost': availability_vs_cost, 'fallbackToOd': True}
+        strategy = {'risk': 100, 'availabilityVsCost': availability_vs_cost,
+                    'utilizeReservedInstances': True, 'fallbackToOd': True}
         capacity = {'target': desired_size, 'minimum': min_size, 'maximum': max_size, 'unit': "instance"}
 
         compute = {"instanceTypes": {
-            "ondemand": "t2.small",
+            "ondemand": instance_type.split(':')[0],
             "spot": instance_type.split(':')
         }, "availabilityZones": [{'name': zone, 'subnetIds': [subnet_id]}
                                  for zone, subnet_id in zones.iteritems()], "product": "Linux/UNIX"}
