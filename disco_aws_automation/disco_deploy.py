@@ -843,7 +843,7 @@ class DiscoDeploy(object):
     def test(self, dry_run=False, deployment_strategy=None):
         '''
         Tests a single AMI and marks it as tested or failed.
-        If the ami id is specify using the option --ami then run test on the specified ami
+        If the ami id is specified using the option --ami then run test on the specified ami
         independently of its stage,
         Otherwise use the most recent untested ami for the hostclass
         '''
