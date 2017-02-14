@@ -168,14 +168,6 @@ class DiscoAutoscale(object):
                 logger.info("Unable to delete group %s due to: %s. Force delete is set to %s",
                             group.name, exc.message, force)
 
-    def clean_groups(self, force=False):
-        """
-        Delete all autoscaling groups in the current environment
-
-        If force is True, all autoscaling groups will be forcibly destroyed, even if they are currently in
-        use. Defaults to False."""
-        self.delete_groups(force=force)
-
     def scaledown_groups(self, hostclass=None, group_name=None, wait=False, noerror=False):
         """
         Scales down number of instances in a hostclass's autoscaling group, or the given autoscaling group,

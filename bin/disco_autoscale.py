@@ -172,7 +172,8 @@ def run():
                                      group['max_size'], group['group_cnt'], group['type']))
 
     elif args.mode == "cleangroups":
-        autoscale.clean_groups()
+        autoscale.delete_groups()
+        elastigroup.delete_groups()
     elif args.mode == "deletegroup":
         autoscale.delete_groups(hostclass=args.hostclass, group_name=args.name, force=args.force)
         elastigroup.delete_groups(hostclass=args.hostclass, group_name=args.name, force=args.force)
