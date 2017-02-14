@@ -10,6 +10,7 @@ Table of Contents
   * [History](#history)
   * [Overview](#overview)
   * [Setting up AWS accounts](#setting-up-aws-accounts)
+  * [Setting up Spotinst account](#setting-up-spotinst-account)
   * [Installation](#installation)
   * [Baking Host Images](#baking-host-images)
   * [Environments](#environments)
@@ -326,6 +327,14 @@ Start up deployenator (a jenkins host for deployment automation) for each produc
 
 \#. For the moment, all production environments share the same produciton account.
 \#. Every production VPC is managed by its own deployenator.
+
+Setting up Spotinst account
+---------------------------
+[Spotinst](https://spotinst.com) is a new way of reducing your cloud computing bill by making use of AWS EC2 spot instances market. Asiaq uses Spotinst [REST API](https://spotinst.atlassian.net/wiki?utm_source=website&utm_medium=header) to communicate with Spotinst. You would need to create a Spotinst account, and once logged in you can create an API token by navigating to *Settings* > *API*. Here you can create **Permanent Tokens** or **Temporary Token**.
+
+In order to use Spotinst API token with Asiaq you would have to create an environment value
+
+	export SPOTINST_TOKEN=d7e6c5abb51bb04fcaa411b7b70cce414c931bf719f7db0674b296e588630515
 
 Installation
 ------------
@@ -751,11 +760,11 @@ command:
 
 The format of the CSV file is pretty simple. Here is a short sample:
 
-    sequence,hostclass,min_size,desired_size,max_size,instance_type,extra_disk,iops,smoke_test,ami,deployable,integration_test
+    sequence,hostclass,min_size,desired_size,max_size,instance_type,extra_disk,iops,smoke_test,ami,deployable,integration_test,spotinst
     1,mhcdiscologger,,1,,m3.large,200,,no,ami-12345678,no,
     1,mhcdiscoes,,2,,m3.large,200,,no,no,
     2,mhcdiscotaskstatus,,1,,m3.large,,,no,yes,disco_profiling_task_status_service
-    2,mhcdiscoinferenceworer,1,1@45 19 * * *:3@33 19 * * *,,5,m3.large,,,no,yes,disco_inference_workflow
+    2,mhcdiscoinferenceworer,1,1@45 19 * * *:3@33 19 * * *,,5,m3.large,,,no,yes,disco_inference_workflow,no
 
 ### Field Descriptions
 
@@ -784,6 +793,7 @@ The format of the CSV file is pretty simple. Here is a short sample:
 11. deployable If true we can replace an instance with a newer one
 12. integration_test Name of the integration test to run to verify
     instances are in a good state
+13. Use spotinst to provision hostclasses
 
 #### Schedule Scaling
 The desired_size can be either an integer or a colon (:) separated list
@@ -805,6 +815,7 @@ There are a number of optional parameters as well, here is a selection:
     --ami ami-XXXX  This will use a specific AMI rather than the latest for the hostclass
     --extra-space   This will resize the root partition on boot with the specified number of extra gigabytes of disk
     --extra-disk    This will attach an extra EBS volume with the specified number of gigabytes
+    --spotinst      This will make use of Spotinst to provision the hostclass
 
 Note: "Extra space" will automatically be added to the root partition,
 but this slows down provisioning. An "extra disk" has to be formatted
