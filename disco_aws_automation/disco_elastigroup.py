@@ -19,9 +19,8 @@ SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group/'
 class DiscoElastigroup(object):
     """Class orchestrating elastigroups"""
 
-    def __init__(self, environment_name, token=None, session=None, account_id=None):
+    def __init__(self, environment_name, session=None, account_id=None):
         self.environment_name = environment_name
-        self._token = token
         self._session = session
         self._account_id = account_id
 
