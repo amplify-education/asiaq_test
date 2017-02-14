@@ -332,7 +332,7 @@ Setting up Spotinst account
 ---------------------------
 [Spotinst](https://spotinst.com) is a new way of reducing your cloud computing bill by making use of AWS EC2 spot instances market. Asiaq uses Spotinst [REST API](https://spotinst.atlassian.net/wiki?utm_source=website&utm_medium=header) to communicate with Spotinst. You would need to create a Spotinst account, and once logged in you can create an API token by navigating to *Settings* > *API*. Here you can create **Permanent Tokens** or **Temporary Token**.
 
-In order to use Spotinst API token with Asiaq you would have to create an environment value
+In order to use Spotinst API token with Asiaq you would have to create an environment variable
 
 	export SPOTINST_TOKEN=d7e6c5abb51bb04fcaa411b7b70cce414c931bf719f7db0674b296e588630515
 
