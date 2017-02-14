@@ -823,7 +823,7 @@ class DiscoAWSTests(TestCase):
         aws.instances_from_asgs.assert_called_with(['test_group'])
 
     @patch_disco_aws
-    def test_instances_from_amis_with_create_date(self, mock_config, **kwargs):
+    def test_instances_from_amis_with_launch_date(self, mock_config, **kwargs):
         '''test get instances using ami ids and with date after a specified date time'''
         aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME)
         now = datetime.utcnow()
@@ -848,16 +848,17 @@ class DiscoAWSTests(TestCase):
         instances = [{"InstanceId": "i-123123aa"}]
         aws.instances_from_amis = MagicMock(return_value=instances)
         aws.wait_for_autoscaling('ami-12345678', 1)
-        aws.instances_from_amis.assert_called_with(['ami-12345678'])
+        aws.instances_from_amis.assert_called_with(['ami-12345678'], group_name=None, launch_time=None)
 
     @patch_disco_aws
     def test_wait_for_autoscaling_using_gp_name(self, mock_config, **kwargs):
         '''test wait for autoscaling using the group name to identify the instances'''
         aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME)
         instances = [{"InstanceId": "i-123123aa"}]
-        aws.instances_from_asgs = MagicMock(return_value=instances)
+        aws.instances_from_amis = MagicMock(return_value=instances)
         aws.wait_for_autoscaling('ami-12345678', 1, group_name='test_group')
-        aws.instances_from_asgs.assert_called_with(['test_group'])
+        aws.instances_from_amis.assert_called_with(['ami-12345678'], group_name='test_group',
+                                                   launch_time=None)
 
     @patch_disco_aws
     def test_wait_for_autoscaling_using_time(self, mock_config, **kwargs):
@@ -867,4 +868,5 @@ class DiscoAWSTests(TestCase):
         yesterday = datetime.utcnow() - timedelta(days=1)
         aws.instances_from_amis = MagicMock(return_value=instances)
         aws.wait_for_autoscaling('ami-12345678', 1, launch_time=yesterday)
-        aws.instances_from_amis.assert_called_with(['ami-12345678'], launch_time=yesterday)
+        aws.instances_from_amis.assert_called_with(['ami-12345678'], group_name=None,
+                                                   launch_time=yesterday)
