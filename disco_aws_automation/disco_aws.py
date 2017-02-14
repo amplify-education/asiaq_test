@@ -585,11 +585,13 @@ class DiscoAWS(object):
         :return: List of instances.
         """
         if group_name:
-            return self.instances_from_asgs([group_name])
-        elif launch_time is None:
-            return self.instances(filters={"image_id": ami_ids})
+            instances = self.instances_from_asgs([group_name])
         else:
             instances = self.instances(filters={"image_id": ami_ids})
+        if launch_time is None:
+            return instances
+        else:
+            # Filter the instance by launch_time
             return [
                 instance
                 for instance in instances
@@ -747,13 +749,7 @@ class DiscoAWS(object):
 
         instances = []
         while time.time() < max_time:
-            if group_name:
-                instances = self.instances_from_asgs([group_name])
-            elif launch_time:
-                instances = self.instances_from_amis([ami_id], launch_time=launch_time)
-            else:
-                instances = self.instances_from_amis([ami_id])
-
+            instances = self.instances_from_amis([ami_id], launch_time=launch_time, group_name=group_name)
             if len(instances) >= min_count:
                 return
             time.sleep(AUTOSCALE_POLL_INTERVAL)
