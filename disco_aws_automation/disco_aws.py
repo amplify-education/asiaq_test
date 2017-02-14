@@ -41,6 +41,7 @@ from .disco_vpc import DiscoVPC
 from .resource_helper import (
     keep_trying,
     wait_for_state,
+    throttled_call
 )
 from .exceptions import (
     AMIError,
@@ -314,6 +315,7 @@ class DiscoAWS(object):
                 health_check_url=self.hostclass_option_default(hostclass, "elb_health_check_url"),
                 port_config=DiscoELBPortConfig.from_config(self, hostclass),
                 elb_public=is_truthy(self.hostclass_option_default(hostclass, "elb_public", "no")),
+                elb_dns_alias=self.hostclass_option_default(hostclass, "elb_dns_alias"),
                 sticky_app_cookie=self.hostclass_option_default(hostclass, "elb_sticky_app_cookie", None),
                 idle_timeout=int(self.hostclass_option_default(hostclass, "elb_idle_timeout", 300)),
                 connection_draining_timeout=int(self.hostclass_option_default(hostclass,
@@ -470,10 +472,10 @@ class DiscoAWS(object):
                     if use_autoscaling:
                         self.autoscale.terminate(instance.id)
                 if not use_autoscaling:
-                    self.connection.terminate_instances(instance_ids)
+                    throttled_call(self.connection.terminate_instances, instance_ids)
                 logger.info("terminated: %s", instances)
             else:
-                self.connection.stop_instances(instance_ids)
+                throttled_call(self.connection.stop_instances, instance_ids)
                 logger.info("stopped: %s", instances)
         else:
             logger.info("No unterminated instances")

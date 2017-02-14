@@ -183,6 +183,7 @@ class DiscoELB(object):
             port_config,
             elb_public,
             sticky_app_cookie,
+            elb_dns_alias=None,
             idle_timeout=None,
             connection_draining_timeout=None,
             testing=False,
@@ -203,6 +204,7 @@ class DiscoELB(object):
             health_check_url (str): The heartbeat url to use if protocol is HTTP or HTTPS
             port_config (DiscoELBPortConfig):  The port and protocol configuration for this ELB,
             elb_public (bool): True if the ELB should be internet routable
+            elb_dns_alias (str): The hostname portion of a DNS name for this ELB (within hosted_zone_name)
             sticky_app_cookie (str): The name of a cookie from your service to use for sticky sessions
             idle_timeout (int): time limit (in seconds) that ELB should wait before killing idle connections
             connection_draining_timeout (int): timeout limit (in seconds) that ELB should allow for open
@@ -214,6 +216,7 @@ class DiscoELB(object):
                              Ignored if protocol isn't SSL or HTTPS
         """
         cname = self.get_cname(hostclass, hosted_zone_name, testing=testing)
+        custom_cname = elb_dns_alias + '.' + hosted_zone_name if elb_dns_alias else None
         elb_id = DiscoELB.get_elb_id(self.vpc.environment_name, hostclass, testing=testing)
         elb_name = DiscoELB.get_elb_name(self.vpc.environment_name, hostclass, testing=testing)
         elb = self.get_elb(hostclass, testing=testing)
@@ -238,7 +241,7 @@ class DiscoELB(object):
                     if cert_name:
                         cert = self.get_certificate_arn(cert_name)
                     else:
-                        cert = self.get_certificate_arn(cname)
+                        cert = self.get_certificate_arn(custom_cname or cname)
                     listener['SSLCertificateId'] = cert or ''
 
             elb_args = {
@@ -258,6 +261,8 @@ class DiscoELB(object):
         elb_id = elb["LoadBalancerName"]
 
         self.route53.create_record(hosted_zone_name, cname, 'CNAME', elb['DNSName'])
+        if custom_cname:
+            self.route53.create_record(hosted_zone_name, custom_cname, 'CNAME', elb['DNSName'])
 
         http_mappings = [
             mapping for mapping in port_config.port_mappings

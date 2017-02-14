@@ -367,6 +367,7 @@ class DiscoAWSTests(TestCase):
             ),
             security_groups=['sg-1234abcd'], elb_public=False,
             sticky_app_cookie=None, subnets=['s-1234abcd', 's-1234abcd', 's-1234abcd'],
+            elb_dns_alias=None,
             connection_draining_timeout=300, idle_timeout=300, testing=False,
             tags={
                 'environment': 'unittestenv',
@@ -414,6 +415,7 @@ class DiscoAWSTests(TestCase):
             ),
             security_groups=['sg-1234abcd'], elb_public=False,
             sticky_app_cookie=None, subnets=['s-1234abcd', 's-1234abcd', 's-1234abcd'],
+            elb_dns_alias=None,
             connection_draining_timeout=300, idle_timeout=300, testing=False,
             tags={
                 'environment': 'unittestenv',
@@ -462,6 +464,7 @@ class DiscoAWSTests(TestCase):
             ),
             security_groups=['sg-1234abcd'], elb_public=False,
             sticky_app_cookie=None, subnets=['s-1234abcd', 's-1234abcd', 's-1234abcd'],
+            elb_dns_alias=None,
             connection_draining_timeout=300, idle_timeout=300, testing=False,
             tags={
                 'environment': 'unittestenv',
@@ -508,6 +511,7 @@ class DiscoAWSTests(TestCase):
             ),
             security_groups=['sg-1234abcd'], elb_public=False,
             sticky_app_cookie=None, subnets=['s-1234abcd', 's-1234abcd', 's-1234abcd'],
+            elb_dns_alias=None,
             connection_draining_timeout=300, idle_timeout=300, testing=False,
             tags={
                 'environment': 'unittestenv',
@@ -554,6 +558,7 @@ class DiscoAWSTests(TestCase):
             ),
             security_groups=['sg-1234abcd'], elb_public=False,
             sticky_app_cookie=None, subnets=['s-1234abcd', 's-1234abcd', 's-1234abcd'],
+            elb_dns_alias=None,
             connection_draining_timeout=300, idle_timeout=300, testing=False,
             tags={
                 'environment': 'unittestenv',
@@ -601,6 +606,7 @@ class DiscoAWSTests(TestCase):
             ),
             security_groups=['sg-1234abcd'], elb_public=False,
             sticky_app_cookie=None, subnets=['s-1234abcd', 's-1234abcd', 's-1234abcd'],
+            elb_dns_alias=None,
             connection_draining_timeout=300, idle_timeout=300, testing=False,
             tags={
                 'environment': 'unittestenv',
@@ -644,6 +650,7 @@ class DiscoAWSTests(TestCase):
             ),
             security_groups=['sg-1234abcd'], elb_public=False,
             sticky_app_cookie=None, subnets=['s-1234abcd', 's-1234abcd', 's-1234abcd'],
+            elb_dns_alias=None,
             connection_draining_timeout=300, idle_timeout=300, testing=False,
             tags={
                 'environment': 'unittestenv',
@@ -690,6 +697,7 @@ class DiscoAWSTests(TestCase):
             ),
             security_groups=['sg-1234abcd'], elb_public=False,
             sticky_app_cookie=None, subnets=['s-1234abcd', 's-1234abcd', 's-1234abcd'],
+            elb_dns_alias=None,
             connection_draining_timeout=300, idle_timeout=300, testing=False,
             tags={
                 'environment': 'unittestenv',
