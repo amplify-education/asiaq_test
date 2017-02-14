@@ -335,11 +335,13 @@ class DiscoStorage(object):
 
     def take_snapshot(self, volume_id, snapshot_tags=None):
         """Takes a snapshot of an attached volume"""
-        volume = self.connection.get_all_volumes(volume_ids=[volume_id])[0]
+        volume = throttled_call(self.connection.get_all_volumes, volume_ids=[volume_id])[0]
 
         if volume.attach_data and volume.attach_data.instance_id:
-            instance = self.connection.get_all_instances(
-                instance_ids=[volume.attach_data.instance_id])[0].instances[0]
+            instance = throttled_call(
+                self.connection.get_all_instances,
+                instance_ids=[volume.attach_data.instance_id]
+            )[0].instances[0]
 
             tags = {'hostclass': instance.tags['hostclass'],
                     'env': instance.tags['environment'],
