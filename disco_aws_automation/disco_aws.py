@@ -5,7 +5,6 @@ from ConfigParser import NoOptionError
 from collections import defaultdict
 import getpass
 import logging
-import random
 import time
 from datetime import datetime
 import dateutil.parser
@@ -19,6 +18,7 @@ from .disco_log_metrics import DiscoLogMetrics
 from .disco_elb import DiscoELB, DiscoELBPortConfig
 from .disco_alarm import DiscoAlarm
 from .disco_autoscale import DiscoAutoscale
+from .disco_elastigroup import DiscoElastigroup
 from .disco_aws_util import (
     is_truthy,
     size_as_recurrence_map,
@@ -60,7 +60,7 @@ class DiscoAWS(object):
     # Too many arguments, but we want to mock a lot of things out, so...
     # pylint: disable=too-many-arguments
     def __init__(self, config, environment_name=None, boto2_conn=None, vpc=None, remote_exec=None,
-                 storage=None, autoscale=None, elb=None, log_metrics=None, alarms=None):
+                 storage=None, autoscale=None, elastigroup=None, elb=None, log_metrics=None, alarms=None):
 
         if not environment_name and not vpc:
             raise ProgrammerError("Either 'vpc' or 'environment_name' must always be specified.")
@@ -75,6 +75,7 @@ class DiscoAWS(object):
         self._disco_remote_exec = remote_exec or None  # lazily initialized
         self._disco_storage = storage or None  # lazily initialized
         self._autoscale = autoscale or None  # lazily initialized
+        self._elastigroup = elastigroup or None  # lazily initialized
         self._elb = elb or None  # lazily initialized
         self._log_metrics = log_metrics or None  # lazily initialized
         self._alarms = alarms or None  # lazily initialized
@@ -99,6 +100,13 @@ class DiscoAWS(object):
         if not self._autoscale:
             self._autoscale = DiscoAutoscale(environment_name=self.environment_name)
         return self._autoscale
+
+    @property
+    def elastigroup(self):
+        """Lazily creates disco elastigroup object"""
+        if not self._elastigroup:
+            self._elastigroup = DiscoElastigroup(environment_name=self.environment_name)
+        return self._elastigroup
 
     @property
     def log_metrics(self):
@@ -137,6 +145,16 @@ class DiscoAWS(object):
             buckets = self.vpc.get_credential_buckets(self._project_name)
             self._disco_remote_exec = DiscoRemoteExec(buckets)
         return self._disco_remote_exec
+
+    def service(self, spotinst=False):
+        """
+        User either autoscale or elastigroup service, depending on
+        hostclass configuration in disco_aws.ini (e.g. spotinst=True)
+        """
+        if spotinst:
+            return self.elastigroup
+        else:
+            return self.autoscale
 
     def config(self, option, section=DEFAULT_CONFIG_SECTION, default=None):
         """Get a value from the config"""
@@ -177,7 +195,7 @@ class DiscoAWS(object):
             return default
 
     def create_userdata(self, hostclass, owner):
-        '''This is autoscaling group specific user data'''
+        """This is autoscaling group specific user data"""
         fixed_ip_hostclass = {}
         data = {}
 
@@ -342,13 +360,10 @@ class DiscoAWS(object):
 
         return elb
 
-    def provision(self, ami, hostclass=None,
-                  owner=None, instance_type=None, monitoring_enabled=True,
-                  extra_space=None, extra_disk=None, iops=None,
-                  no_destroy=False,
-                  min_size=None, desired_size=None, max_size=None,
-                  testing=False, termination_policies=None,
-                  chaos=None, create_if_exists=False, group_name=None):
+    def provision(self, ami, hostclass=None, owner=None, instance_type=None, monitoring_enabled=True,
+                  extra_space=None, extra_disk=None, iops=None, no_destroy=False, min_size=None,
+                  desired_size=None, max_size=None, testing=False, termination_policies=None, chaos=None,
+                  create_if_exists=False, group_name=None, spotinst=False):
         # TODO move key, instance_type, monitoring enabled, extra_space, extra_disk into config file.
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
@@ -374,6 +389,7 @@ class DiscoAWS(object):
         chaos -- when true we want these instances to be terminatable by the chaos process
         create_if_exists -- create a new autoscaling group even if one already exists
         group_name -- force reuse of an existing autoscaling group
+        spotinst -- use AWS autoscaling group or Spotinst elastigroup
         """
         # It's possible that the ami isn't available yet, so wait here
         wait_for_state(ami, u'available', 600)
@@ -381,10 +397,6 @@ class DiscoAWS(object):
 
         meta_network = self.get_meta_network(hostclass)
         instance_type = instance_type if instance_type else self.get_instance_type(hostclass)
-
-        # Use a human friendly name and append a random tail to avoid name collisions.
-        lc_name = '{0}_{1}_{2}'.format(
-            self.environment_name, hostclass, str(random.randrange(0, 9999999)))
 
         user_data = self.create_userdata(hostclass, owner)
 
@@ -394,59 +406,59 @@ class DiscoAWS(object):
 
         self.log_metrics.update(hostclass)
 
-        launch_config = self.autoscale.get_config(
-            name=lc_name,
-            image_id=ami.id,
-            key_name=DiscoAWS._nonify(self.hostclass_option(hostclass, "ssh_key_name")),
-            security_groups=[meta_network.security_group.id],
-            block_device_mappings=block_device_mappings,
-            instance_type=instance_type,
-            instance_monitoring=monitoring_enabled,
-            instance_profile_name=self.hostclass_option_default(hostclass, "instance_profile_name"),
-            ebs_optimized=self.disco_storage.is_ebs_optimized(instance_type),
-            user_data="\n".join(['{0}="{1}"'.format(key, value) for key, value in user_data.iteritems()]),
-            associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")))
-
         self.create_floating_interfaces(meta_network, hostclass)
-
-        elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
 
         chaos = is_truthy(chaos or self.hostclass_option_default(hostclass, "chaos", "True"))
 
-        group = self.autoscale.get_group(
-            hostclass=hostclass, launch_config=launch_config.name,
-            vpc_zone_id=",".join([subnet['SubnetId'] for subnet
-                                  in self.get_subnets(meta_network, hostclass)]),
+        elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
+
+        service = self.service(is_truthy(str(spotinst) or self.config('spotinst', hostclass)))
+
+        group = service.update_group(
+            hostclass=hostclass,
+            image_id=ami.id,
+            subnets=self.get_subnets(meta_network, hostclass),
+            key_name=DiscoAWS._nonify(self.hostclass_option(hostclass, "ssh_key_name")),
             min_size=size_as_minimum_int_or_none(min_size),
             max_size=size_as_maximum_int_or_none(max_size),
             desired_size=size_as_maximum_int_or_none(desired_size),
-            termination_policies=termination_policies,
+            instance_profile_name=self.hostclass_option_default(hostclass, "instance_profile_name"),
+            ebs_optimized=self.disco_storage.is_ebs_optimized(instance_type),
+            security_groups=[meta_network.security_group.id],
             tags={"hostclass": hostclass,
                   "owner": user_data["owner"],
                   "environment": self.environment_name,
                   "chaos": chaos,
                   "is_testing": "1" if testing else "0"},
+            user_data="\n".join(['{0}="{1}"'.format(key, value) for key, value in user_data.iteritems()]),
+            associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")),
+            instance_monitoring=monitoring_enabled,
+            instance_type=instance_type,
             load_balancers=[elb['LoadBalancerName']] if elb else [],
+            block_device_mappings=block_device_mappings,
             create_if_exists=create_if_exists,
+            termination_policies=termination_policies,
             group_name=group_name
         )
 
-        self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group.name)
+        # Elastigroup does not return a group object
+        if service == self.autoscale:
+            self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group.name)
 
-        # Create alarms and custom metrics for the hostclass, if is not being used for testing
-        if not testing:
-            self.alarms.create_alarms(hostclass, group.name)
+            # Create alarms and custom metrics for the hostclass, if is not being used for testing
+            if not testing:
+                self.alarms.create_alarms(hostclass, group.name)
 
-        logger.info("Spun up %s instances of %s from %s into group %s",
-                    size_as_maximum_int_or_none(desired_size), hostclass, ami.id, group.name)
+            logger.info("Spun up %s instances of %s from %s into group %s",
+                        size_as_maximum_int_or_none(desired_size), hostclass, ami.id, group.name)
 
-        return {
-            "hostclass": hostclass,
-            "no_destroy": no_destroy,
-            "launch_config": lc_name,
-            "group_name": group.name,
-            "chaos": chaos
-        }
+            return {
+                "hostclass": hostclass,
+                "no_destroy": no_destroy,
+                "launch_config": group.launch_config_name,
+                "group_name": group.name,
+                "chaos": chaos
+            }
 
     def stop(self, instances):
         """ Stop (aka shutdown) instances """
@@ -595,6 +607,7 @@ class DiscoAWS(object):
         """
         for hostclass in hostclasses:
             self.autoscale.delete_groups(hostclass=hostclass, force=True)
+            self.elastigroup.delete_groups(hostclass=hostclass)
 
             self.elb.delete_elb(hostclass)
 
@@ -627,7 +640,8 @@ class DiscoAWS(object):
               "min_size": None,
               "max_size": None,
               "termination_policies": None,
-              "chaos": "yes"
+              "chaos": "yes",
+              "spotinst": False
               },
             ...]
         """
@@ -674,11 +688,14 @@ class DiscoAWS(object):
                     termination_policies=termination_policies.split() if termination_policies else None,
                     chaos=hdict.get("chaos"),
                     create_if_exists=create_if_exists,
-                    group_name=group_name)
+                    group_name=group_name,
+                    spotinst=hdict.get("spotinst")
+                )
                 for (hostclass, termination_policies, hdict) in hostclass_iter]
 
-            self.smoketest(self.wait_for_autoscaling_instances(
-                [_hc for _hc in metadata if _hc["hostclass"] in flammable]))
+            if metadata[0]:
+                self.smoketest(self.wait_for_autoscaling_instances(
+                    [_hc for _hc in metadata if _hc["hostclass"] in flammable]))
 
     @staticmethod
     def _instance_count_lt_min_size(group, all_instances):

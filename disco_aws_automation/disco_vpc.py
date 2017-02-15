@@ -23,6 +23,7 @@ from .disco_config import normalize_path
 from .disco_alarm import DiscoAlarm
 from .disco_alarm_config import DiscoAlarmsConfig
 from .disco_autoscale import DiscoAutoscale
+from .disco_elastigroup import DiscoElastigroup
 from .disco_config import read_config
 from .disco_constants import CREDENTIAL_BUCKET_TEMPLATE, NETWORKS, VPC_CONFIG_FILE
 from .disco_elasticache import DiscoElastiCache
@@ -536,7 +537,9 @@ class DiscoVPC(object):
     def _destroy_instances(self):
         """ Find all instances in vpc and terminate them """
         autoscale = DiscoAutoscale(environment_name=self.environment_name)
-        autoscale.clean_groups(force=True)
+        autoscale.delete_groups(force=True)
+        elastigroup = DiscoElastigroup(environment_name=self.environment_name)
+        elastigroup.delete_groups()
         reservations = throttled_call(self.boto3_ec2.describe_instances,
                                       Filters=self.vpc_filters())['Reservations']
         instances = [i['InstanceId']
