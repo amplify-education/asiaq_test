@@ -816,17 +816,22 @@ class DiscoAWSTests(TestCase):
     def test_instances_from_amis(self, mock_config, **kwargs):
         '''test get instances using ami ids '''
         aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME)
-        instances = [{"InstanceId": "i-123123aa"}]
+        instance = create_autospec(boto.ec2.instance.Instance)
+        instance.id = "i-123123aa"
+        instances = [instance]
         aws.instances = MagicMock(return_value=instances)
         self.assertEqual(aws.instances_from_amis('ami-12345678'), instances)
-        aws.instances.assert_called_with(filters={"image_id": 'ami-12345678'})
+        aws.instances.assert_called_with(filters={"image_id": 'ami-12345678'}, instance_ids=None)
 
     @patch_disco_aws
     def test_instances_from_amis_with_group_name(self, mock_config, **kwargs):
         '''test get instances using ami ids in a specified group name'''
         aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME)
-        instances = [{"InstanceId": "i-123123aa"}]
+        instance = create_autospec(boto.ec2.instance.Instance)
+        instance.id = "i-123123aa"
+        instances = [instance]
         aws.instances_from_asgs = MagicMock(return_value=instances)
+        aws.instances = MagicMock(return_value=instances)
         self.assertEqual(aws.instances_from_amis('ami-12345678', group_name='test_group'), instances)
         aws.instances_from_asgs.assert_called_with(['test_group'])
 
@@ -847,7 +852,7 @@ class DiscoAWSTests(TestCase):
         aws.instances = MagicMock(return_value=instances)
         self.assertEqual(aws.instances_from_amis('ami-12345678', launch_time=now),
                          [instance1])
-        aws.instances.assert_called_with(filters={"image_id": 'ami-12345678'})
+        aws.instances.assert_called_with(filters={"image_id": 'ami-12345678'}, instance_ids=None)
 
     @patch_disco_aws
     def test_wait_for_autoscaling_using_amiid(self, mock_config, **kwargs):

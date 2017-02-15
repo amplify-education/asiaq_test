@@ -588,7 +588,7 @@ class DiscoAWS(object):
         """
         instance_ids_in_group = None
         if group_name:
-            instance_ids_in_group = [inst.instance_id for inst in self.instances_from_asgs([group_name])]
+            instance_ids_in_group = [inst.id for inst in self.instances_from_asgs([group_name])]
 
         instances = self.instances(filters={"image_id": ami_ids}, instance_ids=instance_ids_in_group)
         if launch_time is None:
