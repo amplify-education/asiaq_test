@@ -58,7 +58,7 @@ class DiscoElastigroup(object):
     def account_id(self):
         """Account id of the current IAM user"""
         if not self._account_id:
-            self._account_id = boto3.resource('iam').CurrentUser().arn.split(':')[4]
+            self._account_id = boto3.client('sts').get_caller_identity().get('Account')
         return self._account_id
 
     def _get_new_groupname(self, hostclass):
