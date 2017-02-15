@@ -345,7 +345,8 @@ class DiscoAutoscale(object):
             create_if_exists=create_if_exists,
             group_name=group_name
         )
-        return group
+
+        return {'name': group.name}
 
     def get_existing_groups(self, hostclass=None, group_name=None):
         """
