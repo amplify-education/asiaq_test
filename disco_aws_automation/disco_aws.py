@@ -443,22 +443,21 @@ class DiscoAWS(object):
 
         # Elastigroup does not return a group object
         if service == self.autoscale:
-            self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group.name)
+            self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group['name'])
 
             # Create alarms and custom metrics for the hostclass, if is not being used for testing
             if not testing:
-                self.alarms.create_alarms(hostclass, group.name)
+                self.alarms.create_alarms(hostclass, group['name'])
 
             logger.info("Spun up %s instances of %s from %s into group %s",
-                        size_as_maximum_int_or_none(desired_size), hostclass, ami.id, group.name)
+                        size_as_maximum_int_or_none(desired_size), hostclass, ami.id, group['name'])
 
-            return {
-                "hostclass": hostclass,
-                "no_destroy": no_destroy,
-                "launch_config": group.launch_config_name,
-                "group_name": group.name,
-                "chaos": chaos
-            }
+        return {
+            "hostclass": hostclass,
+            "no_destroy": no_destroy,
+            "group_name": group['name'],
+            "chaos": chaos
+        }
 
     def stop(self, instances):
         """ Stop (aka shutdown) instances """
