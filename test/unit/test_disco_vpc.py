@@ -137,11 +137,14 @@ class DiscoVPCTests(unittest.TestCase):
         possible_vpcs = ['10.0.0.0/26', '10.0.0.64/26', '10.0.0.128/26', '10.0.0.192/26']
         self.assertIn(str(auto_vpc.vpc['CidrBlock']), possible_vpcs)
 
+    @patch('disco_aws_automation.disco_vpc.DiscoRDS')
+    @patch('disco_aws_automation.disco_vpc.DiscoSNS')
     @patch('disco_aws_automation.disco_vpc.DiscoVPCEndpoints')
     @patch('disco_aws_automation.disco_vpc.DiscoVPC.config', new_callable=PropertyMock)
     @patch('boto3.client')
     @patch('boto3.resource')
-    def test_create_vpc(self, boto3_resource_mock, boto3_client_mock, config_mock, endpoints_mock):
+    def test_create_vpc(self, boto3_resource_mock, boto3_client_mock, config_mock, endpoints_mock,
+                        sns_mock, rds_mock):
         """Test creating a VPC with a dynamic ip range and tags"""
         # FIXME This needs to mock way too many things. DiscoVPC needs to be refactored
 
