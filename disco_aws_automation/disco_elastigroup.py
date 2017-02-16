@@ -259,8 +259,8 @@ class DiscoElastigroup(object):
             self.session.put(SPOTINST_API + group_id, data=json.dumps(group_config))
             return {'name': group['name']}
         else:
-            new_group = self.session.post(SPOTINST_API, data=json.dumps(group_config))
-            return {'name': new_group['name']}
+            new_group = self.session.post(SPOTINST_API, data=json.dumps(group_config)).json()
+            return {'name': new_group['response']['items'][0]['name']}
 
     def _delete_group(self, group_id, force=False):
         """Delete an elastigroup by group id"""
