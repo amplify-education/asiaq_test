@@ -58,7 +58,7 @@ class DiscoElastigroup(object):
     def account_id(self):
         """Account id of the current IAM user"""
         if not self._account_id:
-            self._account_id = boto3.resource('iam').CurrentUser().arn.split(':')[4]
+            self._account_id = boto3.client('sts').get_caller_identity().get('Account')
         return self._account_id
 
     def _get_new_groupname(self, hostclass):
@@ -257,8 +257,10 @@ class DiscoElastigroup(object):
             del group_config['group']['capacity']['unit']
             del group_config['group']['compute']['product']
             self.session.put(SPOTINST_API + group_id, data=json.dumps(group_config))
+            return {'name': group['name']}
         else:
-            self.session.post(SPOTINST_API, data=json.dumps(group_config))
+            new_group = self.session.post(SPOTINST_API, data=json.dumps(group_config)).json()
+            return {'name': new_group['response']['items'][0]['name']}
 
     def _delete_group(self, group_id, force=False):
         """Delete an elastigroup by group id"""
