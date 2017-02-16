@@ -480,7 +480,7 @@ class DiscoVPC(object):
         waiter = self.boto3_ec2.get_waiter('vpc_available')
         waiter.wait(VpcIds=[self.vpc['VpcId']])
 
-        # Add tags to VPB
+        # Add tags to VPC
         self._add_vpc_tags()
 
         logger.debug("vpc: %s", self.vpc)
