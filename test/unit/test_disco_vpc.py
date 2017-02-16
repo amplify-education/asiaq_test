@@ -1,14 +1,11 @@
 """Tests of disco_vpc"""
 
 import unittest
-import logging
 
 from mock import MagicMock, patch, PropertyMock, call
 
 from disco_aws_automation import DiscoVPC
 from test.helpers.patch_disco_aws import get_mock_config, get_default_config_dict
-
-logger = logging.getLogger(__name__)
 
 
 class DiscoVPCTests(unittest.TestCase):
@@ -143,8 +140,8 @@ class DiscoVPCTests(unittest.TestCase):
     @patch('disco_aws_automation.disco_vpc.DiscoVPC.config', new_callable=PropertyMock)
     @patch('boto3.client')
     @patch('boto3.resource')
-    def test_create_vpc(self, boto3_resource_mock, boto3_client_mock, config_mock, endpoints_mock,
-                        sns_mock, rds_mock):
+    def test_create_vpc_with_custom_tags(self, boto3_resource_mock, boto3_client_mock, config_mock,
+                                         endpoints_mock, sns_mock, rds_mock):
         """Test creating a VPC with a dynamic ip range and tags"""
         # FIXME This needs to mock way too many things. DiscoVPC needs to be refactored
 
@@ -162,7 +159,6 @@ class DiscoVPCTests(unittest.TestCase):
 
         # pylint: disable=C0103
         def _create_vpc_mock(CidrBlock):
-            logger.debug("RR enter _create_vpc_mock")
             return {'Vpc': {'CidrBlock': CidrBlock,
                             'VpcId': 'mock_vpc_id',
                             'DhcpOptionsId': 'mock_dhcp_options_id'}}
