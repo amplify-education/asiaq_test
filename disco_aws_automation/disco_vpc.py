@@ -37,7 +37,7 @@ from .disco_vpc_endpoints import DiscoVPCEndpoints
 from .disco_vpc_gateways import DiscoVPCGateways
 from .disco_vpc_peerings import DiscoVPCPeerings
 from .disco_vpc_sg_rules import DiscoVPCSecurityGroupRules
-from .resource_helper import (tag2dict, create_filters, keep_trying, throttled_call)
+from .resource_helper import (tag2dict, dict2tag, create_filters, keep_trying, throttled_call)
 from .exceptions import (IPRangeError, VPCConfigError, VPCEnvironmentError)
 
 logger = logging.getLogger(__name__)
@@ -499,11 +499,10 @@ class DiscoVPC(object):
                     {'Key': 'create_date', 'Value': datetime.utcnow().isoformat()}]
 
         if self._vpc_tags:
-            # convert the list of tags key:value strings (example ["productline:myproduct", ...])
+            # Convert the list of tags key:value strings (example ["productline:myproduct", ...])
             # into a list of dictionary as expected by the vpc.create_tags function
             # (example: [{'Key': 'productline', 'Value': 'myproduct'}, ...]
-            extra_vpc_tags = [{'key': tag_key_value[0], 'value': tag_key_value[1]}
-                              for tag_key_value in [tag_option.split(":") for tag_option in self._vpc_tags]]
+            extra_vpc_tags = dict2tag(self._vpc_tags)
 
             # Add the extra tags to the list of default tags
             tag_list.extend(extra_vpc_tags)
