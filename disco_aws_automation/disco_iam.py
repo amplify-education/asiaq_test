@@ -284,7 +284,10 @@ class DiscoIAM(object):
         """
         Return all roles with deserialized Assume Role Policy Document
         """
-        roles = throttled_call(self.connection.list_roles).list_roles_response.list_roles_result.roles
+        roles = throttled_call(
+            self.connection.list_roles,
+            max_items=500
+        ).list_roles_response.list_roles_result.roles
         for role in roles:
             role.assume_role_policy_document = AssumeRolePolicyDocument(role.assume_role_policy_document)
         return roles
