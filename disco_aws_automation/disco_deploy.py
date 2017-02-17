@@ -730,7 +730,7 @@ class DiscoDeploy(object):
                 "Classic deployment will be removed in a future version of Asiaq."
                 "Please switch to Blue/Green deployment by setting `deployment_strategy=%s` under your "
                 "hostclass' section in disco_aws.ini",
-                desired_deployment_strategy
+                DEPLOYMENT_STRATEGY_BLUE_GREEN
             )
 
         if desired_deployment_strategy == DEPLOYMENT_STRATEGY_BLUE_GREEN:
