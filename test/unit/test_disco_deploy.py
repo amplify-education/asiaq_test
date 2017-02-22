@@ -1238,7 +1238,8 @@ class DiscoDeployTests(TestCase):
         ami = self.mock_ami("mhcsmokey 1")
         self._ci_deploy._disco_autoscale.get_existing_group = MagicMock(return_value=None)
         self._ci_deploy.handle_tested_ami = MagicMock(return_value=True)
-        self.assertIsNone(self._ci_deploy.update_ami(ami, dry_run=False))
+        self.assertIsNone(self._ci_deploy.update_ami(ami, dry_run=False,
+                                                     deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
         self._ci_deploy._disco_autoscale.get_existing_group.assert_called_with("mhcsmokey")
         self._ci_deploy.handle_tested_ami.assert_called_with(
             ami,
@@ -1259,7 +1260,8 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.is_deployable = MagicMock(return_value=False)
         self._ci_deploy._disco_autoscale.get_existing_group = MagicMock(return_value=None)
         self._ci_deploy.handle_nodeploy_ami = MagicMock(return_value=True)
-        self.assertIsNone(self._ci_deploy.update_ami(ami, dry_run=False))
+        self.assertIsNone(self._ci_deploy.update_ami(ami, dry_run=False,
+                                                     deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
         self.assertEqual(self._ci_deploy.is_deployable.call_count, 1)
         self._ci_deploy._disco_autoscale.get_existing_group.assert_called_with("mhcscarey")
         self._ci_deploy.handle_nodeploy_ami.assert_called_with(

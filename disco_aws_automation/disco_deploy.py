@@ -792,9 +792,15 @@ class DiscoDeploy(object):
         if deployment_strategy:
             desired_deployment_strategy = deployment_strategy
         else:
-            desired_deployment_strategy = self.hostclass_option_default(
-                hostclass, 'deployment_strategy',
-                DEPLOYMENT_STRATEGY_CLASSIC
+            desired_deployment_strategy = self.hostclass_option_default(hostclass, 'deployment_strategy',
+                                                                        DEPLOYMENT_STRATEGY_BLUE_GREEN)
+
+        if desired_deployment_strategy == DEPLOYMENT_STRATEGY_CLASSIC:
+            logger.warning(
+                "Classic deployment will be removed in a future version of Asiaq."
+                "Please switch to Blue/Green deployment by setting `deployment_strategy=%s` under your "
+                "hostclass' section in disco_aws.ini",
+                DEPLOYMENT_STRATEGY_BLUE_GREEN
             )
 
         if desired_deployment_strategy == DEPLOYMENT_STRATEGY_BLUE_GREEN:
