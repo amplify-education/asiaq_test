@@ -4,12 +4,14 @@ import copy
 import logging
 import random
 import sys
+from datetime import datetime
 
 from ConfigParser import NoOptionError, NoSectionError
 from boto.exception import EC2ResponseError
 
 from . import DiscoBake
 from .disco_config import read_config
+from .disco_aws_util import get_instance_launch_time
 from .exceptions import (
     TimeoutError,
     MaintenanceModeError,
@@ -182,7 +184,7 @@ class DiscoDeploy(object):
         return (hostclass in self._hostclasses and
                 self._hostclasses[hostclass].get("integration_test")) or None
 
-    def wait_for_smoketests(self, ami_id, min_count):
+    def wait_for_smoketests(self, ami_id, min_count, group_name=None, launch_time=None):
         '''
         Waits for smoketests to complete for an AMI.
 
@@ -190,13 +192,14 @@ class DiscoDeploy(object):
         '''
 
         try:
-            self._disco_aws.wait_for_autoscaling(ami_id, min_count)
+            self._disco_aws.wait_for_autoscaling(ami_id, min_count,
+                                                 group_name=group_name, launch_time=launch_time)
         except TimeoutError:
             logger.info("autoscaling timed out")
             return False
 
         try:
-            self._disco_aws.smoketest(self._disco_aws.instances_from_amis([ami_id]))
+            self._disco_aws.smoketest(self._disco_aws.instances_from_amis([ami_id], group_name, launch_time))
         except TimeoutError:
             logger.info("smoketest timed out")
             return False
@@ -267,9 +270,11 @@ class DiscoDeploy(object):
             ami=ami
         )
 
+        now = datetime.utcnow()
+
         self._disco_aws.spinup([new_hostclass_dict], testing=True)
 
-        if self.wait_for_smoketests(ami.id, rollback_hostclass_dict["desired_size"]):
+        if self.wait_for_smoketests(ami.id, rollback_hostclass_dict["desired_size"], launch_time=now):
             self._promote_ami(ami, "tested")
         else:
             self._promote_ami(ami, "failed")
@@ -278,7 +283,7 @@ class DiscoDeploy(object):
             ami_test_failed = True
 
         if old_group:
-            self._disco_aws.terminate(self._get_new_instances(ami.id), use_autoscaling=True)
+            self._disco_aws.terminate(self._get_new_instances(ami.id, launch_time=now), use_autoscaling=True)
             self._disco_aws.spinup([rollback_hostclass_dict])
             # Create scheduled actions on the ASG.
             self._create_scaling_schedule(pipeline_dict, hostclass=hostclass)
@@ -288,18 +293,36 @@ class DiscoDeploy(object):
         if ami_test_failed:
             raise RuntimeError("Smoke test for non-deploy Hostclass %s AMI %s failed", hostclass, ami.id)
 
-    def _get_old_instances(self, new_ami_id):
-        '''Returns instances of the hostclass of new_ami_id that are not running new_ami_id'''
+    def _get_old_instances(self, new_ami_id, launch_time=None):
+        '''
+        Returns instances for the hostclass of new_ami_id that are not running new_ami_id
+        or which were launched before the specified launch time
+        :param new_ami_id: The new ami_id current used for the hostclass
+        :param launch_time: If launch time is specified only instances launched before the specified
+        launch time will be returned.
+        :return: List of instances
+        '''
         hostclass = DiscoBake.ami_hostclass(self._disco_bake.connection.get_image(new_ami_id))
         all_ids = [inst.instance_id for inst in self._disco_autoscale.get_instances(hostclass=hostclass)]
         all_instances = self._disco_aws.instances(instance_ids=all_ids)
-        return [inst for inst in all_instances if inst.image_id != new_ami_id]
+        return [inst for inst in all_instances
+                if (inst.image_id != new_ami_id) or
+                (launch_time and get_instance_launch_time(inst) < launch_time)]
 
-    def _get_new_instances(self, new_ami_id):
-        '''Returns instances running new_ami_id'''
+    def _get_new_instances(self, new_ami_id, launch_time=None):
+        '''
+        Returns instances running new_ami_id
+        If launch_time is specified, select only instances launched after the specified date
+        :param new_ami_id:
+        :param launch_time: If launch time is specified only instances launched after the specified
+        launch time will be returned.
+        :return: List of instances
+        '''
         hostclass = DiscoBake.ami_hostclass(self._disco_bake.connection.get_image(new_ami_id))
         all_ids = [inst.instance_id for inst in self._disco_autoscale.get_instances(hostclass=hostclass)]
-        return self._disco_aws.instances(filters={"image_id": [new_ami_id]}, instance_ids=all_ids)
+        all_instances = self._disco_aws.instances(filters={"image_id": [new_ami_id]}, instance_ids=all_ids)
+        return [inst for inst in all_instances
+                if not launch_time or get_instance_launch_time(inst) >= launch_time]
 
     def _get_latest_other_image_id(self, new_ami_id):
         '''
@@ -375,13 +398,16 @@ class DiscoDeploy(object):
             ami=ami
         )
 
+        now = datetime.utcnow()
+
         self._disco_aws.spinup([new_hostclass_dict])
 
         try:
-            if (self.wait_for_smoketests(ami.id, post_hostclass_dict["desired_size"]) and
+            if (self.wait_for_smoketests(ami.id, post_hostclass_dict["desired_size"], launch_time=now) and
                     (not run_tests or self.run_tests_with_maintenance_mode(ami))):
                 # Roll forward with new configuration
-                self._disco_aws.terminate(self._get_old_instances(ami.id), use_autoscaling=True)
+                self._disco_aws.terminate(self._get_old_instances(ami.id, launch_time=now),
+                                          use_autoscaling=True)
                 self._disco_aws.spinup([post_hostclass_dict])
                 # Create scheduled actions on the ASG.
                 self._create_scaling_schedule(pipeline_dict, hostclass=hostclass)
@@ -405,7 +431,7 @@ class DiscoDeploy(object):
         else:
             logger.error("Unable to rollback to old AMI. Autoscaling group will use new AMI on next event!")
 
-        self._disco_aws.terminate(self._get_new_instances(ami.id), use_autoscaling=True)
+        self._disco_aws.terminate(self._get_new_instances(ami.id, launch_time=now), use_autoscaling=True)
         self._disco_aws.spinup([post_hostclass_dict])
 
         if ami_test_failed:
@@ -482,7 +508,8 @@ class DiscoDeploy(object):
             raise RuntimeError("Old group and new group should not be the same.")
 
         try:
-            smoke_tests = self.wait_for_smoketests(ami.id, new_group_config["desired_size"] or 1)
+            smoke_tests = self.wait_for_smoketests(ami.id, new_group_config["desired_size"] or 1,
+                                                   group_name=new_group.name)
             if smoke_tests and run_tests:
                 # If smoke tests passed and we should run integration tests, run them
                 integration_tests = self.run_integration_tests(ami, wait_for_elb=uses_elb)
@@ -828,20 +855,34 @@ class DiscoDeploy(object):
             )
 
     def test(self, dry_run=False, deployment_strategy=None):
-        '''Tests a single untested AMI and marks it as tested or failed'''
-        amis = self.get_test_amis()
+        '''
+        Tests a single AMI and marks it as tested or failed.
+        If the ami id is specified using the option --ami then run test on the specified ami
+        independently of its stage,
+        Otherwise use the most recent untested ami for the hostclass
+        '''
+        amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
         if len(amis):
             self.test_ami(random.choice(amis), dry_run, deployment_strategy)
         else:
-            logger.error("No 'untested' AMIs found.")
+            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
+                else "No 'untested' AMIs found."
+            logger.error(reason)
 
     def update(self, dry_run=False, deployment_strategy=None):
-        '''Updates a single autoscaling group with a newer AMI'''
-        amis = self.get_update_amis()
+        '''
+        Updates a single autoscaling group with a newer AMI or AMI specified in the --ami option
+        If the ami id is specify using the option --ami then run update using the specified ami
+        independently of its stage,
+        Otherwise uses the most recent tested or un tagged ami
+        '''
+        amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
         if len(amis):
             self.update_ami(random.choice(amis), dry_run, deployment_strategy)
         else:
-            logger.error("No new 'tested' AMIs found.")
+            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
+                else "No 'untested' AMIs found."
+            logger.error(reason)
 
     def hostclass_option(self, hostclass, key):
         '''

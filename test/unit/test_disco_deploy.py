@@ -5,8 +5,11 @@ from __future__ import print_function
 import random
 from unittest import TestCase
 
+from datetime import datetime
+from datetime import timedelta
+
 import boto.ec2.instance
-from mock import MagicMock, create_autospec, call
+from mock import MagicMock, create_autospec, call, ANY
 
 from disco_aws_automation import DiscoDeploy, DiscoAWS, DiscoAutoscale, DiscoBake, DiscoELB
 from disco_aws_automation.disco_constants import DEPLOYMENT_STRATEGY_BLUE_GREEN, DEPLOYMENT_STRATEGY_CLASSIC
@@ -395,7 +398,8 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._disco_aws.wait_for_autoscaling = MagicMock(side_effect=TimeoutError())
         self._ci_deploy._disco_aws.smoketest = MagicMock(return_value=True)
         self.assertEqual(self._ci_deploy.wait_for_smoketests('ami-12345678', 2), False)
-        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2)
+        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2,
+                                                                           group_name=None, launch_time=None)
         self.assertEqual(self._ci_deploy._disco_aws.smoketest.call_count, 0)
 
     def test_wait_for_smoketests_does_smoke(self):
@@ -404,8 +408,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._disco_aws.smoketest = MagicMock(return_value=True)
         self._ci_deploy._disco_aws.instances_from_amis = MagicMock(return_value=['a', 'b'])
         self.assertEqual(self._ci_deploy.wait_for_smoketests('ami-12345678', 2), True)
-        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2)
-        self._ci_deploy._disco_aws.instances_from_amis.assert_called_with(['ami-12345678'])
+        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2,
+                                                                           group_name=None, launch_time=None)
+        self._ci_deploy._disco_aws.instances_from_amis.assert_called_with(['ami-12345678'], None, None)
         self._ci_deploy._disco_aws.smoketest.assert_called_with(['a', 'b'])
 
     def test_wait_for_smoketests_does_smoke_time(self):
@@ -414,8 +419,36 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._disco_aws.smoketest = MagicMock(side_effect=TimeoutError())
         self._ci_deploy._disco_aws.instances_from_amis = MagicMock(return_value=['a', 'b'])
         self.assertEqual(self._ci_deploy.wait_for_smoketests('ami-12345678', 2), False)
-        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2)
-        self._ci_deploy._disco_aws.instances_from_amis.assert_called_with(['ami-12345678'])
+        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2,
+                                                                           group_name=None, launch_time=None)
+        self._ci_deploy._disco_aws.instances_from_amis.assert_called_with(['ami-12345678'], None, None)
+        self._ci_deploy._disco_aws.smoketest.assert_called_with(['a', 'b'])
+
+    def test_wait_for_smoketests_asg_does_smoke(self):
+        '''Tests that we do smoketests'''
+        self._ci_deploy._disco_aws.wait_for_autoscaling = MagicMock()
+        self._ci_deploy._disco_aws.smoketest = MagicMock(return_value=True)
+        self._ci_deploy._disco_aws.instances_from_amis = MagicMock(return_value=['a', 'b'])
+        self.assertEqual(self._ci_deploy.wait_for_smoketests('ami-12345678', 2, group_name='test_group'),
+                         True)
+        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2,
+                                                                           group_name='test_group',
+                                                                           launch_time=None)
+        self._ci_deploy._disco_aws.instances_from_amis.assert_called_with(['ami-12345678'], 'test_group',
+                                                                          None)
+        self._ci_deploy._disco_aws.smoketest.assert_called_with(['a', 'b'])
+
+    def test_wait_for_smoketests_date_does_smoke(self):
+        '''Tests that we do smoketests'''
+        self._ci_deploy._disco_aws.wait_for_autoscaling = MagicMock()
+        self._ci_deploy._disco_aws.smoketest = MagicMock(return_value=True)
+        self._ci_deploy._disco_aws.instances_from_amis = MagicMock(return_value=['a', 'b'])
+        now = datetime.utcnow()
+        self.assertEqual(self._ci_deploy.wait_for_smoketests('ami-12345678', 2, launch_time=now), True)
+        self._ci_deploy._disco_aws.wait_for_autoscaling.assert_called_with('ami-12345678', 2,
+                                                                           group_name=None, launch_time=now)
+        self._ci_deploy._disco_aws.instances_from_amis.assert_called_with(['ami-12345678'], None,
+                                                                          now)
         self._ci_deploy._disco_aws.smoketest.assert_called_with(['a', 'b'])
 
     def test_promote_no_throw(self):
@@ -893,7 +926,7 @@ class DiscoDeployTests(TestCase):
         self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False,
                                                    deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
         self._disco_bake.promote_ami.assert_called_with(ami, 'tested')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, 1)
+        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, 1, launch_time=ANY)
         self._disco_aws.spinup.assert_has_calls(
             [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no',
                     'min_size': 1, 'integration_test': None, 'desired_size': 2,
@@ -912,7 +945,7 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
         self._ci_deploy.handle_nodeploy_ami(ami, pipeline_dict=None, dry_run=False)
         self._disco_bake.promote_ami.assert_called_with(ami, 'tested')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, 1)
+        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, 1, launch_time=ANY)
         self._disco_aws.spinup.assert_called_once_with(
             [{'ami': 'ami-12345678', 'sequence': 1, 'min_size': 0, 'desired_size': 1,
               'smoke_test': 'no', 'max_size': 1, 'hostclass': 'mhcnewscarey'}], testing=True)
@@ -927,7 +960,7 @@ class DiscoDeployTests(TestCase):
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False,
                           deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC)
         self._disco_bake.promote_ami.assert_called_with(ami, 'failed')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, 1)
+        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, 1, launch_time=ANY)
         self._disco_aws.spinup.assert_has_calls(
             [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no',
                     'min_size': 1, 'integration_test': None, 'desired_size': 2,
@@ -949,7 +982,9 @@ class DiscoDeployTests(TestCase):
         self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False,
                                                    deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
         self._disco_bake.promote_ami.assert_called_with(ami, 'tested')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, self._existing_group.desired_capacity)
+        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id,
+                                                               self._existing_group.desired_capacity,
+                                                               launch_time=ANY)
         self._disco_aws.spinup.assert_has_calls(
             [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
                     'min_size': 2, 'integration_test': None, 'desired_size': 4,
@@ -970,7 +1005,9 @@ class DiscoDeployTests(TestCase):
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False,
                           deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC)
         self._disco_bake.promote_ami.assert_called_with(ami, 'failed')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, self._existing_group.desired_capacity)
+        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id,
+                                                               self._existing_group.desired_capacity,
+                                                               launch_time=ANY)
         self._disco_aws.spinup.assert_has_calls(
             [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
                     'min_size': 2, 'integration_test': None, 'desired_size': 4,
@@ -991,7 +1028,9 @@ class DiscoDeployTests(TestCase):
         self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False,
                                                    deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
         self._disco_bake.promote_ami.assert_called_with(ami, 'tested')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, self._existing_group.desired_capacity)
+        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id,
+                                                               self._existing_group.desired_capacity,
+                                                               launch_time=ANY)
         self._disco_aws.spinup.assert_has_calls(
             [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
                     'integration_test': None, 'smoke_test': 'no', 'hostclass': 'mhctimedautoscale',
@@ -1019,7 +1058,9 @@ class DiscoDeployTests(TestCase):
         self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False,
                                                    deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
         self._disco_bake.promote_ami.assert_called_with(ami, 'tested')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, self._existing_group.desired_capacity)
+        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id,
+                                                               self._existing_group.desired_capacity,
+                                                               launch_time=ANY)
         self._disco_aws.spinup.assert_has_calls(
             [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no',
                     'integration_test': None, 'smoke_test': 'no', 'hostclass': 'mhctimedautoscalenodeploy',
@@ -1071,6 +1112,67 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._get_old_instances = MagicMock(return_value=insts)
         self._ci_deploy._disco_bake.get_amis = MagicMock(return_value=amis)
         self.assertEqual(self._ci_deploy._get_latest_other_image_id('ami-11112222'), amis[1].id)
+
+    def test_get_new_instances_with_launch_time(self):
+        '''test get new instances using launch time'''
+        now = datetime.utcnow()
+        ami_id = "ami-12345678"
+
+        inst1 = self.mock_instance()
+        inst1.launch_time = str(now + timedelta(minutes=10))
+        inst2 = self.mock_instance()
+        inst2.launch_time = str(now - timedelta(days=1))
+        instances = [inst1, inst2]
+
+        self._disco_aws.instances = MagicMock(return_value=instances)
+        self.assertEquals(self._ci_deploy._get_new_instances(ami_id, now), [inst1])
+
+    def test_get_new_instances_no_launch_time(self):
+        '''test get new instances without launch time'''
+        now = datetime.utcnow()
+        ami_id = "ami-12345678"
+
+        inst1 = self.mock_instance()
+        inst1.launch_time = str(now + timedelta(minutes=10))
+        inst2 = self.mock_instance()
+        inst2.launch_time = str(now - timedelta(days=1))
+        instances = [inst1, inst2]
+
+        self._disco_aws.instances = MagicMock(return_value=instances)
+        self.assertEquals(self._ci_deploy._get_new_instances(ami_id), instances)
+
+    def test_get_old_instances_with_launch_time(self):
+        '''test get old instances using launch time'''
+        now = datetime.utcnow()
+        ami_id = "ami-12345678"
+
+        inst1 = self.mock_instance()
+        inst1.image_id = ami_id
+        inst1.launch_time = str(now + timedelta(minutes=10))
+        inst2 = self.mock_instance()
+        inst2.image_id = ami_id
+        inst2.launch_time = str(now - timedelta(days=1))
+        instances = [inst1, inst2]
+
+        self._disco_aws.instances = MagicMock(return_value=instances)
+        self.assertEquals(self._ci_deploy._get_old_instances(ami_id, now), [inst2])
+
+    def test_get_old_instances_no_launch_time(self):
+        '''test get old instances without launch time'''
+        now = datetime.utcnow()
+        ami_id1 = "ami-12345678"
+        ami_id2 = "ami-12345699"
+
+        inst1 = self.mock_instance()
+        inst1.image_id = ami_id1
+        inst1.launch_time = str(now + timedelta(minutes=10))
+        inst2 = self.mock_instance()
+        inst2.image_id = ami_id2
+        inst2.launch_time = str(now - timedelta(days=1))
+        instances = [inst1, inst2]
+
+        self._disco_aws.instances = MagicMock(return_value=instances)
+        self.assertEquals(self._ci_deploy._get_old_instances(ami_id1), [inst2])
 
     def test_maintenance_mode_failure(self):
         '''Test that we handle maintenance mode failure appropriately'''
@@ -1141,7 +1243,7 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._get_new_instances = MagicMock(return_value=[inst2])
         self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False,
                                                    deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
-        self._ci_deploy._get_old_instances.assert_called_with(ami.id)
+        self._ci_deploy._get_old_instances.assert_called_with(ami.id, launch_time=ANY)
         self._ci_deploy._disco_aws.terminate.assert_has_calls(
             [call([inst1], use_autoscaling=True)])
 
@@ -1158,7 +1260,7 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._get_new_instances = MagicMock(return_value=[inst2])
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False,
                           deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC)
-        self._ci_deploy._get_new_instances.assert_called_with(ami.id)
+        self._ci_deploy._get_new_instances.assert_called_with(ami.id, launch_time=ANY)
         self._ci_deploy._disco_aws.terminate.assert_has_calls(
             [call([inst2], use_autoscaling=True)])
 
@@ -1175,7 +1277,7 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._get_new_instances = MagicMock(return_value=[inst2])
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False,
                           deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC)
-        self._ci_deploy._get_new_instances.assert_called_with(ami.id)
+        self._ci_deploy._get_new_instances.assert_called_with(ami.id, launch_time=ANY)
         self._ci_deploy._disco_aws.terminate.assert_has_calls(
             [call([inst2], use_autoscaling=True)])
         self.assertEqual(self._ci_deploy._set_maintenance_mode.call_count, 2)
@@ -1290,6 +1392,38 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.test()
         self.assertEqual(self._ci_deploy.test_ami.call_count, 0)
 
+    def test_test_with_restrict_ami(self):
+        '''Test test with specified restrict amis'''
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcbar 2'].id]
+        amis = [self._amis_by_name['mhcbar 2']]
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=amis)
+        self._ci_deploy.get_test_amis = MagicMock(return_value=[])
+        self._ci_deploy.test_ami = MagicMock()
+        self._ci_deploy.test()
+        self.assertEqual(self._ci_deploy.get_test_amis.call_count, 0)
+        self._ci_deploy._disco_bake.list_amis.assert_called_with(ami_ids=[self._amis_by_name['mhcbar 2'].id])
+        self.assertEqual(self._ci_deploy.test_ami.call_count, 1)
+
+    def test_test_with_invalid_restrict_ami(self):
+        '''Test test with specified restrict amis'''
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcbar 2'].id]
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=[])
+        self._ci_deploy.get_test_amis = MagicMock(return_value=[])
+        self._ci_deploy.test_ami = MagicMock()
+        self._ci_deploy.test()
+        self.assertEqual(self._ci_deploy.get_test_amis.call_count, 0)
+        self._ci_deploy._disco_bake.list_amis.assert_called_with(ami_ids=[self._amis_by_name['mhcbar 2'].id])
+        self.assertEqual(self._ci_deploy.test_ami.call_count, 0)
+
+    def test_test_wo_restrict_ami(self):
+        '''Test test without specified restrict amis'''
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=[])
+        self._ci_deploy.get_test_amis = MagicMock(return_value=[self._amis_by_name['mhcbar 2']])
+        self._ci_deploy.test_ami = MagicMock()
+        self._ci_deploy.test()
+        self.assertEqual(self._ci_deploy.get_test_amis.call_count, 1)
+        self.assertEqual(self._ci_deploy.test_ami.call_count, 1)
+
     def test_update_with_amis(self):
         '''Test update with amis'''
         self._ci_deploy.update_ami = MagicMock()
@@ -1302,6 +1436,38 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.update_ami = MagicMock()
         self._ci_deploy.update()
         self.assertEqual(self._ci_deploy.update_ami.call_count, 0)
+
+    def test_update_with_restrict_ami(self):
+        '''Test test with specified restrict amis'''
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcbar 2'].id]
+        amis = [self._amis_by_name['mhcbar 2']]
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=amis)
+        self._ci_deploy.get_update_amis = MagicMock(return_value=[])
+        self._ci_deploy.update_ami = MagicMock()
+        self._ci_deploy.update()
+        self.assertEqual(self._ci_deploy.get_update_amis.call_count, 0)
+        self._ci_deploy._disco_bake.list_amis.assert_called_with(ami_ids=[self._amis_by_name['mhcbar 2'].id])
+        self.assertEqual(self._ci_deploy.update_ami.call_count, 1)
+
+    def test_update_with_invalid_restrict_ami(self):
+        '''Test update with specified restrict amis'''
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcbar 2'].id]
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=[])
+        self._ci_deploy.get_update_amis = MagicMock(return_value=[])
+        self._ci_deploy.update_ami = MagicMock()
+        self._ci_deploy.update()
+        self.assertEqual(self._ci_deploy.get_update_amis.call_count, 0)
+        self._ci_deploy._disco_bake.list_amis.assert_called_with(ami_ids=[self._amis_by_name['mhcbar 2'].id])
+        self.assertEqual(self._ci_deploy.update_ami.call_count, 0)
+
+    def test_update_wo_restrict_ami(self):
+        '''Test update without specified restrict amis'''
+        self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=[])
+        self._ci_deploy.get_update_amis = MagicMock(return_value=[self._amis_by_name['mhcbar 2']])
+        self._ci_deploy.update_ami = MagicMock()
+        self._ci_deploy.update()
+        self.assertEqual(self._ci_deploy.get_update_amis.call_count, 1)
+        self.assertEqual(self._ci_deploy.update_ami.call_count, 1)
 
     def test_pending_ami(self):
         '''Ensure pending AMIs are not considered for deployment'''
