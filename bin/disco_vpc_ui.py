@@ -13,7 +13,7 @@ from disco_aws_automation import (
 )
 from disco_aws_automation.disco_aws_util import run_gracefully
 from disco_aws_automation.disco_logging import configure_logging
-from resource_helper import key_value_string2tag
+from resource_helper import key_values_to_tags
 
 
 def parse_arguments():
@@ -89,7 +89,7 @@ def create_vpc_command(args):
         print("VPC with same name already exists.")
         sys.exit(1)
     else:
-        tags = key_value_string2tag(args.tags)
+        tags = key_values_to_tags(args.tags)
         vpc = DiscoVPC(args.vpc_name, args.vpc_type, skip_enis_pre_allocate=args.skip_enis,
                        vpc_tags=tags)
         print("VPC {0}({1}) has been created".format(args.vpc_name, vpc.get_vpc_id()))
