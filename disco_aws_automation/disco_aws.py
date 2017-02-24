@@ -21,6 +21,7 @@ from .disco_autoscale import DiscoAutoscale
 from .disco_elastigroup import DiscoElastigroup
 from .disco_aws_util import (
     is_truthy,
+    get_instance_launch_time,
     size_as_recurrence_map,
     size_as_minimum_int_or_none,
     size_as_maximum_int_or_none
@@ -586,9 +587,30 @@ class DiscoAWS(object):
             if instance.tags.get("hostclass", "-") in hostclasses
         ]
 
-    def instances_from_amis(self, ami_ids):
-        """Returns instances matching any of a list of AMI ids"""
-        return self.instances(filters={"image_id": ami_ids})
+    def instances_from_amis(self, ami_ids, group_name=None, launch_time=None):
+        """
+        Returns instances matching any of a list of AMI ids and filtered by ASG name and Launch Time
+        :param ami_ids: List of AMI IDs used to select the list of returned instances
+        :param group_name: The ASG name, If the group name is specified, only instances belonging to the
+        group will be returned.
+        :param launch_time: If launch time is specified only instances launched on or after the specified
+        launch time will be returned.
+        :return: List of instances.
+        """
+        instance_ids_in_group = None
+        if group_name:
+            instance_ids_in_group = [inst.id for inst in self.instances_from_asgs([group_name])]
+
+        instances = self.instances(filters={"image_id": ami_ids}, instance_ids=instance_ids_in_group)
+        if launch_time is None:
+            return instances
+        else:
+            # Filter the instance by launch_time
+            return [
+                instance
+                for instance in instances
+                if get_instance_launch_time(instance) >= launch_time
+            ]
 
     def instances_from_asgs(self, asgs):
         """Returns instances matching any of a list of autoscaling group names"""
@@ -735,7 +757,8 @@ class DiscoAWS(object):
 
         return self.instances(instance_ids=instance_ids) if instance_ids else []
 
-    def wait_for_autoscaling(self, ami_id, min_count, timeout=AUTOSCALE_TIMEOUT):
+    def wait_for_autoscaling(self, ami_id, min_count, timeout=AUTOSCALE_TIMEOUT, group_name=None,
+                             launch_time=None):
         """
         Wait for at least min_count instances of a particular AMI to spin up.
         raises TimeoutError if min_count hosts do not exist by timeout seconds
@@ -745,7 +768,7 @@ class DiscoAWS(object):
 
         instances = []
         while time.time() < max_time:
-            instances = self.instances_from_amis([ami_id])
+            instances = self.instances_from_amis([ami_id], launch_time=launch_time, group_name=group_name)
             if len(instances) >= min_count:
                 return
             time.sleep(AUTOSCALE_POLL_INTERVAL)
