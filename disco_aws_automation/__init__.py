@@ -1,6 +1,7 @@
-''' For package documentation, see README '''
+""" For package documentation, see README """
 
 from .disco_acm import DiscoACM
+from .disco_group import DiscoGroup
 from .disco_autoscale import DiscoAutoscale
 from .disco_elastigroup import DiscoElastigroup
 from .disco_aws import DiscoAWS
