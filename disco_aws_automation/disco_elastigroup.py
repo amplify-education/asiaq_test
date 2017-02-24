@@ -7,8 +7,10 @@ import os
 from base64 import b64encode
 
 import requests
+from botocore.exceptions import WaiterError
 import boto3
 
+from .resource_helper import throttled_call
 from .exceptions import TooManyAutoscalingGroups
 
 logger = logging.getLogger(__name__)
@@ -19,10 +21,11 @@ SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group/'
 class DiscoElastigroup(object):
     """Class orchestrating elastigroups"""
 
-    def __init__(self, environment_name, session=None, account_id=None):
+    def __init__(self, environment_name, session=None, account_id=None, boto3_ec_connection=None):
         self.environment_name = environment_name
         self._session = session
         self._account_id = account_id
+        self._boto3_ec = boto3_ec_connection or None  # lazily initialized
 
     @property
     def token(self):
@@ -61,6 +64,13 @@ class DiscoElastigroup(object):
             self._account_id = boto3.client('sts').get_caller_identity().get('Account')
         return self._account_id
 
+    @property
+    def boto3_ec(self):
+        """Lazily create boto3 ec2 connection"""
+        if not self._boto3_ec:
+            self._boto3_ec = boto3.client('ec2')
+        return self._boto3_ec
+
     def _get_new_groupname(self, hostclass):
         """Returns a new elastigroup name when given a hostclass"""
         return self.environment_name + '_' + hostclass + "_" + str(int(time.time()))
@@ -76,7 +86,7 @@ class DiscoElastigroup(object):
         """Returns the hostclass when given an elastigroup name"""
         return group_name.split('_')[1]
 
-    def _get_existing_groups(self, hostclass=None, group_name=None):
+    def get_existing_groups(self, hostclass=None, group_name=None):
         """
         Returns all elastigroups for a given hostclass or group name, sorted by most recent creation. If no
         elastigroup can be found, returns an empty list.
@@ -103,7 +113,7 @@ class DiscoElastigroup(object):
         elastigroup will be returned. If there are more than two elastigroups, this method will
         always throw an exception.
         """
-        groups = self._get_existing_groups(hostclass=hostclass, group_name=group_name)
+        groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
         if not groups:
             return None
         elif len(groups) == 1 or (len(groups) == 2 and not throw_on_two_groups):
@@ -115,9 +125,19 @@ class DiscoElastigroup(object):
         """Returns list of instance ids in a group"""
         return self.session.get(SPOTINST_API + group_id + '/status').json()['response']['items']
 
+    def get_instances(self, hostclass=None, group_name=None):
+        """Returns elastigroup instances for hostclass in the current environment"""
+        group_ids = [
+            group['id'] for group in self.get_existing_groups(hostclass=hostclass, group_name=group_name)
+        ]
+        instances = []
+        for group_id in group_ids:
+            instances += self._get_group_instances(group_id)
+        return instances
+
     def list_groups(self):
         """Returns list of objects for display purposes for all groups"""
-        groups = self._get_existing_groups()
+        groups = self.get_existing_groups()
         return [{'name': group['name'],
                  'image_id': group['compute']['launchSpecification']['imageId'],
                  'group_cnt': len(self._get_group_instances(group['id'])),
@@ -250,8 +270,8 @@ class DiscoElastigroup(object):
             block_device_mappings=block_device_mappings,
             group_name=group_name or self._get_new_groupname(hostclass)
         )
-        group = self.get_existing_group(hostclass)
-        if group:
+        group = self.get_existing_group(hostclass, group_name)
+        if group and not create_if_exists:
             group_id = group['id']
             # Remove fields not allowed in update
             del group_config['group']['capacity']['unit']
@@ -272,13 +292,50 @@ class DiscoElastigroup(object):
         """Delete all elastigroups based on hostclass"""
         # We need argument `force` to match method in autoscale
         # pylint: disable=unused-argument
-        groups = self._get_existing_groups(hostclass=hostclass, group_name=group_name)
+        groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
         for group in groups:
             logger.info("Deleting group %s", group['name'])
             self._delete_group(group_id=group['id'])
 
+    def scaledown_groups(self, hostclass=None, group_name=None, wait=False, noerror=False):
+        """
+        Scales down number of instances in a hostclass's elastigroup, or the given elastigroup, to zero.
+        If wait is true, this function will block until all instances are terminated, or it will raise
+        a WaiterError if this process times out, unless noerror is True.
+
+        Returns true if the elastigroups were successfully scaled down, False otherwise.
+        """
+        groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
+        for group in groups:
+            group_update = {
+                "group": {
+                    "capacity": {
+                        "target": 0,
+                        "minimum": 0,
+                        "maximum": 0
+                    }
+                }
+            }
+            logger.info("Scaling down group %s", group['name'])
+            self.session.put(SPOTINST_API + group['id'], data=json.dumps(group_update))
+
+            if wait:
+                waiter = throttled_call(self.boto3_ec.get_waiter, 'instance_terminated')
+                instance_ids = [inst['id'] for inst in self.get_instances(group_name=group_name)]
+
+                try:
+                    logger.info("Waiting for scaledown of group %s", group['name'])
+                    waiter.wait(InstanceIds=instance_ids)
+                except WaiterError:
+                    if noerror:
+                        logger.exception("Unable to wait for scaling down of %s", group_name)
+                        return False
+                    else:
+                        raise
+            return True
+
     def _get_group_id_from_instance_id(self, instance_id):
-        groups = self._get_existing_groups()
+        groups = self.get_existing_groups()
         for group in groups:
             group_id = group['id']
             instance_ids = [instance['instanceId'] for instance in self._get_group_instances(group_id)]

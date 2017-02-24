@@ -76,7 +76,7 @@ class DiscoElastigroupTests(TestCase):
         mock_group = self.mock_elastigroup(hostclass='mhcfoo')
 
         self.elastigroup._delete_group = MagicMock()
-        self.elastigroup._get_existing_groups = MagicMock(return_value=[mock_group])
+        self.elastigroup.get_existing_groups = MagicMock(return_value=[mock_group])
 
         self.elastigroup.delete_groups(hostclass='mhcfoo')
 
@@ -87,7 +87,7 @@ class DiscoElastigroupTests(TestCase):
         mock_group = self.mock_elastigroup(hostclass='mhcfoo')
 
         self.elastigroup._delete_group = MagicMock()
-        self.elastigroup._get_existing_groups = MagicMock(return_value=[mock_group])
+        self.elastigroup.get_existing_groups = MagicMock(return_value=[mock_group])
 
         self.elastigroup.delete_groups(group_name=mock_group['name'])
 
@@ -98,7 +98,7 @@ class DiscoElastigroupTests(TestCase):
         mock_group1 = self.mock_elastigroup(hostclass="mhcfoo")
         mock_group2 = self.mock_elastigroup(hostclass="mhcbar")
 
-        self.elastigroup._get_existing_groups = MagicMock(return_value=[mock_group1, mock_group2])
+        self.elastigroup.get_existing_groups = MagicMock(return_value=[mock_group1, mock_group2])
         self.elastigroup._get_group_instances = MagicMock(return_value=['instance1', 'instance2'])
 
         actual_listings = self.elastigroup.list_groups()

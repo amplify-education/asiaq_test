@@ -19,6 +19,11 @@ class BaseGroup(object):
         return
 
     @abstractmethod
+    def get_existing_groups(self, hostclass, group_name):
+        """Get list of all group objects for a hostclass"""
+        return
+
+    @abstractmethod
     def get_instances(self, hostclass, group_name):
         """Get list of instances in groups"""
         return
@@ -63,12 +68,17 @@ class DiscoGroup(BaseGroup):
         else:
             logger.info('No group found')
 
+    def get_existing_groups(self, hostclass=None, group_name=None):
+        asg_groups = self._autoscale.get_existing_groups()
+        asg_groups = [group.__dict__ for group in asg_groups]
+        spot_groups = self._elastigroup.get_existing_groups()
+        return asg_groups + spot_groups
+
     def get_instances(self, hostclass=None, group_name=None):
         asg_instances = self._autoscale.get_instances(hostclass=hostclass, group_name=group_name)
-        asg_instance_ids = [{'instance_id': inst.instance_id} for inst in asg_instances]
+        asg_instances = [instance.__dict__ for instance in asg_instances]
         spot_instances = self._elastigroup.get_instances(hostclass=hostclass, group_name=group_name)
-        spot_instance_ids = [{'instance_id': inst['instanceId']} for inst in spot_instances]
-        return asg_instance_ids + spot_instance_ids
+        return asg_instances + spot_instances
 
     def delete_groups(self, hostclass=None, group_name=None, force=False):
         self._autoscale.delete_groups(hostclass=hostclass, group_name=group_name, force=force)
