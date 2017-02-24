@@ -177,7 +177,8 @@ class DiscoVPCTests(unittest.TestCase):
         resource_mock.Vpc.create_tags.return_value = []
         boto3_resource_mock.return_value = resource_mock
 
-        my_tags_options = ["productline:astronauts", "mytag:tag_value"]
+        my_tags_options = [{'Value': 'astronauts', 'Key': 'productline'},
+                           {'Value': 'tag_value', 'Key': 'mytag'}]
         DiscoVPC._get_vpc_cidr = MagicMock()
         DiscoVPC._get_vpc_cidr.return_value = '10.0.0.0/26'
         with patch("disco_aws_automation.DiscoVPC._create_new_meta_networks",
