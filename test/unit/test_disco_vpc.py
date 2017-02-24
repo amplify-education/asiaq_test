@@ -163,12 +163,6 @@ class DiscoVPCTests(unittest.TestCase):
                             'VpcId': 'mock_vpc_id',
                             'DhcpOptionsId': 'mock_dhcp_options_id'}}
 
-        # client_mock = MagicMock()
-        # client_mock.create_vpc.side_effect = _create_vpc_mock
-        # client_mock.get_all_zones.return_value = [MagicMock()]
-        # client_mock.describe_dhcp_options.return_value = {'DhcpOptions': [MagicMock()]}
-        # boto3_client_mock.return_value = client_mock
-
         client_mock = MagicMock()
         client_mock.create_vpc.side_effect = _create_vpc_mock
         boto3_client_mock.return_value = client_mock
