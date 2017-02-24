@@ -37,7 +37,7 @@ def tag2dict(tags):
     return {tag.get('Key'): tag.get('Value') for tag in tags or {}}
 
 
-def dict2tag(dicts):
+def key_value_string2tag(dicts):
     """
     Converts the list of key:value strings (example ["mykey:myValue", ...])
     into a list of AWS tag dicts (example: [{'Key': 'mykey', 'Value': 'myValue'}, ...]
