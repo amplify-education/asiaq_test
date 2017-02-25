@@ -127,12 +127,17 @@ class DiscoElastigroup(object):
 
     def get_instances(self, hostclass=None, group_name=None):
         """Returns elastigroup instances for hostclass in the current environment"""
-        group_ids = [
-            group['id'] for group in self.get_existing_groups(hostclass=hostclass, group_name=group_name)
-        ]
+        all_groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
+        groups_id_name = {
+            group['id']: group['name'] for group in all_groups
+        }
         instances = []
-        for group_id in group_ids:
-            instances += self._get_group_instances(group_id)
+        for group_id in groups_id_name:
+            group_instances = self._get_group_instances(group_id)
+            for instance in group_instances:
+                instance.update({'instance_id': instance['instanceId'],
+                                 'group_name': groups_id_name[group_id]})
+            instances += group_instances
         return instances
 
     def list_groups(self):
@@ -238,6 +243,12 @@ class DiscoElastigroup(object):
             zones[subnet['AvailabilityZone']] = subnet['SubnetId']
         return zones
 
+    def wait_for_instance_id(self, group_name):
+        """Wait for instance id(s) of an elastigroup to become available"""
+        while not all([_i['instance_id'] for _i in self.get_instances(group_name=group_name)]):
+            logger.info('Waiting for instance id(s) of %s to become available', group_name)
+            time.sleep(10)
+
     def update_group(self, hostclass, desired_size=None, min_size=None, max_size=None, instance_type=None,
                      load_balancers=None, subnets=None, security_groups=None, instance_monitoring=None,
                      ebs_optimized=None, image_id=None, key_name=None, associate_public_ip_address=None,
@@ -280,7 +291,8 @@ class DiscoElastigroup(object):
             return {'name': group['name']}
         else:
             new_group = self.session.post(SPOTINST_API, data=json.dumps(group_config)).json()
-            return {'name': new_group['response']['items'][0]['name']}
+            new_group_name = new_group['response']['items'][0]['name']
+            return {'name': new_group_name}
 
     def _delete_group(self, group_id, force=False):
         """Delete an elastigroup by group id"""
