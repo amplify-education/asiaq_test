@@ -52,9 +52,7 @@ def keep_trying(max_time, fun, *args, **kwargs):
     Execute function fun with args and kwargs until it does
     not throw exception or max time has passed.
 
-    After each failed attempt a delay is introduced of an
-    increasing number seconds following the fibonacci series
-    (up to MAX_POLL_INTERVAL seconds).
+    After each failed attempt a delay is introduced by backoff() function.
 
     Note: If you are only concerned about throttling use throttled_call
     instead. Any irrecoverable exception within a keep_trying will
@@ -79,9 +77,7 @@ def throttled_call(fun, *args, **kwargs):
     Execute function fun with args and kwargs until it does
     not throw a throttled exception or 5 minutes have passed.
 
-    After each failed attempt a delay is introduced of an
-    increasing number seconds following the fibonacci series
-    (up to MAX_POLL_INTERVAL seconds).
+    After each failed attempt a delay is introduced by backoff() function.
     """
     max_time = 5 * 60
     jitter = Jitter(max_time)
