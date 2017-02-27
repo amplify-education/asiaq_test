@@ -26,6 +26,9 @@ MOCK_ELB_STICKY_POLICY = {
     u'PolicyTypeName': 'LBCookieStickinessPolicyType'
 }
 
+# This is not a constant I am 100% comfortable with, but it appears to be reproducible so far
+MOCK_ELB_ADDRESS = 'd0aff1d22a42200a1c35825e61137bb4.us-east-1.elb.amazonaws.com'
+
 
 def _get_vpc_mock():
     vpc_mock = MagicMock()
@@ -58,6 +61,7 @@ class DiscoELBTests(TestCase):
             idle_timeout=None,
             connection_draining_timeout=None,
             sticky_app_cookie=None,
+            elb_dns_alias=None,
             existing_cookie_policy=None,
             testing=False,
             cross_zone_load_balancing=True,
@@ -88,6 +92,7 @@ class DiscoELBTests(TestCase):
             ),
             elb_public=public,
             sticky_app_cookie=sticky_app_cookie,
+            elb_dns_alias=elb_dns_alias,
             idle_timeout=idle_timeout,
             connection_draining_timeout=connection_draining_timeout,
             cert_name=cert_name,
@@ -547,3 +552,22 @@ class DiscoELBTests(TestCase):
         elb_names = [listing['elb_name'] for listing in listings]
 
         self.assertEquals(set(['unittestenv-mhcbar', 'unittestenv-mhcfoo-test']), set(elb_names))
+
+    @mock_elb
+    def test_default_dns_alias(self):
+        """Test that the default DNS alias is set up"""
+        self._create_elb(hostclass='mhcfunky')
+        self.route53.create_record.assert_called_once_with(
+            TEST_DOMAIN_NAME,
+            'mhcfunky-' + TEST_ENV_NAME + '.' + TEST_DOMAIN_NAME, 'CNAME', MOCK_ELB_ADDRESS)
+
+    @mock_elb
+    def test_custom_dns_alias(self):
+        """Test that the custom DNS alias is set up"""
+        self._create_elb(hostclass='mhcfunky', elb_dns_alias='thefunk')
+        self.route53.create_record.assert_any_call(
+            TEST_DOMAIN_NAME,
+            'thefunk' + '.' + TEST_DOMAIN_NAME, 'CNAME', MOCK_ELB_ADDRESS)
+        self.route53.create_record.assert_any_call(
+            TEST_DOMAIN_NAME,
+            'mhcfunky-' + TEST_ENV_NAME + '.' + TEST_DOMAIN_NAME, 'CNAME', MOCK_ELB_ADDRESS)
