@@ -61,18 +61,17 @@ def keep_trying(max_time, fun, *args, **kwargs):
     cause a max_time delay.
     """
 
-    cycle = 0
-    expire_time = time.time() + max_time
+    jitter = Jitter(max_time)
     while True:
         try:
             return fun(*args, **kwargs)
-        except Exception:
+        except Exception as exception:
             if logging.getLogger().level == logging.DEBUG:
                 logger.exception("Failed to run %s.", fun)
-            if time.time() > expire_time:
-                raise
-            cycle += 1
-            backoff(cycle)
+            try:
+                jitter.backoff()
+            except TimeoutError:
+                raise exception
 
 
 def throttled_call(fun, *args, **kwargs):
@@ -85,8 +84,8 @@ def throttled_call(fun, *args, **kwargs):
     (up to MAX_POLL_INTERVAL seconds).
     """
     max_time = 5 * 60
-    cycle = 0
-    expire_time = time.time() + max_time
+    jitter = Jitter(max_time)
+
     while True:
         try:
             return fun(*args, **kwargs)
@@ -99,17 +98,18 @@ def throttled_call(fun, *args, **kwargs):
             else:
                 error_code = err.response['Error'].get('Code', 'Unknown')
 
-            if (error_code not in ("Throttling", "RequestLimitExceeded")) or (time.time() > expire_time):
+            if error_code not in ("Throttling", "RequestLimitExceeded"):
                 raise
-
-            cycle += 1
-            backoff(cycle)
+            try:
+                jitter.backoff()
+            except TimeoutError:
+                raise err
 
 
 def wait_for_state(resource, state, timeout=15 * 60, state_attr='state'):
     """Wait for an AWS resource to reach a specified state"""
+    jitter = Jitter(timeout)
     time_passed = 0
-    cycle = 0
     while True:
         try:
             resource.update()
@@ -123,20 +123,19 @@ def wait_for_state(resource, state, timeout=15 * 60, state_attr='state'):
         except (EC2ResponseError, BotoServerError):
             pass  # These are most likely transient, we will timeout if they are not
 
-        if time_passed >= timeout:
+        try:
+            time_passed = jitter.backoff()
+        except TimeoutError:
             raise TimeoutError(
                 "Timed out waiting for {0} to change state to {1} after {2}s."
                 .format(resource, state, time_passed))
-
-        cycle += 1
-        backoff(cycle)
 
 
 def wait_for_state_boto3(describe_func, params_dict, resources_name,
                          expected_state, state_attr='state', timeout=15 * 60):
     """Wait for an AWS resource to reach a specified state using the boto3 library"""
+    jitter = Jitter(timeout)
     time_passed = 0
-    cycle = 0
     while True:
         try:
             resources = describe_func(**params_dict)[resources_name]
@@ -161,22 +160,21 @@ def wait_for_state_boto3(describe_func, params_dict, resources_name,
         except (EC2ResponseError, ClientError):
             pass  # These are most likely transient, we will timeout if they are not
 
-        if time_passed >= timeout:
+        try:
+            time_passed = jitter.backoff()
+        except TimeoutError:
             raise TimeoutError(
                 "Timed out waiting for resources who meet the following description to change "
                 "state to {0} after {1}s:\n{2}"
                 .format(expected_state, time_passed, params_dict))
-
-        cycle += 1
-        backoff(cycle)
 
 
 def wait_for_sshable(remotecmd, instance, timeout=15 * 60, quiet=False):
     """Returns True when host is up and sshable
     returns False on timeout
     """
-    start_time = time.time()
-    max_time = start_time + timeout
+    jitter = Jitter(timeout)
+    time_passed = 0
 
     if not quiet:
         logger.info("Waiting for instance %s to be fully provisioned.", instance.id)
@@ -189,15 +187,14 @@ def wait_for_sshable(remotecmd, instance, timeout=15 * 60, quiet=False):
             "Waiting for %s to become sshable.", instance.id)
         if remotecmd(instance, ['true'], nothrow=True)[0] == 0:
             logger.info("Instance %s now SSHable.", instance.id)
-            logger.debug("Waited %s seconds for instance to boot", int(time.time() - start_time))
+            logger.debug("Waited %s seconds for instance to boot", time_passed)
             return
-        if time.time() >= max_time:
-            break
-        time.sleep(INSTANCE_SSHABLE_POLL_INTERVAL)
-
-    raise TimeoutError(
-        "Timed out waiting for instance {0} to become sshable after {1}s."
-        .format(instance, timeout))
+        try:
+            time_passed = jitter.backoff()
+        except TimeoutError:
+            raise TimeoutError(
+                "Timed out waiting for instance {0} to become sshable after {1}s."
+                .format(instance, timeout))
 
 
 def check_written_s3(object_name, expected_written_length, written_length):
@@ -210,11 +207,27 @@ def check_written_s3(object_name, expected_written_length, written_length):
         )
 
 
-def backoff(cycle):
-    """This function takes as input an integer that represents a cycle count,
+class Jitter(object):
+    """
+    Implement Backoff with Decorrelated Jitter based on the article:
+    https://www.awsarchitectureblog.com/2015/03/backoff.html
+    """
+    def __init__(self, timeout):
+        self.__base = 3
+        self.__cycle = 0
+        self.timeout = timeout
+        self.time_passed = 0
+
+    def backoff(self):
+        """This function use a cycle count,
         calculates jitter and executes sleep for the calculated time.
-        The invoking function should increment 'cycle' before calling this function.
         The minimum value 'cycle' can take is 1
         """
-    base = 3
-    time.sleep(min(MAX_POLL_INTERVAL, randint(base, cycle * 3)))
+        # Check if we exceed the max waiting time
+        if self.timeout < self.time_passed:
+            raise TimeoutError("Jitter backoff timed out", self.time_passed)
+        self.__cycle += 1
+        new_interval = min(MAX_POLL_INTERVAL, randint(self.__base, self.__cycle * 3))
+        time.sleep(new_interval)
+        self.time_passed += new_interval
+        return self.time_passed
