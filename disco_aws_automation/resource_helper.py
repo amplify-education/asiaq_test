@@ -209,10 +209,10 @@ class Jitter(object):
     https://www.awsarchitectureblog.com/2015/03/backoff.html
     """
     def __init__(self, timeout):
-        self.__base = 3
-        self.__cycle = 0
-        self.timeout = timeout
-        self.time_passed = 0
+        self._base = 3
+        self._cycle = 0
+        self._timeout = timeout
+        self._time_passed = 0
 
     def backoff(self):
         """This function use a cycle count,
@@ -220,10 +220,10 @@ class Jitter(object):
         The minimum value 'cycle' can take is 1
         """
         # Check if we exceed the max waiting time
-        if self.timeout < self.time_passed:
-            raise TimeoutError("Jitter backoff timed out", self.time_passed)
-        self.__cycle += 1
-        new_interval = min(MAX_POLL_INTERVAL, randint(self.__base, self.__cycle * 3))
+        if self._timeout < self._time_passed:
+            raise TimeoutError("Jitter backoff timed out", self._time_passed)
+        self._cycle += 1
+        new_interval = min(MAX_POLL_INTERVAL, randint(self._base, self._cycle * 3))
         time.sleep(new_interval)
-        self.time_passed += new_interval
-        return self.time_passed
+        self._time_passed += new_interval
+        return self._time_passed
