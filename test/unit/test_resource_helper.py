@@ -3,14 +3,19 @@ Tests for resource Helper
 """
 from unittest import TestCase
 
+from mock import patch
+
 from disco_aws_automation.exceptions import TimeoutError
 
 from disco_aws_automation.resource_helper import Jitter
 
 
+# time.sleep is being patched but not referenced.
+# pylint: disable=W0613
 class ResourceHelperTests(TestCase):
     """Test Resource Helper"""
-    def test_jitter(self):
+    @patch('time.sleep', return_value=None)
+    def test_jitter(self, mock_sleep):
         """Test backoff """
         jitter = Jitter(60)
         is_timeout = False
@@ -27,7 +32,8 @@ class ResourceHelperTests(TestCase):
             except TimeoutError:
                 is_timeout = True
 
-    def test_jitter_timeout(self):
+    @patch('time.sleep', return_value=None)
+    def test_jitter_timeout(self, mock_sleep):
         """Test backoff timeout"""
         jitter = Jitter(60)
         time_passed = jitter.backoff()
