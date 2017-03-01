@@ -96,8 +96,7 @@ class DiscoAutoscale(object):
         next_token = None
         while True:
             instances = throttled_call(
-                self.connection.get_all_autoscaling_instances,
-                instance_ids=None, next_token=next_token)
+                self.connection.get_all_autoscaling_instances, next_token=next_token)
             for instance in self._filter_instance_by_environment(instances):
                 filters = [
                     not hostclass or self.get_hostclass(instance.group_name) == hostclass,
