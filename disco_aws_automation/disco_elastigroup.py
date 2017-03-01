@@ -245,7 +245,7 @@ class DiscoElastigroup(object):
 
     def wait_for_instance_id(self, group_name):
         """Wait for instance id(s) of an elastigroup to become available"""
-        while not all([_i['instance_id'] for _i in self.get_instances(group_name=group_name)]):
+        while not all([instance['instance_id'] for instance in self.get_instances(group_name=group_name)]):
             logger.info('Waiting for instance id(s) of %s to become available', group_name)
             time.sleep(10)
 
