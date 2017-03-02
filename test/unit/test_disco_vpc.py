@@ -134,6 +134,71 @@ class DiscoVPCTests(unittest.TestCase):
         possible_vpcs = ['10.0.0.0/26', '10.0.0.64/26', '10.0.0.128/26', '10.0.0.192/26']
         self.assertIn(str(auto_vpc.vpc['CidrBlock']), possible_vpcs)
 
+    @patch('disco_aws_automation.disco_vpc.DiscoRDS')
+    @patch('disco_aws_automation.disco_vpc.DiscoSNS')
+    @patch('disco_aws_automation.disco_vpc.DiscoVPCEndpoints')
+    @patch('disco_aws_automation.disco_vpc.DiscoVPC.config', new_callable=PropertyMock)
+    @patch('boto3.client')
+    @patch('boto3.resource')
+    def test_create_vpc_with_custom_tags(self, boto3_resource_mock, boto3_client_mock, config_mock,
+                                         endpoints_mock, sns_mock, rds_mock):
+        """Test creating a VPC with a dynamic ip range and tags"""
+        # FIXME This needs to mock way too many things. DiscoVPC needs to be refactored
+
+        config_mock.return_value = get_mock_config({
+            'envtype:auto-vpc-type': {
+                'ip_space': '10.0.0.0/24',
+                'vpc_cidr_size': '26',
+                'intranet_cidr': 'auto',
+                'tunnel_cidr': 'auto',
+                'dmz_cidr': 'auto',
+                'maintenance_cidr': 'auto',
+                'ntp_server': '10.0.0.5'
+            }
+        })
+
+        # pylint: disable=C0103
+        def _create_vpc_mock(CidrBlock):
+            return {'Vpc': {'CidrBlock': CidrBlock,
+                            'VpcId': 'mock_vpc_id',
+                            'DhcpOptionsId': 'mock_dhcp_options_id'}}
+
+        client_mock = MagicMock()
+        client_mock.create_vpc.side_effect = _create_vpc_mock
+        boto3_client_mock.return_value = client_mock
+
+        resource_mock = MagicMock()
+        resource_mock.Vpc.create_tags.return_value = []
+        boto3_resource_mock.return_value = resource_mock
+
+        my_tags_options = [{'Value': 'astronauts', 'Key': 'productline'},
+                           {'Value': 'tag_value', 'Key': 'mytag'}]
+        DiscoVPC._get_vpc_cidr = MagicMock()
+        DiscoVPC._get_vpc_cidr.return_value = '10.0.0.0/26'
+        with patch("disco_aws_automation.DiscoVPC._create_new_meta_networks",
+                   return_value=MagicMock(return_value={})):
+            with patch("disco_aws_automation.DiscoVPC._update_dhcp_options", return_value=None):
+                # The expect list of tag dictionaries
+                expected_vpc_tags = [{'Value': 'auto-vpc', 'Key': 'Name'},
+                                     {'Value': 'auto-vpc-type', 'Key': 'type'},
+                                     {'Value': 'ANY', 'Key': 'create_date'},
+                                     {'Value': 'astronauts', 'Key': 'productline'},
+                                     {'Value': 'tag_value', 'Key': 'mytag'}]
+
+                DiscoVPC('auto-vpc', 'auto-vpc-type', vpc_tags=my_tags_options)
+                # Get the create_tags argument
+                call_args_tags = resource_mock.Vpc.return_value.create_tags.call_args[1]
+                # Verify Option Name
+                self.assertEquals(['Tags'], call_args_tags.keys())
+                call_tags_dict = call_args_tags['Tags']
+                # Verify the number of tag Dictionaries in the list
+                self.assertEquals(5, len(call_tags_dict))
+                # Verify each tag options
+                for tag_option in call_tags_dict:
+                    if tag_option['Key'] == 'create_date':
+                        tag_option['Value'] = 'ANY'
+                    self.assertIn(tag_option, expected_vpc_tags)
+
     # pylint: disable=unused-argument,too-many-arguments,too-many-locals
     @patch('socket.gethostbyname')
     @patch('disco_aws_automation.disco_vpc.DiscoRDS')

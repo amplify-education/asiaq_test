@@ -656,7 +656,8 @@ List all the running VPC style environments:
 ### Creating Environment(s)
 
 Creating an environment (a VPC) requires two pieces of information. The name of
-the environment, and the environment type.
+the environment, and the environment type. Sandbox VPC must also be tagged using the --tag option with the
+productline name of the environment it belongs to.
 
 The environment names must be unique, check that the selected name will
 not collide with any currently running environment by [listing active
@@ -674,7 +675,7 @@ fits your purpose or define a new one.
 
 Creating environment:
 
-    disco_vpc_ui.py create --type sandbox --name test
+    disco_vpc_ui.py create --type sandbox --name test --tag productline:myteamproductline
 
 ### Updating an Active Environment
 

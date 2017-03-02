@@ -10,6 +10,7 @@ import socket
 import time
 from ConfigParser import ConfigParser
 
+from datetime import datetime
 from boto.exception import EC2ResponseError
 import boto3
 from botocore.exceptions import ClientError
@@ -51,12 +52,11 @@ class DiscoVPC(object):
 
     def __init__(self, environment_name, environment_type, vpc=None,
                  config_file=None, boto3_ec2=None, defer_creation=False,
-                 aws_config=None, skip_enis_pre_allocate=False):
+                 aws_config=None, skip_enis_pre_allocate=False, vpc_tags=None):
         self.config_file = config_file or VPC_CONFIG_FILE
 
         self.environment_name = environment_name
         self.environment_type = environment_type
-        self.skip_enis_pre_allocate = skip_enis_pre_allocate
 
         # Lazily initialized
         self._config = None
@@ -65,6 +65,8 @@ class DiscoVPC(object):
         self._alarms_config = None
         self._disco_vpc_endpoints = None
         self._aws_config = aws_config
+        self._skip_enis_pre_allocate = skip_enis_pre_allocate
+        self._vpc_tags = vpc_tags
 
         if boto3_ec2:
             self.boto3_ec2 = boto3_ec2
@@ -412,10 +414,38 @@ class DiscoVPC(object):
         return created_dhcp_options[0]
 
     def create(self):
-
         """Create a new disco style environment VPC"""
-        vpc_cidr = self.get_config("vpc_cidr")
 
+        # Create the VPC
+        self._create_vpc()
+
+        # Enable DNS
+        throttled_call(self.boto3_ec2.modify_vpc_attribute,
+                       VpcId=self.vpc['VpcId'], EnableDnsSupport={'Value': True})
+        throttled_call(self.boto3_ec2.modify_vpc_attribute,
+                       VpcId=self.vpc['VpcId'], EnableDnsHostnames={'Value': True})
+
+        self._networks = self._create_new_meta_networks()
+        if not self._skip_enis_pre_allocate:
+            self._reserve_hostclass_ip_addresses()
+
+        self._update_dhcp_options()
+
+        self.disco_vpc_sg_rules.update_meta_network_sg_rules()
+        self.disco_vpc_gateways.update_gateways_and_routes()
+        self.disco_vpc_gateways.update_nat_gateways_and_routes()
+        self.disco_vpc_endpoints.update()
+        self.configure_notifications()
+        self.disco_vpc_peerings.update_peering_connections(self)
+        self.rds.update_all_clusters_in_vpc(parallel=True)
+
+    def _get_vpc_cidr(self):
+        """
+        Get the vpc cidr from the config or get a random free subnet using the ip_space and the vpc_cidr_size
+        :return: the allocated vpc CIDR
+        """
+
+        vpc_cidr = self.get_config("vpc_cidr")
         # if a vpc_cidr is not configured then allocate one dynamically
         if not vpc_cidr:
             ip_space = self.get_config("ip_space")
@@ -433,36 +463,47 @@ class DiscoVPC(object):
             if vpc_cidr is None:
                 raise VPCConfigError('Cannot create VPC %s. No subnets available' % self.environment_name)
 
-        # Create VPC
+        return vpc_cidr
+
+    def _create_vpc(self):
+        """
+        Create a new VPC and add the default and custom tags
+        :param vpc_cidr:
+        :return:
+        """
+
+        # Get the vpc CIDR
+        vpc_cidr = self._get_vpc_cidr()
+
+        # Create the new VPC
         self.vpc = throttled_call(self.boto3_ec2.create_vpc, CidrBlock=str(vpc_cidr))['Vpc']
         waiter = self.boto3_ec2.get_waiter('vpc_available')
         waiter.wait(VpcIds=[self.vpc['VpcId']])
+
+        # Add tags to VPC
+        self._add_vpc_tags()
+
+        logger.debug("vpc: %s", self.vpc)
+
+    def _add_vpc_tags(self):
+        """
+        Add tags to VPC. This function will add the default tags and the tags specified on the create
+        vpc command
+        """
+        # get the resource representing the new VPC
         ec2 = boto3.resource('ec2')
         vpc = ec2.Vpc(self.vpc['VpcId'])
-        tags = vpc.create_tags(Tags=[{'Key': 'Name', 'Value': self.environment_name},
-                                     {'Key': 'type', 'Value': self.environment_type}])
-        logger.debug("vpc: %s", self.vpc)
+
+        tag_list = [{'Key': 'Name', 'Value': self.environment_name},
+                    {'Key': 'type', 'Value': self.environment_type},
+                    {'Key': 'create_date', 'Value': datetime.utcnow().isoformat()}]
+
+        if self._vpc_tags:
+            # Add the extra tags to the list of default tags
+            tag_list.extend(self._vpc_tags)
+
+        tags = vpc.create_tags(Tags=tag_list)
         logger.debug("vpc tags: %s", tags)
-
-        # Enable DNS
-        throttled_call(self.boto3_ec2.modify_vpc_attribute,
-                       VpcId=self.vpc['VpcId'], EnableDnsSupport={'Value': True})
-        throttled_call(self.boto3_ec2.modify_vpc_attribute,
-                       VpcId=self.vpc['VpcId'], EnableDnsHostnames={'Value': True})
-
-        self._networks = self._create_new_meta_networks()
-        if not self.skip_enis_pre_allocate:
-            self._reserve_hostclass_ip_addresses()
-
-        self._update_dhcp_options()
-
-        self.disco_vpc_sg_rules.update_meta_network_sg_rules()
-        self.disco_vpc_gateways.update_gateways_and_routes()
-        self.disco_vpc_gateways.update_nat_gateways_and_routes()
-        self.disco_vpc_endpoints.update()
-        self.configure_notifications()
-        self.disco_vpc_peerings.update_peering_connections(self)
-        self.rds.update_all_clusters_in_vpc(parallel=True)
 
     def configure_notifications(self, dry_run=False):
         """
