@@ -43,7 +43,7 @@ def key_values_to_tags(dicts):
     into a list of AWS tag dicts (example: [{'Key': 'mykey', 'Value': 'myValue'}, ...]
     """
     return [{'Key': tag_key_value[0], 'Value': tag_key_value[1]}
-            for tag_key_value in [key_value_option.split(":",1) for key_value_option in dicts]]
+            for tag_key_value in [key_value_option.split(":", 1) for key_value_option in dicts]]
 
 
 def find_or_create(find, create):
