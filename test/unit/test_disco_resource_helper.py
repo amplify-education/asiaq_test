@@ -26,5 +26,3 @@ class DiscoResourceHelperTests(TestCase):
                              {'Value': 'tag:value', 'Key': 'mytag'}]
         returned_tags = resource_helper.key_values_to_tags(mykeyvalues)
         self.assertEqual(returned_tags, expected_tag_dict)
-
-
