@@ -89,9 +89,7 @@ def create_vpc_command(args):
         print("VPC with same name already exists.")
         sys.exit(1)
     else:
-        tags = None
-        if args.tags:
-            tags = key_values_to_tags(args.tags)
+        tags = key_values_to_tags(args.tags) if args.tags else None
         vpc = DiscoVPC(args.vpc_name, args.vpc_type, skip_enis_pre_allocate=args.skip_enis,
                        vpc_tags=tags)
         print("VPC {0}({1}) has been created".format(args.vpc_name, vpc.get_vpc_id()))
