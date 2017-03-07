@@ -459,6 +459,10 @@ class DiscoIAM(object):
 
         federated_roles, unfederated_roles = self._list_roles_by_type()
         existing_roles = set(federated_roles) | set(unfederated_roles)
+        non_instance_roles = [
+            role for role in existing_roles
+            if role.startswith(role_prefix)
+        ]
 
         try:
             federated_trust = self._get_federated_trust_relationship_json()
@@ -486,7 +490,7 @@ class DiscoIAM(object):
             self._prune_role_policies(role_name, keep_policy=policy)
             updated_roles.append(role_name)
 
-        deleted_roles = self._cleanup_roles(federated_roles, updated_roles)
+        deleted_roles = self._cleanup_roles(non_instance_roles, updated_roles)
         logger.debug("Updated federated user roles: %s.", updated_roles)
         logger.debug("Deleted federated user roles: %s.", deleted_roles)
         return (updated_roles, deleted_roles)
