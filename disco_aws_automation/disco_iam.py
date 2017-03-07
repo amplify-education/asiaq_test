@@ -406,8 +406,8 @@ class DiscoIAM(object):
         deleted_roles = []
         for role in old_roles:
             if role not in updated_roles:
+                logger.debug("Cleaning up role: %s", role)
                 self.removerole(role)
-                logger.debug("Cleanup Role(%s)", role)
                 deleted_roles.append(role)
         return deleted_roles
 
