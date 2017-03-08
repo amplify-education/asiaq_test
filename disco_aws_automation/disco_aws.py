@@ -325,6 +325,7 @@ class DiscoAWS(object):
                 elb_subnets = self.get_subnets(elb_meta_network, hostclass)
                 subnet_ids = [subnet['SubnetId'] for subnet in elb_subnets]
 
+            elb_dns_alias = self.hostclass_option_default(hostclass, "elb_dns_alias") if not testing else None
             elb = self.elb.get_or_create_elb(
                 hostclass,
                 security_groups=[elb_meta_network.security_group.id],
@@ -333,7 +334,7 @@ class DiscoAWS(object):
                 health_check_url=self.hostclass_option_default(hostclass, "elb_health_check_url"),
                 port_config=DiscoELBPortConfig.from_config(self, hostclass),
                 elb_public=is_truthy(self.hostclass_option_default(hostclass, "elb_public", "no")),
-                elb_dns_alias=self.hostclass_option_default(hostclass, "elb_dns_alias"),
+                elb_dns_alias=elb_dns_alias,
                 sticky_app_cookie=self.hostclass_option_default(hostclass, "elb_sticky_app_cookie", None),
                 idle_timeout=int(self.hostclass_option_default(hostclass, "elb_idle_timeout", 300)),
                 connection_draining_timeout=int(self.hostclass_option_default(hostclass,
