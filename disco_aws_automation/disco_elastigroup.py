@@ -71,7 +71,7 @@ class DiscoElastigroup(BaseGroup):
         if response.status_code == 200:
             return response
         else:
-            raise Exception('Error communicating with Spotinst API')
+            raise Exception('Error communicating with Spotinst API: {}'.format(path))
 
     def _get_new_groupname(self, hostclass):
         """Returns a new elastigroup name when given a hostclass"""
