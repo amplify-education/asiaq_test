@@ -57,6 +57,7 @@ class DiscoElastigroupTests(TestCase):
     def test_delete_groups_bad_hostclass(self):
         """Verifies elastigroup not deleted for bad hostclass"""
         self.elastigroup._delete_group = MagicMock()
+        self.elastigroup._spotinst_call = MagicMock()
 
         self.elastigroup.delete_groups(hostclass="mhcfoo")
 
@@ -65,6 +66,7 @@ class DiscoElastigroupTests(TestCase):
     def test_delete_groups_bad_groupname(self):
         """Verifies elastigroup not deleted for bad group name"""
         self.elastigroup._delete_group = MagicMock()
+        self.elastigroup._spotinst_call = MagicMock()
 
         self.elastigroup.delete_groups(group_name='moon_mhcfoo_12345678')
 

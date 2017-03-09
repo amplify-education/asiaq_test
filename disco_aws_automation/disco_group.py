@@ -1,42 +1,11 @@
 """Contains DiscoGroup class that is above all other group classes used"""
 import logging
 
-from abc import ABCMeta, abstractmethod
-
+from .base_group import BaseGroup
 from .disco_autoscale import DiscoAutoscale
 from .disco_elastigroup import DiscoElastigroup
 
 logger = logging.getLogger(__name__)
-
-
-class BaseGroup(object):
-    """Abstract class definition for AWS groups"""
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def get_existing_group(self, hostclass, group_name, throw_on_two_groups):
-        """Get list of group objects for a hostclass"""
-        return
-
-    @abstractmethod
-    def get_existing_groups(self, hostclass, group_name):
-        """Get list of all group objects for a hostclass"""
-        return
-
-    @abstractmethod
-    def get_instances(self, hostclass, group_name):
-        """Get list of instances in groups"""
-        return
-
-    @abstractmethod
-    def delete_groups(self, hostclass, group_name, force):
-        """Delete groups of a hostclass"""
-        return
-
-    @abstractmethod
-    def scaledown_groups(self, hostclass, group_name, wait, noerror):
-        """Scale down number of instances in a group"""
-        return
 
 
 class DiscoGroup(BaseGroup):
@@ -47,6 +16,7 @@ class DiscoGroup(BaseGroup):
         self.environment_name = environment_name
         self._autoscale = DiscoAutoscale(environment_name=self.environment_name)
         self._elastigroup = DiscoElastigroup(environment_name=self.environment_name)
+        super(DiscoGroup, self).__init__()
 
     def get_existing_group(self, hostclass=None, group_name=None, throw_on_two_groups=True):
         asg_group = self._autoscale.get_existing_group(

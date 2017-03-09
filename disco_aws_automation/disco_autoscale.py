@@ -9,9 +9,9 @@ import boto.ec2.autoscale
 import boto.ec2.autoscale.launchconfig
 import boto.ec2.autoscale.group
 from boto.exception import BotoServerError
-from botocore.exceptions import WaiterError
 import boto3
 
+from .base_group import BaseGroup
 from .resource_helper import throttled_call
 from .exceptions import TooManyAutoscalingGroups
 
@@ -21,15 +21,14 @@ logger = logging.getLogger(__name__)
 DEFAULT_TERMINATION_POLICIES = ["OldestLaunchConfiguration"]
 
 
-class DiscoAutoscale(object):
+class DiscoAutoscale(BaseGroup):
     """Class orchestrating autoscaling"""
 
-    def __init__(self, environment_name, autoscaling_connection=None, boto3_autoscaling_connection=None,
-                 boto3_ec_connection=None):
+    def __init__(self, environment_name, autoscaling_connection=None, boto3_autoscaling_connection=None):
         self.environment_name = environment_name
         self._connection = autoscaling_connection or None  # lazily initialized
         self._boto3_autoscale = boto3_autoscaling_connection or None  # lazily initialized
-        self._boto3_ec = boto3_ec_connection or None  # lazily initialized
+        super(DiscoAutoscale, self).__init__()
 
     @property
     def connection(self):
@@ -44,13 +43,6 @@ class DiscoAutoscale(object):
         if not self._boto3_autoscale:
             self._boto3_autoscale = boto3.client('autoscaling')
         return self._boto3_autoscale
-
-    @property
-    def boto3_ec(self):
-        """Lazily create boto3 ec2 connection"""
-        if not self._boto3_ec:
-            self._boto3_ec = boto3.client('ec2')
-        return self._boto3_ec
 
     def get_new_groupname(self, hostclass):
         """Returns a new autoscaling group name when given a hostclass"""
@@ -181,19 +173,7 @@ class DiscoAutoscale(object):
             throttled_call(group.update)
 
             if wait:
-                waiter = throttled_call(self.boto3_ec.get_waiter, 'instance_terminated')
-                instance_ids = [inst.instance_id for inst in self.get_instances(group_name=group_name)]
-
-                try:
-                    logger.info("Waiting for scaledown of group %s", group.name)
-                    waiter.wait(InstanceIds=instance_ids)
-                except WaiterError:
-                    if noerror:
-                        logger.exception("Unable to wait for scaling down of %s", group_name)
-                        return False
-                    else:
-                        raise
-            return True
+                self.wait_instance_termination(group_name=group_name, group=group, noerror=noerror)
 
     @staticmethod
     def create_autoscale_tags(group_name, tags):

@@ -7,10 +7,9 @@ import os
 from base64 import b64encode
 
 import requests
-from botocore.exceptions import WaiterError
 import boto3
 
-from .resource_helper import throttled_call
+from .base_group import BaseGroup
 from .exceptions import TooManyAutoscalingGroups
 
 logger = logging.getLogger(__name__)
@@ -18,14 +17,14 @@ logger = logging.getLogger(__name__)
 SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group'
 
 
-class DiscoElastigroup(object):
+class DiscoElastigroup(BaseGroup):
     """Class orchestrating elastigroups"""
 
-    def __init__(self, environment_name, session=None, account_id=None, boto3_ec_connection=None):
+    def __init__(self, environment_name, session=None, account_id=None):
         self.environment_name = environment_name
         self._session = session
         self._account_id = account_id
-        self._boto3_ec = boto3_ec_connection or None  # lazily initialized
+        super(DiscoElastigroup, self).__init__()
 
     @property
     def token(self):
@@ -64,18 +63,15 @@ class DiscoElastigroup(object):
             self._account_id = boto3.client('sts').get_caller_identity().get('Account')
         return self._account_id
 
-    @property
-    def boto3_ec(self):
-        """Lazily create boto3 ec2 connection"""
-        if not self._boto3_ec:
-            self._boto3_ec = boto3.client('ec2')
-        return self._boto3_ec
-
     def _spotinst_call(self, path='/', data=None, method='get'):
         if method not in ['get', 'post', 'put', 'delete']:
             raise Exception('Method {} is not supported'.format(method))
         method_to_call = getattr(self.session, method)
-        return method_to_call(SPOTINST_API + path, data=json.dumps(data) if data else None)
+        response = method_to_call(SPOTINST_API + path, data=json.dumps(data) if data else None)
+        if response.status_code == 200:
+            return response
+        else:
+            raise Exception('Error communicating with Spotinst API')
 
     def _get_new_groupname(self, hostclass):
         """Returns a new elastigroup name when given a hostclass"""
@@ -338,19 +334,7 @@ class DiscoElastigroup(object):
             self._spotinst_call(path='/' + group['id'], data=group_update, method='put')
 
             if wait:
-                waiter = throttled_call(self.boto3_ec.get_waiter, 'instance_terminated')
-                instance_ids = [inst['id'] for inst in self.get_instances(group_name=group_name)]
-
-                try:
-                    logger.info("Waiting for scaledown of group %s", group['name'])
-                    waiter.wait(InstanceIds=instance_ids)
-                except WaiterError:
-                    if noerror:
-                        logger.exception("Unable to wait for scaling down of %s", group_name)
-                        return False
-                    else:
-                        raise
-            return True
+                self.wait_instance_termination(group_name=group_name, group=group, noerror=noerror)
 
     def _get_group_id_from_instance_id(self, instance_id):
         groups = self.get_existing_groups()
