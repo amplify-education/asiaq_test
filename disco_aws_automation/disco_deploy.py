@@ -631,16 +631,16 @@ class DiscoDeploy(object):
         else:
             # The 'or 1' is because some people set their desired size to 0 in their pipeline.
             desired_size = int(size_as_maximum_int_or_none(
-                pipeline_dict.get("desired_size", 1) or 1
-            ))
+                pipeline_dict.get("desired_size", 1)
+            )) or 1
             min_size = int(size_as_minimum_int_or_none(
                 pipeline_dict.get("min_size", 0)
             ))
             # The 'or' on max_size is here for the same reason. So if it's 0, just set it to desired_size so
             # its a valid entry...
             max_size = int(size_as_maximum_int_or_none(
-                pipeline_dict.get("max_size", desired_size) or desired_size
-            ))
+                pipeline_dict.get("max_size", desired_size)
+            )) or desired_size
 
         new_config["desired_size"] = desired_size
         new_config["min_size"] = min_size

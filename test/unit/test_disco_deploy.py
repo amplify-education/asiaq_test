@@ -27,43 +27,43 @@ from test.helpers.patch_disco_aws import get_mock_config
 MOCK_PIPELINE_DEFINITION = [
     {
         'hostclass': 'mhcintegrated',
-        'min_size': 1,
-        'desired_size': 1,
+        'min_size': "1",
+        'desired_size': "1",
         'integration_test': 'foo_service',
         'deployable': 'yes'
     },
     {
         'hostclass': 'mhcbluegreen',
-        'min_size': 2,
-        'desired_size': 2,
+        'min_size': "2",
+        'desired_size': "2",
         'integration_test': 'blue_green_service',
         'deployable': 'yes'
     },
     {
         'hostclass': 'mhcbluegreennondeployable',
-        'min_size': 1,
-        'desired_size': 1,
+        'min_size': "1",
+        'desired_size': "1",
         'integration_test': 'blue_green_service',
         'deployable': 'no'
     },
     {
         'hostclass': 'mhcsmokey',
-        'min_size': 2,
-        'desired_size': 2,
+        'min_size': "2",
+        'desired_size': "2",
         'integration_test': None,
         'deployable': 'yes'
     },
     {
         'hostclass': 'mhcscarey',
-        'min_size': 1,
-        'desired_size': 1,
+        'min_size': "1",
+        'desired_size': "1",
         'integration_test': None,
         'deployable': 'no'
     },
     {
         'hostclass': 'mhcfoo',
-        'min_size': 1,
-        'desired_size': 1,
+        'min_size': "1",
+        'desired_size': "1",
         'integration_test': None,
         'deployable': 'no'
     },
@@ -1346,10 +1346,10 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.handle_tested_ami.assert_called_with(
             ami,
             pipeline_dict={
-                'min_size': 2,
+                'min_size': '2',
                 'integration_test': None,
                 'deployable': 'yes',
-                'desired_size': 2,
+                'desired_size': '2',
                 'hostclass': 'mhcsmokey'
             },
             dry_run=False,
@@ -1369,10 +1369,10 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.handle_nodeploy_ami.assert_called_with(
             ami,
             pipeline_dict={
-                'min_size': 1,
+                'min_size': '1',
                 'integration_test': None,
                 'deployable': 'no',
-                'desired_size': 1,
+                'desired_size': '1',
                 'hostclass': 'mhcscarey'
             },
             dry_run=False,
@@ -1481,3 +1481,19 @@ class DiscoDeployTests(TestCase):
         actual_hostclass = self._ci_deploy.hostclass_option("hostclass_being_tested",
                                                             "test_hostclass")
         self.assertEqual(expected_hostclass, actual_hostclass)
+
+    def test_correct_zero_pipeline_sizing(self):
+        '''Tests that get deploy sizing corrects zero pipeline sizing'''
+        post_deploy_pipeline = self._ci_deploy._generate_post_deploy_pipeline(
+            pipeline_dict={
+                'desired_size': "0",
+                'min_size': "0",
+                'max_size': "0",
+            },
+            old_group=None,
+            ami=MagicMock(id='ami-1234567890')
+        )
+
+        self.assertEqual(post_deploy_pipeline['desired_size'], 1)
+        self.assertEqual(post_deploy_pipeline['min_size'], 0)
+        self.assertEqual(post_deploy_pipeline['max_size'], 1)
