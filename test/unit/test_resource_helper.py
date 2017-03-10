@@ -12,7 +12,7 @@ from mock import patch, MagicMock, create_autospec
 from disco_aws_automation.exceptions import ExpectedTimeoutError
 from disco_aws_automation import TimeoutError
 from disco_aws_automation.resource_helper import Jitter, keep_trying, throttled_call, wait_for_state, \
-    JitterOnError, wait_for_state_boto3, wait_for_sshable
+    wait_for_state_boto3, wait_for_sshable, MAX_POLL_INTERVAL
 
 
 # time.sleep is being patched but not referenced.
@@ -30,75 +30,18 @@ class ResourceHelperTests(TestCase):
     @patch('time.sleep', return_value=None)
     def test_jitter(self, mock_sleep):
         """Test Jitter backoff """
-        jitter = Jitter(60)
-        is_timeout = False
-        cycle = 1
-        previous_time_passed = jitter.backoff()
-        while not is_timeout:
+        jitter = Jitter()
+        cycle = 0
+        previous_time_passed = 0
+        while True:
             cycle += 1
             time_passed = jitter.backoff()
             wait_time = time_passed - previous_time_passed
             self.assertTrue(wait_time >= 3)
-            self.assertTrue(wait_time <= cycle * 3)
+            self.assertTrue(wait_time <= cycle * 3 and wait_time <= MAX_POLL_INTERVAL)
             previous_time_passed = time_passed
-            if time_passed > 60:
-                is_timeout = True
-
-    @patch('time.sleep', return_value=None)
-    def test_jitter_timeout(self, mock_sleep):
-        """Test Jitter backoff timeout"""
-        jitter = Jitter(60)
-        time_passed = jitter.backoff()
-        while time_passed < 60:
-            time_passed = jitter.backoff()
-
-        wait_time = jitter.backoff()
-        self.assertEqual(time_passed, wait_time)
-
-    @patch('time.sleep', return_value=None)
-    def test_run_with_backoff_noerrorcode(self, mock_sleep):
-        """Test run_with_backoff with no error"""
-        jitter = Jitter(30)
-        mock_func = MagicMock()
-        mock_func.side_effect = [StandardError, StandardError, True]
-        jitter.run_with_backoff(mock_func, None, None)
-        self.assertEqual(3, mock_func.call_count)
-
-    @patch('time.sleep', return_value=None)
-    def test_run_with_backoff_timeout(self, mock_sleep):
-        """Test run_with_backoff with timeout"""
-        jitter = Jitter(30)
-        mock_func = MagicMock()
-        mock_func.side_effect = StandardError
-        self.assertRaises(StandardError, jitter.run_with_backoff, mock_func, None, None)
-
-    @patch('time.sleep', return_value=None)
-    def test_run_with_backoff_error(self, mock_sleep):
-        """Test run_with_backoff with error"""
-        jitter = JitterOnError(30)
-        mock_func = MagicMock()
-        boto_server_error = BotoServerError('error', None)
-        boto_server_error.error_code = "MyError"
-        mock_func.side_effect = boto_server_error
-        self.assertRaises(BotoServerError, jitter.run_with_backoff, mock_func, None,
-                          ("Throttling", "RequestLimitExceeded"))
-
-    @patch('time.sleep', return_value=None)
-    def test_run_with_backoff_throttle_error(self, mock_sleep):
-        """Test run_with_backoff with Throttling error"""
-        mock_func = MagicMock()
-        boto_server_error = BotoServerError('error', None)
-        boto_server_error.error_code = "Throttling"
-        mock_func.side_effect = [boto_server_error, boto_server_error, True,
-                                 boto_server_error, boto_server_error, True]
-        try:
-            jitter = JitterOnError(30)
-            jitter.run_with_backoff(mock_func, None, ("Throttling", "RequestLimitExceeded"))
-            jitter = JitterOnError(30)
-            boto_server_error.error_code = "RequestLimitExceeded"
-            jitter.run_with_backoff(mock_func, None, ("Throttling", "RequestLimitExceeded"))
-        except Exception:
-            self.fail("Failed should ignore Throttling error")
+            if time_passed > 1000:
+                break
 
     @patch('time.sleep', return_value=None)
     def test_keep_trying_noerr(self, mock_sleep):
@@ -202,16 +145,6 @@ class ResourceHelperTests(TestCase):
         self.assertRaises(ExpectedTimeoutError, wait_for_state, mock_resource, 'available',
                           state_attr='status', timeout=30)
         self.assertEqual(2, mock_resource.update.call_count)
-
-    @patch('boto3.resource')
-    @patch('time.sleep', return_value=None)
-    def test_wait_for_state_clienterror(self, mock_sleep, mock_resource):
-        """Test wait_for_state using ClientError and timeout"""
-        setattr(mock_resource, 'status', 'mystatus')
-        error_response = {"Error": {"Code": "MyError"}}
-        mock_resource.update.side_effect = ClientError(error_response, "test")
-        self.assertRaises(TimeoutError, wait_for_state, mock_resource, 'available', state_attr='status',
-                          timeout=30)
 
     @patch('boto3.resource')
     @patch('time.sleep', return_value=None)
