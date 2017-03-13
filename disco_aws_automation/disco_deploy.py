@@ -35,7 +35,7 @@ class DiscoDeploy(object):
     '''DiscoDeploy takes care of testing, promoting and deploying the latests AMIs'''
 
     # pylint: disable=too-many-arguments
-    def __init__(self, aws, test_aws, bake, autoscale, elb, pipeline_definition,
+    def __init__(self, aws, test_aws, bake, discogroup, elb, pipeline_definition,
                  ami=None, hostclass=None, allow_any_hostclass=False, config=None):
         '''
         Constructor for DiscoDeploy
@@ -56,7 +56,7 @@ class DiscoDeploy(object):
         self._disco_aws = aws
         self._test_aws = test_aws
         self._disco_bake = bake
-        self._disco_autoscale = autoscale
+        self._disco_group = discogroup
         self._disco_elb = elb
         self._all_stage_amis = None
         self._hostclasses = self._get_hostclasses_from_pipeline_definition(pipeline_definition)
@@ -288,7 +288,7 @@ class DiscoDeploy(object):
             # Create scheduled actions on the ASG.
             self._create_scaling_schedule(pipeline_dict, hostclass=hostclass)
         else:
-            self._disco_autoscale.delete_groups(hostclass=hostclass, force=True)
+            self._disco_group.delete_groups(hostclass=hostclass, force=True)
 
         if ami_test_failed:
             raise RuntimeError("Smoke test for non-deploy Hostclass %s AMI %s failed", hostclass, ami.id)
@@ -303,7 +303,7 @@ class DiscoDeploy(object):
         :return: List of instances
         '''
         hostclass = DiscoBake.ami_hostclass(self._disco_bake.connection.get_image(new_ami_id))
-        all_ids = [inst.instance_id for inst in self._disco_autoscale.get_instances(hostclass=hostclass)]
+        all_ids = [inst['instance_id'] for inst in self._disco_group.get_instances(hostclass=hostclass)]
         all_instances = self._disco_aws.instances(instance_ids=all_ids)
         return [inst for inst in all_instances
                 if (inst.image_id != new_ami_id) or
@@ -319,7 +319,7 @@ class DiscoDeploy(object):
         :return: List of instances
         '''
         hostclass = DiscoBake.ami_hostclass(self._disco_bake.connection.get_image(new_ami_id))
-        all_ids = [inst.instance_id for inst in self._disco_autoscale.get_instances(hostclass=hostclass)]
+        all_ids = [inst['instance_id'] for inst in self._disco_group.get_instances(hostclass=hostclass)]
         all_instances = self._disco_aws.instances(filters={"image_id": [new_ami_id]}, instance_ids=all_ids)
         return [inst for inst in all_instances
                 if not launch_time or get_instance_launch_time(inst) >= launch_time]
@@ -484,32 +484,32 @@ class DiscoDeploy(object):
             logger.exception("Spinning up a new autoscaling group failed")
 
             # Try to grab the new group. If it exists, we get a group. If not, we get a `None`.
-            new_group = self._disco_autoscale.get_existing_group(hostclass=hostclass,
-                                                                 throw_on_two_groups=False)
+            new_group = self._disco_group.get_existing_group(hostclass=hostclass,
+                                                             throw_on_two_groups=False)
 
             # It's possible that we might have ended up grabbing the old group instead of the new group we
             # just made. So check that the group we just got isn't the same as the group that already exists.
-            old_group_is_not_new_group = new_group and old_group and old_group.name != new_group.name
+            old_group_is_not_new_group = new_group and old_group and old_group['name'] != new_group['name']
 
             # If we did get a new group and its not the same as the old group (or no old group exists), let's
             # tear down the new testing group and its ELB if it exists.
             if new_group and (not old_group or old_group_is_not_new_group):
                 logger.info('Destroying the testing group')
                 # Destroy the testing ASG
-                self._disco_autoscale.delete_groups(group_name=new_group.name, force=True)
+                self._disco_group.delete_groups(group_name=new_group['name'], force=True)
                 if uses_elb:
                     # Destroy the testing ELB
                     self._disco_elb.delete_elb(hostclass, testing=True)
             raise RuntimeError("Spinning up a new autoscaling group failed")
 
-        new_group = self._disco_autoscale.get_existing_group(hostclass=hostclass, throw_on_two_groups=False)
+        new_group = self._disco_group.get_existing_group(hostclass=hostclass, throw_on_two_groups=False)
 
-        if old_group and old_group.name == new_group.name:
+        if old_group and old_group['name'] == new_group['name']:
             raise RuntimeError("Old group and new group should not be the same.")
 
         try:
             smoke_tests = self.wait_for_smoketests(ami.id, new_group_config["desired_size"] or 1,
-                                                   group_name=new_group.name)
+                                                   group_name=new_group['name'])
             if smoke_tests and run_tests:
                 # If smoke tests passed and we should run integration tests, run them
                 integration_tests = self.run_integration_tests(ami, wait_for_elb=uses_elb)
@@ -520,16 +520,16 @@ class DiscoDeploy(object):
                 # If testing passed, mark AMI as tested
                 self._promote_ami(ami, "tested")
                 # Get list of instances in group
-                group_instance_ids = [inst.instance_id for inst in
-                                      self._disco_autoscale.get_instances(group_name=new_group.name)]
+                group_instance_ids = [inst['instance_id'] for inst in
+                                      self._disco_group.get_instances(group_name=new_group['name'])]
                 if not group_instance_ids:
-                    raise RuntimeError("Could not find any instances in new group %s", new_group.name)
+                    raise RuntimeError("Could not find any instances in new group %s", new_group['name'])
                 group_instances = self._disco_aws.instances(instance_ids=group_instance_ids)
                 # If we are actually deploying and are able to leave testing mode
                 if deployable and self._set_testing_mode(hostclass, group_instances, False):
-                    logger.info("Successfully left testing mode for group %s", new_group.name)
+                    logger.info("Successfully left testing mode for group %s", new_group['name'])
                     # Update ASG to exit testing mode and attach to the normal ELB if applicable.
-                    self._disco_aws.spinup([new_group_config], group_name=new_group.name)
+                    self._disco_aws.spinup([new_group_config], group_name=new_group['name'])
 
                     if uses_elb:
                         try:
@@ -539,22 +539,22 @@ class DiscoDeploy(object):
                         except TimeoutError:
                             logger.exception("Waiting for health of instances attached to ELB timed out")
                             # Destroy the testing ASG
-                            self._disco_autoscale.delete_groups(group_name=new_group.name, force=True)
+                            self._disco_group.delete_groups(group_name=new_group['name'], force=True)
                             if uses_elb:
                                 # Destroy the testing ELB
                                 self._disco_elb.delete_elb(hostclass, testing=True)
                             raise
 
                     # Create scheduled actions on the new ASG now that we will likely keep it.
-                    self._create_scaling_schedule(pipeline_dict, group_name=new_group.name)
+                    self._create_scaling_schedule(pipeline_dict, group_name=new_group['name'])
 
                     # we can destroy the old group
                     if old_group:
                         # Empty the original ASG for connection draining purposes
-                        self._disco_autoscale.scaledown_groups(group_name=old_group.name, wait=True,
-                                                               noerror=True)
+                        self._disco_group.scaledown_groups(group_name=old_group['name'], wait=True,
+                                                           noerror=True)
                         # Destroy the original ASG
-                        self._disco_autoscale.delete_groups(group_name=old_group.name, force=True)
+                        self._disco_group.delete_groups(group_name=old_group['name'], force=True)
                     if uses_elb:
                         # Destroy the testing ELB
                         self._disco_elb.delete_elb(hostclass, testing=True)
@@ -562,14 +562,14 @@ class DiscoDeploy(object):
                 else:
                     # Otherwise, we need to keep the old group and destroy the new one
                     if deployable:
-                        reason = "Unable to exit testing mode for group {}".format(new_group.name)
+                        reason = "Unable to exit testing mode for group {}".format(new_group['name'])
                     else:
                         reason = "{} is not deployable".format(hostclass)
 
                     logger.error("%s, destroying new autoscaling group", reason)
 
                     # Destroy the testing ASG
-                    self._disco_autoscale.delete_groups(group_name=new_group.name, force=True)
+                    self._disco_group.delete_groups(group_name=new_group['name'], force=True)
 
                     if uses_elb:
                         # Destroy the testing ELB
@@ -578,7 +578,7 @@ class DiscoDeploy(object):
                     # If the hostclass isn't deployable and an old group exists, we should update the old
                     # group so that new instances from that old group are spun up with the newly tested AMI.
                     if not deployable and old_group:
-                        self._disco_aws.spinup([new_group_config], group_name=old_group.name)
+                        self._disco_aws.spinup([new_group_config], group_name=old_group['name'])
 
                     # If deployable was False, return True, otherwise we're here because testing mode broke,
                     # so return False
@@ -591,7 +591,7 @@ class DiscoDeploy(object):
             logger.exception("Failed to run integration test")
 
         # Destroy the testing ASG
-        self._disco_autoscale.delete_groups(group_name=new_group.name, force=True)
+        self._disco_group.delete_groups(group_name=new_group['name'], force=True)
         if uses_elb:
             # Destroy the testing ELB
             self._disco_elb.delete_elb(hostclass, testing=True)
@@ -625,22 +625,22 @@ class DiscoDeploy(object):
         # If there is an already existing ASG, use its sizing. Otherwise, use the pipeline's sizing or a
         # reasonable default.
         if old_group:
-            desired_size = old_group.desired_capacity
-            max_size = old_group.max_size
-            min_size = old_group.min_size
+            desired_size = old_group.get('desired_capacity') or old_group['capacity']['target']
+            max_size = old_group.get('max_size') or old_group['capacity']['maximum']
+            min_size = old_group.get('min_size') or old_group['capacity']['minimum']
         else:
             # The 'or 1' is because some people set their desired size to 0 in their pipeline.
             desired_size = int(size_as_maximum_int_or_none(
-                pipeline_dict.get("desired_size", 1) or 1
-            ))
+                pipeline_dict.get("desired_size", 1)
+            )) or 1
             min_size = int(size_as_minimum_int_or_none(
                 pipeline_dict.get("min_size", 0)
             ))
             # The 'or' on max_size is here for the same reason. So if it's 0, just set it to desired_size so
             # its a valid entry...
             max_size = int(size_as_maximum_int_or_none(
-                pipeline_dict.get("max_size", desired_size) or desired_size
-            ))
+                pipeline_dict.get("max_size", desired_size)
+            )) or desired_size
 
         new_config["desired_size"] = desired_size
         new_config["min_size"] = min_size
@@ -742,7 +742,7 @@ class DiscoDeploy(object):
         logger.info("testing %s %s", ami.id, ami.name)
         hostclass = DiscoBake.ami_hostclass(ami)
         pipeline_hostclass_dict = self._hostclasses.get(hostclass)
-        group = self._disco_autoscale.get_existing_group(hostclass)
+        group = self._disco_group.get_existing_group(hostclass)
         deployable = self.is_deployable(hostclass)
         testable = bool(self.get_integration_test(hostclass))
 
@@ -812,7 +812,7 @@ class DiscoDeploy(object):
         if not pipeline_dict:
             raise RuntimeError("Pipeline Dictionary is not defined.")
 
-        group = self._disco_autoscale.get_existing_group(hostclass)
+        group = self._disco_group.get_existing_group(hostclass)
         deployable = self.is_deployable(hostclass)
         testable = bool(self.get_integration_test(hostclass))
 
