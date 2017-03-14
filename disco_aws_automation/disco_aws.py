@@ -17,7 +17,6 @@ from boto.exception import EC2ResponseError
 from .disco_log_metrics import DiscoLogMetrics
 from .disco_elb import DiscoELB, DiscoELBPortConfig
 from .disco_alarm import DiscoAlarm
-from .disco_group import DiscoGroup
 from .disco_autoscale import DiscoAutoscale
 from .disco_elastigroup import DiscoElastigroup
 from .disco_aws_util import (
@@ -62,8 +61,7 @@ class DiscoAWS(object):
     # Too many arguments, but we want to mock a lot of things out, so...
     # pylint: disable=too-many-arguments
     def __init__(self, config, environment_name=None, boto2_conn=None, vpc=None, remote_exec=None,
-                 storage=None, discogroup=None, autoscale=None, elastigroup=None, elb=None,
-                 log_metrics=None, alarms=None):
+                 storage=None, autoscale=None, elastigroup=None, elb=None, log_metrics=None, alarms=None):
 
         if not environment_name and not vpc:
             raise ProgrammerError("Either 'vpc' or 'environment_name' must always be specified.")
@@ -77,7 +75,6 @@ class DiscoAWS(object):
         self._vpc = vpc or None  # lazily initialized
         self._disco_remote_exec = remote_exec or None  # lazily initialized
         self._disco_storage = storage or None  # lazily initialized
-        self._discogroup = discogroup or None  # lazily initialized
         self._autoscale = autoscale or None  # lazily initialized
         self._elastigroup = elastigroup or None  # lazily initialized
         self._elb = elb or None  # lazily initialized
@@ -97,13 +94,6 @@ class DiscoAWS(object):
         if not self._disco_storage:
             self._disco_storage = DiscoStorage(self.environment_name, self.connection)
         return self._disco_storage
-
-    @property
-    def discogroup(self):
-        """Lazily creates disco group object"""
-        if not self._discogroup:
-            self._discogroup = DiscoGroup(environment_name=self.environment_name)
-        return self._discogroup
 
     @property
     def autoscale(self):
@@ -468,8 +458,7 @@ class DiscoAWS(object):
             "hostclass": hostclass,
             "no_destroy": no_destroy,
             "group_name": group['name'],
-            "chaos": chaos,
-            "spotinst": is_truthy(str(spotinst) or self.config('spotinst', hostclass))
+            "chaos": chaos
         }
 
     def stop(self, instances):
@@ -727,19 +716,13 @@ class DiscoAWS(object):
                 for (hostclass, termination_policies, hdict) in hostclass_iter]
 
             if metadata[0]:
-                for _hc in metadata:
-                    if _hc.get('spotinst'):
-                        self.elastigroup.wait_for_instance_id(_hc['group_name'])
                 self.smoketest(self.wait_for_autoscaling_instances(
                     [_hc for _hc in metadata if _hc["hostclass"] in flammable]))
 
     @staticmethod
     def _instance_count_lt_min_size(group, all_instances):
-        group_instances = [_i for _i in all_instances if _i['group_name'] == group['name']]
-        if group.get('id'):
-            return len(group_instances) < group['capacity']['minimum']
-        else:
-            return len(group_instances) < group['min_size']
+        group_instances = [_i for _i in all_instances if _i.group_name == group.name]
+        return len(group_instances) < group.min_size
 
     def wait_for_autoscaling_instances(self, metadata_list, timeout=AUTOSCALE_TIMEOUT):
         """
@@ -748,11 +731,11 @@ class DiscoAWS(object):
         start_time = time.time()
         max_time = start_time + timeout
 
-        name_to_group = {group['name']: group for group in self.discogroup.get_existing_groups()}
+        name_to_group = {group.name: group for group in self.autoscale.get_existing_groups()}
         yet_to_scale = group_names = set([meta["group_name"] for meta in metadata_list])
 
         while True:
-            auto_instances = self.discogroup.get_instances()
+            auto_instances = self.autoscale.get_instances()
             logger.debug("yet_to_scale: %s", yet_to_scale)
             yet_to_scale = [gname for gname in yet_to_scale
                             if DiscoAWS._instance_count_lt_min_size(name_to_group[gname], auto_instances)]
@@ -770,8 +753,8 @@ class DiscoAWS(object):
             logger.info("Waited for %s autoscaling groups to reach min_size in %s seconds",
                         len(metadata_list), int(0.5 + time.time() - start_time))
 
-        instance_ids = [instance['instance_id'] for instance in auto_instances
-                        if instance['group_name'] in group_names]
+        instance_ids = [instance.instance_id for instance in auto_instances
+                        if instance.group_name in group_names]
 
         return self.instances(instance_ids=instance_ids) if instance_ids else []
 
@@ -784,6 +767,7 @@ class DiscoAWS(object):
         start_time = time.time()
         max_time = start_time + timeout
 
+        instances = []
         while time.time() < max_time:
             instances = self.instances_from_amis([ami_id], launch_time=launch_time, group_name=group_name)
             if len(instances) >= min_count:

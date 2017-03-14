@@ -1,4 +1,4 @@
-"""Contains DiscoAutoscale class that orchestrates AWS Autoscaling"""
+'''Contains DiscoAutoscale class that orchestrates AWS Autoscaling'''
 import logging
 import random
 import time
@@ -9,9 +9,9 @@ import boto.ec2.autoscale
 import boto.ec2.autoscale.launchconfig
 import boto.ec2.autoscale.group
 from boto.exception import BotoServerError
+from botocore.exceptions import WaiterError
 import boto3
 
-from .base_group import BaseGroup
 from .resource_helper import throttled_call
 from .exceptions import TooManyAutoscalingGroups
 
@@ -21,31 +21,39 @@ logger = logging.getLogger(__name__)
 DEFAULT_TERMINATION_POLICIES = ["OldestLaunchConfiguration"]
 
 
-class DiscoAutoscale(BaseGroup):
-    """Class orchestrating autoscaling"""
+class DiscoAutoscale(object):
+    '''Class orchestrating autoscaling'''
 
-    def __init__(self, environment_name, autoscaling_connection=None, boto3_autoscaling_connection=None):
+    def __init__(self, environment_name, autoscaling_connection=None, boto3_autoscaling_connection=None,
+                 boto3_ec_connection=None):
         self.environment_name = environment_name
         self._connection = autoscaling_connection or None  # lazily initialized
         self._boto3_autoscale = boto3_autoscaling_connection or None  # lazily initialized
-        super(DiscoAutoscale, self).__init__()
+        self._boto3_ec = boto3_ec_connection or None  # lazily initialized
 
     @property
     def connection(self):
-        """Lazily create boto autoscaling connection"""
+        '''Lazily create boto autoscaling connection'''
         if not self._connection:
             self._connection = boto.ec2.autoscale.AutoScaleConnection(use_block_device_types=True)
         return self._connection
 
     @property
     def boto3_autoscale(self):
-        """Lazily create boto3 autoscaling connection"""
+        '''Lazily create boto3 autoscaling connection'''
         if not self._boto3_autoscale:
             self._boto3_autoscale = boto3.client('autoscaling')
         return self._boto3_autoscale
 
+    @property
+    def boto3_ec(self):
+        '''Lazily create boto3 ec2 connection'''
+        if not self._boto3_ec:
+            self._boto3_ec = boto3.client('ec2')
+        return self._boto3_ec
+
     def get_new_groupname(self, hostclass):
-        """Returns a new autoscaling group name when given a hostclass"""
+        '''Returns a new autoscaling group name when given a hostclass'''
         return self.environment_name + '_' + hostclass + "_" + str(int(time.time()))
 
     def get_launch_config_name(self, hostclass):
@@ -53,7 +61,7 @@ class DiscoAutoscale(BaseGroup):
         return '{0}_{1}_{2}'.format(self.environment_name, hostclass, str(random.randrange(0, 9999999)))
 
     def _filter_by_environment(self, items):
-        """Filters autoscaling groups and launch configs by environment"""
+        '''Filters autoscaling groups and launch configs by environment'''
         return [
             item for item in items
             if item.name.startswith("{0}_".format(self.environment_name))
@@ -67,11 +75,11 @@ class DiscoAutoscale(BaseGroup):
         ]
 
     def get_hostclass(self, groupname):
-        """Returns the hostclass when given an autoscaling group name"""
+        '''Returns the hostclass when given an autoscaling group name'''
         return groupname.split('_')[1]
 
     def _get_group_generator(self, group_names=None):
-        """Yields groups in current environment"""
+        '''Yields groups in current environment'''
         next_token = None
         while True:
             groups = throttled_call(self.connection.get_all_groups,
@@ -83,12 +91,13 @@ class DiscoAutoscale(BaseGroup):
             if not next_token:
                 break
 
-    def _get_instance_generator(self, hostclass=None, group_name=None):
-        """Yields autoscaled instances in current environment"""
+    def _get_instance_generator(self, instance_ids=None, hostclass=None, group_name=None):
+        '''Yields autoscaled instances in current environment'''
         next_token = None
         while True:
             instances = throttled_call(
-                self.connection.get_all_autoscaling_instances, next_token=next_token)
+                self.connection.get_all_autoscaling_instances,
+                instance_ids=instance_ids, next_token=next_token)
             for instance in self._filter_instance_by_environment(instances):
                 filters = [
                     not hostclass or self.get_hostclass(instance.group_name) == hostclass,
@@ -99,12 +108,13 @@ class DiscoAutoscale(BaseGroup):
             if not next_token:
                 break
 
-    def get_instances(self, hostclass=None, group_name=None):
-        """Returns autoscaled instances in the current environment"""
-        return list(self._get_instance_generator(hostclass=hostclass, group_name=group_name))
+    def get_instances(self, instance_ids=None, hostclass=None, group_name=None):
+        '''Returns autoscaled instances in the current environment'''
+        return list(self._get_instance_generator(instance_ids=instance_ids, hostclass=hostclass,
+                                                 group_name=group_name))
 
     def _get_config_generator(self, names=None):
-        """Yields Launch Configurations in current environment"""
+        '''Yields Launch Configurations in current environment'''
         next_token = None
         while True:
             configs = throttled_call(self.connection.get_all_launch_configurations,
@@ -116,11 +126,11 @@ class DiscoAutoscale(BaseGroup):
                 break
 
     def get_configs(self, names=None):
-        """Returns Launch Configurations in current environment"""
+        '''Returns Launch Configurations in current environment'''
         return list(self._get_config_generator(names=names))
 
     def get_config(self, *args, **kwargs):
-        """Returns a new launch configuration"""
+        '''Returns a new launch configuration'''
         config = boto.ec2.autoscale.launchconfig.LaunchConfiguration(
             connection=self.connection, *args, **kwargs
         )
@@ -128,7 +138,7 @@ class DiscoAutoscale(BaseGroup):
         return config
 
     def delete_config(self, config_name):
-        """Delete a specific Launch Configuration"""
+        '''Delete a specific Launch Configuration'''
         throttled_call(self.connection.delete_launch_configuration, config_name)
         logger.info("Deleting launch configuration %s", config_name)
 
@@ -173,11 +183,23 @@ class DiscoAutoscale(BaseGroup):
             throttled_call(group.update)
 
             if wait:
-                self.wait_instance_termination(group_name=group_name, group=group, noerror=noerror)
+                waiter = throttled_call(self.boto3_ec.get_waiter, 'instance_terminated')
+                instance_ids = [inst.instance_id for inst in self.get_instances(group_name=group_name)]
+
+                try:
+                    logger.info("Waiting for scaledown of group %s", group.name)
+                    waiter.wait(InstanceIds=instance_ids)
+                except WaiterError:
+                    if noerror:
+                        logger.exception("Unable to wait for scaling down of %s", group_name)
+                        return False
+                    else:
+                        raise
+            return True
 
     @staticmethod
     def create_autoscale_tags(group_name, tags):
-        """Given a python dictionary return list of boto autoscale Tag objects"""
+        '''Given a python dictionary return list of boto autoscale Tag objects'''
         return [boto.ec2.autoscale.Tag(key=key, value=value, resource_id=group_name, propagate_at_launch=True)
                 for key, value in tags.iteritems()] if tags else None
 
@@ -553,7 +575,7 @@ class DiscoAutoscale(BaseGroup):
             associate_public_ip_address=launch_config.associate_public_ip_address)
 
     def update_snapshot(self, snapshot_id, snapshot_size, hostclass=None, group_name=None):
-        """Updates all of a hostclasses existing autoscaling groups to use a different snapshot"""
+        '''Updates all of a hostclasses existing autoscaling groups to use a different snapshot'''
         launch_config = self.get_launch_config(hostclass=hostclass, group_name=group_name)
         if not launch_config:
             raise Exception("Can't locate hostclass {0}".format(hostclass or group_name))
@@ -574,7 +596,7 @@ class DiscoAutoscale(BaseGroup):
                 snapshot_id)
 
     def update_elb(self, elb_names, hostclass=None, group_name=None):
-        """Updates an existing autoscaling group to use a different set of load balancers"""
+        '''Updates an existing autoscaling group to use a different set of load balancers'''
         group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
 
         if not group:
