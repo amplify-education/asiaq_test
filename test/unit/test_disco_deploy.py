@@ -11,7 +11,7 @@ from datetime import timedelta
 import boto.ec2.instance
 from mock import MagicMock, create_autospec, call, ANY
 
-from disco_aws_automation import DiscoDeploy, DiscoAWS, DiscoGroup, DiscoBake, DiscoELB
+from disco_aws_automation import DiscoDeploy, DiscoAWS, DiscoAutoscale, DiscoBake, DiscoELB
 from disco_aws_automation.disco_constants import DEPLOYMENT_STRATEGY_BLUE_GREEN, DEPLOYMENT_STRATEGY_CLASSIC
 from disco_aws_automation.exceptions import (
     TimeoutError,
@@ -154,18 +154,18 @@ class DiscoDeployTests(TestCase):
 
     def setUp(self):
         self._environment_name = "foo"
-        self._disco_group = create_autospec(DiscoGroup, instance=True)
+        self._disco_autoscale = create_autospec(DiscoAutoscale, instance=True)
         self._disco_elb = create_autospec(DiscoELB, instance=True)
         self._disco_aws = create_autospec(DiscoAWS, instance=True)
         self._test_aws = self._disco_aws
         self._existing_group = self.mock_group("mhcfoo")
-        self._disco_group.get_existing_group.return_value = self._existing_group.__dict__
+        self._disco_autoscale.get_existing_group.return_value = self._existing_group
         self._disco_bake = MagicMock()
         self._disco_bake.promote_ami = MagicMock()
         self._disco_bake.ami_stages = MagicMock(return_value=['untested', 'failed', 'tested'])
         self._disco_bake.get_ami_creation_time = DiscoBake.extract_ami_creation_time_from_ami_name
         self._ci_deploy = DiscoDeploy(
-            self._disco_aws, self._test_aws, self._disco_bake, self._disco_group, self._disco_elb,
+            self._disco_aws, self._test_aws, self._disco_bake, self._disco_autoscale, self._disco_elb,
             pipeline_definition=MOCK_PIPELINE_DEFINITION,
             ami=None, hostclass=None, allow_any_hostclass=False,
             config=get_mock_config(MOCK_CONFIG_DEFINITON))
@@ -480,9 +480,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         new_group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.side_effect = [None, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [None, new_group]
         instances = [self.mock_instance(), self.mock_instance(), self.mock_instance()]
-        self._disco_group.get_instances.return_value = [_i.__dict__ for _i in instances]
+        self._disco_autoscale.get_instances.return_value = instances
         self._disco_aws.instances.return_value = instances
         self._disco_aws.remotecmd.return_value = (0, "")
         self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False))
@@ -495,7 +495,7 @@ class DiscoDeployTests(TestCase):
                     'min_size': 2, 'desired_size': 2, 'max_size': 2,
                     'integration_test': "blue_green_service", 'smoke_test': 'no',
                     'hostclass': 'mhcbluegreen'}], group_name=new_group.name)])
-        self._disco_group.delete_groups.assert_not_called()
+        self._disco_autoscale.delete_groups.assert_not_called()
         self._disco_elb.delete_elb.assert_called_once_with("mhcbluegreen", testing=True)
 
     def test_bg_nodeploy_works(self):
@@ -506,9 +506,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         new_group = self.mock_group("mhcbluegreennondeployable")
-        self._disco_group.get_existing_group.side_effect = [None, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [None, new_group]
         instances = [self.mock_instance(), self.mock_instance(), self.mock_instance()]
-        self._disco_group.get_instances.return_value = [_i.__dict__ for _i in instances]
+        self._disco_autoscale.get_instances.return_value = instances
         self._disco_aws.instances.return_value = instances
         self._disco_aws.remotecmd.return_value = (0, "")
         self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False))
@@ -517,7 +517,7 @@ class DiscoDeployTests(TestCase):
             'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no', 'min_size': 1, 'max_size': 1,
             'integration_test': "blue_green_service", 'desired_size': 1, 'smoke_test': 'no',
             'hostclass': 'mhcbluegreennondeployable'}], testing=True, create_if_exists=True)
-        self._disco_group.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
         self._disco_elb.delete_elb.assert_not_called()
 
     def test_bg_deploy_works_with_original_group(self):
@@ -529,9 +529,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         old_group = self.mock_group("mhcbluegreen", min_size=2, max_size=4, desired_size=3)
         new_group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.side_effect = [old_group.__dict__, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [old_group, new_group]
         instances = [self.mock_instance(), self.mock_instance(), self.mock_instance()]
-        self._disco_group.get_instances.return_value = [_i.__dict__ for _i in instances]
+        self._disco_autoscale.get_instances.return_value = instances
         self._disco_aws.instances.return_value = instances
         self._disco_aws.remotecmd.return_value = (0, "")
         self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False))
@@ -544,7 +544,7 @@ class DiscoDeployTests(TestCase):
                     'min_size': 2, 'desired_size': 3, 'max_size': 4,
                     'integration_test': "blue_green_service", 'smoke_test': 'no',
                     'hostclass': 'mhcbluegreen'}], group_name=new_group.name)])
-        self._disco_group.delete_groups.assert_called_once_with(group_name=old_group.name, force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(group_name=old_group.name, force=True)
         self._disco_elb.delete_elb.assert_called_once_with("mhcbluegreen", testing=True)
 
     def test_bg_deploy_with_bad_new_group_name(self):
@@ -553,7 +553,7 @@ class DiscoDeployTests(TestCase):
         ami.name = "mhcbluegreen 2"
         ami.id = "ami-12345678"
         group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.return_value = group.__dict__
+        self._disco_autoscale.get_existing_group.return_value = group
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False)
 
     def test_bg_deploy_with_failing_tests(self):
@@ -565,14 +565,14 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.run_integration_tests = MagicMock(return_value=False)
         old_group = self.mock_group("mhcbluegreen", min_size=2, max_size=4, desired_size=3)
         new_group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.side_effect = [old_group.__dict__, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [old_group, new_group]
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False)
         self._disco_bake.promote_ami.assert_called_once_with(ami, 'failed')
         self._disco_aws.spinup.assert_called_once_with([{
             'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes', 'min_size': 2,
             'integration_test': "blue_green_service", 'desired_size': 3, 'max_size': 4, 'smoke_test': 'no',
             'hostclass': 'mhcbluegreen'}], testing=True, create_if_exists=True)
-        self._disco_group.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
         self._disco_elb.delete_elb.assert_called_once_with("mhcbluegreen", testing=True)
 
     def test_bg_deploy_when_unable_to_test(self):
@@ -584,14 +584,14 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.run_integration_tests = MagicMock(side_effect=IntegrationTestError)
         old_group = self.mock_group("mhcbluegreen", min_size=2, max_size=4, desired_size=3)
         new_group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.side_effect = [old_group.__dict__, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [old_group, new_group]
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False)
         self._disco_aws.spinup.assert_called_once_with([{
             'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes', 'min_size': 2,
             'integration_test': "blue_green_service", 'desired_size': 3, 'max_size': 4, 'smoke_test': 'no',
             'hostclass': 'mhcbluegreen'}], testing=True, create_if_exists=True)
         self._disco_bake.promote_ami.assert_not_called()
-        self._disco_group.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
         self._disco_elb.delete_elb.assert_called_once_with("mhcbluegreen", testing=True)
 
     def test_bg_deploy_with_failing_elbs(self):
@@ -604,10 +604,10 @@ class DiscoDeployTests(TestCase):
         self._disco_elb.wait_for_instance_health_state.side_effect = TimeoutError
         old_group = self.mock_group("mhcbluegreen", min_size=2, max_size=4, desired_size=3)
         new_group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.side_effect = [old_group.__dict__, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [old_group, new_group]
         instances = [self.mock_instance(), self.mock_instance(), self.mock_instance()]
         instance_ids = [inst.instance_id for inst in instances]
-        self._disco_group.get_instances.return_value = [_i.__dict__ for _i in instances]
+        self._disco_autoscale.get_instances.return_value = instances
         self._disco_aws.instances.return_value = instances
         self._disco_aws.remotecmd.return_value = (0, "")
         self.assertRaises(TimeoutError, self._ci_deploy.test_ami, ami, dry_run=False)
@@ -622,7 +622,7 @@ class DiscoDeployTests(TestCase):
                     'min_size': 2, 'desired_size': 3, 'max_size': 4,
                     'integration_test': "blue_green_service", 'smoke_test': 'no',
                     'hostclass': 'mhcbluegreen'}], group_name=new_group.name)])
-        self._disco_group.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
         self._disco_elb.delete_elb.assert_called_once_with("mhcbluegreen", testing=True)
 
     def test_bg_deploy_with_bad_testing_mode(self):
@@ -634,9 +634,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         old_group = self.mock_group("mhcbluegreen", min_size=2, max_size=4, desired_size=3)
         new_group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.side_effect = [old_group.__dict__, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [old_group, new_group]
         instances = [self.mock_instance(), self.mock_instance(), self.mock_instance()]
-        self._disco_group.get_instances.return_value = [_i.__dict__ for _i in instances]
+        self._disco_autoscale.get_instances.return_value = instances
         self._disco_aws.instances.return_value = instances
         self._disco_aws.remotecmd.return_value = (1, "")
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False)
@@ -646,7 +646,7 @@ class DiscoDeployTests(TestCase):
             'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes', 'min_size': 2,
             'integration_test': "blue_green_service", 'desired_size': 3, 'max_size': 4, 'smoke_test': 'no',
             'hostclass': 'mhcbluegreen'}], testing=True, create_if_exists=True)
-        self._disco_group.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
         self._disco_elb.delete_elb.assert_called_once_with("mhcbluegreen", testing=True)
 
     def test_bg_with_hc_not_in_pl_and_no_group(self):
@@ -657,9 +657,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         new_group = self.mock_group("mhcfoo")
-        self._disco_group.get_existing_group.side_effect = [None, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [None, new_group]
         instances = [self.mock_instance(), self.mock_instance(), self.mock_instance()]
-        self._disco_group.get_instances.return_value = [_i.__dict__ for _i in instances]
+        self._disco_autoscale.get_instances.return_value = instances
         self._disco_aws.instances.return_value = instances
         self._disco_aws.remotecmd.return_value = (1, "")
         self.assertIsNone(self._ci_deploy.test_ami(ami,
@@ -671,7 +671,7 @@ class DiscoDeployTests(TestCase):
             [{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no', 'min_size': 1,
               'integration_test': None, 'desired_size': 1, 'max_size': 1, 'smoke_test': 'no',
               'hostclass': 'mhcfoo'}], testing=True, create_if_exists=True)
-        self._disco_group.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
 
     def test_bg_with_hc_not_in_pl_and_group(self):
         '''Blue/green is non-deployable if hostclass is not in pipeline, dies, and updates existing group'''
@@ -682,9 +682,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         old_group = self.mock_group("mhcfoo", min_size=2, max_size=4, desired_size=3)
         new_group = self.mock_group("mhcfoo")
-        self._disco_group.get_existing_group.side_effect = [old_group.__dict__, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [old_group, new_group]
         instances = [self.mock_instance(), self.mock_instance(), self.mock_instance()]
-        self._disco_group.get_instances.return_value = [_i.__dict__ for _i in instances]
+        self._disco_autoscale.get_instances.return_value = instances
         self._disco_aws.instances.return_value = instances
         self._disco_aws.remotecmd.return_value = (1, "")
         self.assertIsNone(self._ci_deploy.test_ami(ami,
@@ -699,7 +699,7 @@ class DiscoDeployTests(TestCase):
              call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no', 'min_size': 2,
                     'integration_test': None, 'desired_size': 3, 'max_size': 4, 'smoke_test': 'no',
                     'hostclass': 'mhcfoo'}], group_name=old_group.name)])
-        self._disco_group.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
 
     def test_bg_with_spinup_error_and_og(self):
         '''Blue/green can handle an an exception when spinning up the new ASG with old group'''
@@ -711,7 +711,7 @@ class DiscoDeployTests(TestCase):
         self._disco_aws.spinup.side_effect = Exception
         old_group = self.mock_group("mhcbluegreen")
         new_group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.side_effect = [old_group.__dict__, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [old_group, new_group]
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False)
         self._disco_bake.promote_ami.assert_not_called()
         self._disco_elb.wait_for_instance_health_state.assert_not_called()
@@ -719,7 +719,7 @@ class DiscoDeployTests(TestCase):
             'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes', 'min_size': 1,
             'integration_test': "blue_green_service", 'desired_size': 1, 'max_size': 1, 'smoke_test': 'no',
             'hostclass': 'mhcbluegreen'}], testing=True, create_if_exists=True)
-        self._disco_group.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
 
     def test_bg_with_spinup_error_and_no_og(self):
         '''Blue/green can handle an an exception when spinning up the new ASG with no old group'''
@@ -730,7 +730,7 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         self._disco_aws.spinup.side_effect = Exception
         new_group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.side_effect = [None, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [None, new_group]
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False)
         self._disco_bake.promote_ami.assert_not_called()
         self._disco_elb.wait_for_instance_health_state.assert_not_called()
@@ -738,7 +738,7 @@ class DiscoDeployTests(TestCase):
             'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes', 'min_size': 2,
             'integration_test': "blue_green_service", 'desired_size': 2, 'max_size': 2, 'smoke_test': 'no',
             'hostclass': 'mhcbluegreen'}], testing=True, create_if_exists=True)
-        self._disco_group.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
 
     def test_bg_with_spinup_error_and_no_groups(self):
         '''Blue/green can handle an an exception when spinning up the new ASG with no groups'''
@@ -748,7 +748,7 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         self._disco_aws.spinup.side_effect = Exception
-        self._disco_group.get_existing_group.side_effect = [None, None]
+        self._disco_autoscale.get_existing_group.side_effect = [None, None]
         self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False)
         self._disco_bake.promote_ami.assert_not_called()
         self._disco_elb.wait_for_instance_health_state.assert_not_called()
@@ -756,7 +756,7 @@ class DiscoDeployTests(TestCase):
             'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes', 'min_size': 2,
             'integration_test': "blue_green_service", 'desired_size': 2, 'max_size': 2, 'smoke_test': 'no',
             'hostclass': 'mhcbluegreen'}], testing=True, create_if_exists=True)
-        self._disco_group.delete_groups.assert_not_called()
+        self._disco_autoscale.delete_groups.assert_not_called()
 
     def test_bg_with_error_and_og_and_no_ng(self):
         '''Blue/green can handle an an exception when spinning up the new ASG w/ old group and no new group'''
@@ -767,7 +767,7 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         self._disco_aws.spinup.side_effect = Exception
         old_group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.side_effect = [old_group.__dict__, None]
+        self._disco_autoscale.get_existing_group.side_effect = [old_group, None]
         self.assertRaises(Exception, self._ci_deploy.test_ami, ami, dry_run=False)
         self._disco_bake.promote_ami.assert_not_called()
         self._disco_elb.wait_for_instance_health_state.assert_not_called()
@@ -775,7 +775,7 @@ class DiscoDeployTests(TestCase):
             'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes', 'min_size': 1,
             'integration_test': "blue_green_service", 'desired_size': 1, 'max_size': 1, 'smoke_test': 'no',
             'hostclass': 'mhcbluegreen'}], testing=True, create_if_exists=True)
-        self._disco_group.delete_groups.assert_not_called()
+        self._disco_autoscale.delete_groups.assert_not_called()
 
     def test_bg_with_too_many_autoscaling_groups(self):
         '''Blue/green can handle too many autoscaling groups error when spinning up a new ASG'''
@@ -786,7 +786,7 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         self._disco_aws.spinup.side_effect = TooManyAutoscalingGroups
         old_group = self.mock_group("mhcbluegreen")
-        self._disco_group.get_existing_group.side_effect = [old_group.__dict__, None]
+        self._disco_autoscale.get_existing_group.side_effect = [old_group, None]
         self.assertRaises(TooManyAutoscalingGroups, self._ci_deploy.test_ami, ami, dry_run=False)
         self._disco_bake.promote_ami.assert_not_called()
         self._disco_elb.wait_for_instance_health_state.assert_not_called()
@@ -794,7 +794,7 @@ class DiscoDeployTests(TestCase):
             'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes', 'min_size': 1,
             'integration_test': "blue_green_service", 'desired_size': 1, 'max_size': 1, 'smoke_test': 'no',
             'hostclass': 'mhcbluegreen'}], testing=True, create_if_exists=True)
-        self._disco_group.delete_groups.assert_not_called()
+        self._disco_autoscale.delete_groups.assert_not_called()
 
     def test_bg_timed_autoscaling(self):
         '''Blue/green can handle creating timed autoscaling actions'''
@@ -804,9 +804,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         new_group = self.mock_group("mhctimedautoscale")
-        self._disco_group.get_existing_group.side_effect = [None, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [None, new_group]
         instances = [self.mock_instance(), self.mock_instance(), self.mock_instance()]
-        self._disco_group.get_instances.return_value = [_i.__dict__ for _i in instances]
+        self._disco_autoscale.get_instances.return_value = instances
         self._disco_aws.instances.return_value = instances
         self._disco_aws.remotecmd.return_value = (0, "")
         self.assertIsNone(self._ci_deploy.test_ami(ami,
@@ -837,9 +837,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         old_group = self.mock_group("mhctimedautoscale", min_size=2, max_size=4, desired_size=3)
         new_group = self.mock_group("mhctimedautoscale")
-        self._disco_group.get_existing_group.side_effect = [old_group.__dict__, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [old_group, new_group]
         instances = [self.mock_instance(), self.mock_instance(), self.mock_instance()]
-        self._disco_group.get_instances.return_value = [_i.__dict__ for _i in instances]
+        self._disco_autoscale.get_instances.return_value = instances
         self._disco_aws.instances.return_value = instances
         self._disco_aws.remotecmd.return_value = (0, "")
         self.assertIsNone(self._ci_deploy.test_ami(ami,
@@ -869,9 +869,9 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
         self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
         new_group = self.mock_group("mhctimedautoscalenodeploy")
-        self._disco_group.get_existing_group.side_effect = [None, new_group.__dict__]
+        self._disco_autoscale.get_existing_group.side_effect = [None, new_group]
         instances = [self.mock_instance(), self.mock_instance(), self.mock_instance()]
-        self._disco_group.get_instances.return_value = [_i.__dict__ for _i in instances]
+        self._disco_autoscale.get_instances.return_value = instances
         self._disco_aws.instances.return_value = instances
         self._disco_aws.remotecmd.return_value = (0, "")
         self.assertIsNone(self._ci_deploy.test_ami(ami,
@@ -949,7 +949,7 @@ class DiscoDeployTests(TestCase):
         self._disco_aws.spinup.assert_called_once_with(
             [{'ami': 'ami-12345678', 'sequence': 1, 'min_size': 0, 'desired_size': 1,
               'smoke_test': 'no', 'max_size': 1, 'hostclass': 'mhcnewscarey'}], testing=True)
-        self._disco_group.delete_groups.assert_called_once_with(hostclass='mhcnewscarey', force=True)
+        self._disco_autoscale.delete_groups.assert_called_once_with(hostclass='mhcnewscarey', force=True)
 
     def test_nodeploy_ami_failure(self):
         '''No deploy instances are failed and not promoted when smoketest fails'''
@@ -1324,7 +1324,7 @@ class DiscoDeployTests(TestCase):
                 ami,
                 pipeline_dict=None,
                 dry_run=False,
-                old_group=self._existing_group.__dict__
+                old_group=self._existing_group
             )
         ])
 
@@ -1338,11 +1338,11 @@ class DiscoDeployTests(TestCase):
     def test_update_ami_not_in_autoscale_deploy(self):
         '''Test update_ami handling new deployable hostclass'''
         ami = self.mock_ami("mhcsmokey 1")
-        self._ci_deploy._disco_group.get_existing_group = MagicMock(return_value=None)
+        self._ci_deploy._disco_autoscale.get_existing_group = MagicMock(return_value=None)
         self._ci_deploy.handle_tested_ami = MagicMock(return_value=True)
         self.assertIsNone(self._ci_deploy.update_ami(ami, dry_run=False,
                                                      deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
-        self._ci_deploy._disco_group.get_existing_group.assert_called_with("mhcsmokey")
+        self._ci_deploy._disco_autoscale.get_existing_group.assert_called_with("mhcsmokey")
         self._ci_deploy.handle_tested_ami.assert_called_with(
             ami,
             pipeline_dict={
@@ -1360,12 +1360,12 @@ class DiscoDeployTests(TestCase):
         '''Test update_ami handling new non-deployable hostclass'''
         ami = self.mock_ami("mhcscarey 1")
         self._ci_deploy.is_deployable = MagicMock(return_value=False)
-        self._ci_deploy._disco_group.get_existing_group = MagicMock(return_value=None)
+        self._ci_deploy._disco_autoscale.get_existing_group = MagicMock(return_value=None)
         self._ci_deploy.handle_nodeploy_ami = MagicMock(return_value=True)
         self.assertIsNone(self._ci_deploy.update_ami(ami, dry_run=False,
                                                      deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
         self.assertEqual(self._ci_deploy.is_deployable.call_count, 1)
-        self._ci_deploy._disco_group.get_existing_group.assert_called_with("mhcscarey")
+        self._ci_deploy._disco_autoscale.get_existing_group.assert_called_with("mhcscarey")
         self._ci_deploy.handle_nodeploy_ami.assert_called_with(
             ami,
             pipeline_dict={
