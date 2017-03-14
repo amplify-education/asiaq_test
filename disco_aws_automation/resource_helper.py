@@ -3,6 +3,7 @@ This module has utility functions for working with aws resources
 """
 import logging
 import time
+from random import randint
 
 from botocore.exceptions import ClientError
 from boto.exception import EC2ResponseError, BotoServerError
@@ -47,7 +48,7 @@ def key_values_to_tags(dicts):
 
 
 def find_or_create(find, create):
-    """Given a find and a create function, create a resource iff it doesn't exist"""
+    """Given a find and a create function, create a resource if it doesn't exist"""
     result = find()
     if result:
         return result
@@ -60,30 +61,24 @@ def keep_trying(max_time, fun, *args, **kwargs):
     Execute function fun with args and kwargs until it does
     not throw exception or max time has passed.
 
-    After each failed attempt a delay is introduced of an
-    increasing number seconds following the fibonacci series
-    (up to MAX_POLL_INTERVAL seconds).
+    After each failed attempt a delay is introduced using Jitter.backoff() function.
 
     Note: If you are only concerned about throttling use throttled_call
     instead. Any irrecoverable exception within a keep_trying will
     cause a max_time delay.
     """
 
-    last_delay = 0
-    curr_delay = 1
-    expire_time = time.time() + max_time
+    jitter = Jitter()
+    time_passed = 0
     while True:
         try:
             return fun(*args, **kwargs)
         except Exception:
             if logging.getLogger().level == logging.DEBUG:
                 logger.exception("Failed to run %s.", fun)
-            if time.time() > expire_time:
+            if time_passed > max_time:
                 raise
-            time.sleep(curr_delay)
-            delay_register = last_delay
-            last_delay = curr_delay
-            curr_delay = min(curr_delay + delay_register, MAX_POLL_INTERVAL)
+            time_passed = jitter.backoff()
 
 
 def throttled_call(fun, *args, **kwargs):
@@ -91,14 +86,12 @@ def throttled_call(fun, *args, **kwargs):
     Execute function fun with args and kwargs until it does
     not throw a throttled exception or 5 minutes have passed.
 
-    After each failed attempt a delay is introduced of an
-    increasing number seconds following the fibonacci series
-    (up to MAX_POLL_INTERVAL seconds).
+    After each failed attempt a delay is introduced using Jitter.backoff() function.
     """
     max_time = 5 * 60
-    last_delay = 0
-    curr_delay = 1
-    expire_time = time.time() + max_time
+    jitter = Jitter()
+    time_passed = 0
+
     while True:
         try:
             return fun(*args, **kwargs)
@@ -111,18 +104,17 @@ def throttled_call(fun, *args, **kwargs):
             else:
                 error_code = err.response['Error'].get('Code', 'Unknown')
 
-            if (error_code not in ("Throttling", "RequestLimitExceeded")) or (time.time() > expire_time):
+            if (error_code not in ("Throttling", "RequestLimitExceeded")) or time_passed > max_time:
                 raise
 
-            time.sleep(curr_delay)
-            delay_register = last_delay
-            last_delay = curr_delay
-            curr_delay = min(curr_delay + delay_register, MAX_POLL_INTERVAL)
+            time_passed = jitter.backoff()
 
 
 def wait_for_state(resource, state, timeout=15 * 60, state_attr='state'):
     """Wait for an AWS resource to reach a specified state"""
+    jitter = Jitter()
     time_passed = 0
+
     while True:
         try:
             resource.update()
@@ -141,13 +133,13 @@ def wait_for_state(resource, state, timeout=15 * 60, state_attr='state'):
                 "Timed out waiting for {0} to change state to {1} after {2}s."
                 .format(resource, state, time_passed))
 
-        time.sleep(STATE_POLL_INTERVAL)
-        time_passed += STATE_POLL_INTERVAL
+        time_passed = jitter.backoff()
 
 
 def wait_for_state_boto3(describe_func, params_dict, resources_name,
                          expected_state, state_attr='state', timeout=15 * 60):
     """Wait for an AWS resource to reach a specified state using the boto3 library"""
+    jitter = Jitter()
     time_passed = 0
     while True:
         try:
@@ -158,10 +150,11 @@ def wait_for_state_boto3(describe_func, params_dict, resources_name,
             all_good = True
             failure = False
             for resource in resources:
-                if resource[state_attr] != expected_state:
-                    all_good = False
-                elif resource[state_attr] in (u'failed', u'terminated'):
+                if resource[state_attr] in (u'failed', u'terminated'):
                     failure = True
+                    all_good = False
+                elif resource[state_attr] != expected_state:
+                    all_good = False
 
             if all_good:
                 return
@@ -179,16 +172,16 @@ def wait_for_state_boto3(describe_func, params_dict, resources_name,
                 "state to {0} after {1}s:\n{2}"
                 .format(expected_state, time_passed, params_dict))
 
-        time.sleep(STATE_POLL_INTERVAL)
-        time_passed += STATE_POLL_INTERVAL
+        time_passed = jitter.backoff()
 
 
 def wait_for_sshable(remotecmd, instance, timeout=15 * 60, quiet=False):
-    """Returns True when host is up and sshable
+    """
+    Returns True when host is up and sshable
     returns False on timeout
     """
-    start_time = time.time()
-    max_time = start_time + timeout
+    jitter = Jitter()
+    time_passed = 0
 
     if not quiet:
         logger.info("Waiting for instance %s to be fully provisioned.", instance.id)
@@ -201,11 +194,11 @@ def wait_for_sshable(remotecmd, instance, timeout=15 * 60, quiet=False):
             "Waiting for %s to become sshable.", instance.id)
         if remotecmd(instance, ['true'], nothrow=True)[0] == 0:
             logger.info("Instance %s now SSHable.", instance.id)
-            logger.debug("Waited %s seconds for instance to boot", int(time.time() - start_time))
+            logger.debug("Waited %s seconds for instance to boot", time_passed)
             return
-        if time.time() >= max_time:
+        if time_passed >= timeout:
             break
-        time.sleep(INSTANCE_SSHABLE_POLL_INTERVAL)
+        time_passed = jitter.backoff()
 
     raise TimeoutError(
         "Timed out waiting for instance {0} to become sshable after {1}s."
@@ -213,10 +206,36 @@ def wait_for_sshable(remotecmd, instance, timeout=15 * 60, quiet=False):
 
 
 def check_written_s3(object_name, expected_written_length, written_length):
-    """Check S3 object is written by checking the bytes_written from key.set_contents_from_* method
+    """
+    Check S3 object is written by checking the bytes_written from key.set_contents_from_* method
     Raise error if any problem happens so we can diagnose the causes
     """
     if expected_written_length != written_length:
         raise S3WritingError(
             "{0} is not written correctly to S3 bucket".format(object_name)
         )
+
+
+class Jitter(object):
+    """
+    This class implements the logic to run an AWS command using Backoff with Decorrelated Jitter.
+    The logic is based on the following article:
+    https://www.awsarchitectureblog.com/2015/03/backoff.html
+    """
+    BASE = 3
+
+    def __init__(self):
+        self._time_passed = 0
+        self._cycle = 0
+
+    def backoff(self):
+        """
+        This function use a cycle count,
+        calculates jitter and executes sleep for the calculated time.
+        The minimum value 'cycle' can take is 1
+        """
+        self._cycle += 1
+        new_interval = min(MAX_POLL_INTERVAL, randint(Jitter.BASE, self._cycle * 3))
+        time.sleep(new_interval)
+        self._time_passed += new_interval
+        return self._time_passed
