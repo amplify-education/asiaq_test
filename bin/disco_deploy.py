@@ -52,7 +52,7 @@ import sys
 
 from docopt import docopt
 
-from disco_aws_automation import DiscoAWS, DiscoGroup, DiscoBake, DiscoDeploy, DiscoELB, DiscoVPC
+from disco_aws_automation import DiscoAWS, DiscoAutoscale, DiscoBake, DiscoDeploy, DiscoELB, DiscoVPC
 from disco_aws_automation.disco_aws_util import run_gracefully
 from disco_aws_automation.disco_config import read_config
 from disco_aws_automation.disco_logging import configure_logging
@@ -91,7 +91,7 @@ def run():
     vpc = DiscoVPC.fetch_environment(environment_name=env)
 
     deploy = DiscoDeploy(
-        aws, test_aws, DiscoBake(config, aws.connection), DiscoGroup(env), DiscoELB(vpc),
+        aws, test_aws, DiscoBake(config, aws.connection), DiscoAutoscale(env), DiscoELB(vpc),
         pipeline_definition=pipeline_definition,
         ami=args.get("--ami"), hostclass=args.get("--hostclass"),
         allow_any_hostclass=args["--allow-any-hostclass"])
