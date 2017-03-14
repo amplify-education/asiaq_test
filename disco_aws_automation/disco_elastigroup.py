@@ -61,16 +61,6 @@ class DiscoElastigroup(object):
             self._account_id = boto3.client('sts').get_caller_identity().get('Account')
         return self._account_id
 
-    def _spotinst_call(self, path='/', data=None, method='get'):
-        if method not in ['get', 'post', 'put', 'delete']:
-            raise Exception('Method {} is not supported'.format(method))
-        method_to_call = getattr(self.session, method)
-        response = method_to_call(SPOTINST_API + path, data=json.dumps(data) if data else None)
-        if response.status_code == 200:
-            return response
-        else:
-            raise Exception('Error communicating with Spotinst API: {}'.format(path))
-
     def _get_new_groupname(self, hostclass):
         """Returns a new elastigroup name when given a hostclass"""
         return self.environment_name + '_' + hostclass + "_" + str(int(time.time()))
