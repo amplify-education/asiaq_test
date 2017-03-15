@@ -9,20 +9,22 @@ from base64 import b64encode
 import requests
 import boto3
 
+from .base_group import BaseGroup
 from .exceptions import TooManyAutoscalingGroups
 
 logger = logging.getLogger(__name__)
 
-SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group/'
+SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group'
 
 
-class DiscoElastigroup(object):
+class DiscoElastigroup(BaseGroup):
     """Class orchestrating elastigroups"""
 
     def __init__(self, environment_name, session=None, account_id=None):
         self.environment_name = environment_name
         self._session = session
         self._account_id = account_id
+        super(DiscoElastigroup, self).__init__()
 
     @property
     def token(self):
@@ -61,6 +63,17 @@ class DiscoElastigroup(object):
             self._account_id = boto3.client('sts').get_caller_identity().get('Account')
         return self._account_id
 
+    def _spotinst_call(self, path='/', data=None, method='get'):
+        if method not in ['get', 'post', 'put', 'delete']:
+            raise Exception('Method {} is not supported'.format(method))
+        method_to_call = getattr(self.session, method)
+        response = method_to_call(SPOTINST_API + path, data=json.dumps(data) if data else None)
+        if response.status_code == 200:
+            return response
+        else:
+            # raise Exception('Error communicating with Spotinst API: {}'.format(path))
+            logger.info('Error communicating with Spotinst API: %s', path)
+
     def _get_new_groupname(self, hostclass):
         """Returns a new elastigroup name when given a hostclass"""
         return self.environment_name + '_' + hostclass + "_" + str(int(time.time()))
@@ -76,13 +89,13 @@ class DiscoElastigroup(object):
         """Returns the hostclass when given an elastigroup name"""
         return group_name.split('_')[1]
 
-    def _get_existing_groups(self, hostclass=None, group_name=None):
+    def get_existing_groups(self, hostclass=None, group_name=None):
         """
         Returns all elastigroups for a given hostclass or group name, sorted by most recent creation. If no
         elastigroup can be found, returns an empty list.
         """
         try:
-            groups = self.session.get(SPOTINST_API).json()['response']['items']
+            groups = self._spotinst_call().json()['response']['items']
             groups = [group for group in groups if group['name'].startswith(self.environment_name)]
         except KeyError:
             return []
@@ -103,7 +116,7 @@ class DiscoElastigroup(object):
         elastigroup will be returned. If there are more than two elastigroups, this method will
         always throw an exception.
         """
-        groups = self._get_existing_groups(hostclass=hostclass, group_name=group_name)
+        groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
         if not groups:
             return None
         elif len(groups) == 1 or (len(groups) == 2 and not throw_on_two_groups):
@@ -113,11 +126,26 @@ class DiscoElastigroup(object):
 
     def _get_group_instances(self, group_id):
         """Returns list of instance ids in a group"""
-        return self.session.get(SPOTINST_API + group_id + '/status').json()['response']['items']
+        return self._spotinst_call(path='/' + group_id + '/status').json()['response']['items']
+
+    def get_instances(self, hostclass=None, group_name=None):
+        """Returns elastigroup instances for hostclass in the current environment"""
+        all_groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
+        groups_id_name = {
+            group['id']: group['name'] for group in all_groups
+        }
+        instances = []
+        for group_id in groups_id_name:
+            group_instances = self._get_group_instances(group_id)
+            for instance in group_instances:
+                instance.update({'instance_id': instance['instanceId'],
+                                 'group_name': groups_id_name[group_id]})
+            instances += group_instances
+        return instances
 
     def list_groups(self):
         """Returns list of objects for display purposes for all groups"""
-        groups = self._get_existing_groups()
+        groups = self.get_existing_groups()
         return [{'name': group['name'],
                  'image_id': group['compute']['launchSpecification']['imageId'],
                  'group_cnt': len(self._get_group_instances(group['id'])),
@@ -218,6 +246,12 @@ class DiscoElastigroup(object):
             zones[subnet['AvailabilityZone']] = subnet['SubnetId']
         return zones
 
+    def wait_for_instance_id(self, group_name):
+        """Wait for instance id(s) of an elastigroup to become available"""
+        while not all([instance['instance_id'] for instance in self.get_instances(group_name=group_name)]):
+            logger.info('Waiting for instance id(s) of %s to become available', group_name)
+            time.sleep(10)
+
     def update_group(self, hostclass, desired_size=None, min_size=None, max_size=None, instance_type=None,
                      load_balancers=None, subnets=None, security_groups=None, instance_monitoring=None,
                      ebs_optimized=None, image_id=None, key_name=None, associate_public_ip_address=None,
@@ -250,53 +284,63 @@ class DiscoElastigroup(object):
             block_device_mappings=block_device_mappings,
             group_name=group_name or self._get_new_groupname(hostclass)
         )
-        group = self.get_existing_group(hostclass)
-        if group:
+        group = self.get_existing_group(hostclass, group_name)
+        if group and not create_if_exists:
             group_id = group['id']
             # Remove fields not allowed in update
             del group_config['group']['capacity']['unit']
             del group_config['group']['compute']['product']
-            self.session.put(SPOTINST_API + group_id, data=json.dumps(group_config))
+            self._spotinst_call(path='/' + group_id, data=group_config, method='put')
             return {'name': group['name']}
         else:
-            new_group = self.session.post(SPOTINST_API, data=json.dumps(group_config)).json()
-            return {'name': new_group['response']['items'][0]['name']}
+            new_group = self._spotinst_call(data=group_config, method='post').json()
+            new_group_name = new_group['response']['items'][0]['name']
+            return {'name': new_group_name}
 
     def _delete_group(self, group_id, force=False):
         """Delete an elastigroup by group id"""
         # We need argument `force` to match method in autoscale
         # pylint: disable=unused-argument
-        self.session.delete(SPOTINST_API + group_id)
+        self._spotinst_call(path='/' + group_id, method='delete')
 
     def delete_groups(self, hostclass=None, group_name=None, force=False):
         """Delete all elastigroups based on hostclass"""
         # We need argument `force` to match method in autoscale
         # pylint: disable=unused-argument
-        groups = self._get_existing_groups(hostclass=hostclass, group_name=group_name)
+        groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
         for group in groups:
             logger.info("Deleting group %s", group['name'])
             self._delete_group(group_id=group['id'])
 
+    def scaledown_groups(self, hostclass=None, group_name=None, wait=False, noerror=False):
+        """
+        Scales down number of instances in a hostclass's elastigroup, or the given elastigroup, to zero.
+        If wait is true, this function will block until all instances are terminated, or it will raise
+        a WaiterError if this process times out, unless noerror is True.
+
+        Returns true if the elastigroups were successfully scaled down, False otherwise.
+        """
+        groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
+        for group in groups:
+            group_update = {
+                "group": {
+                    "capacity": {
+                        "target": 0,
+                        "minimum": 0,
+                        "maximum": 0
+                    }
+                }
+            }
+            logger.info("Scaling down group %s", group['name'])
+            self._spotinst_call(path='/' + group['id'], data=group_update, method='put')
+
+            if wait:
+                self.wait_instance_termination(group_name=group_name, group=group, noerror=noerror)
+
     def _get_group_id_from_instance_id(self, instance_id):
-        groups = self._get_existing_groups()
+        groups = self.get_existing_groups()
         for group in groups:
             group_id = group['id']
             instance_ids = [instance['instanceId'] for instance in self._get_group_instances(group_id)]
             if instance_id in instance_ids:
                 return group_id
-
-    def terminate(self, instance_id, decrement_capacity=True):
-        """
-        Terminate instances using the spotinst API.
-
-        Detaching instances from elastigroup will delete them.
-
-        When decrement_capacity is True this allows us to avoid
-        autoscaling immediately replacing a terminated instance.
-        """
-        data = {"instancesToDetach": [instance_id],
-                "shouldTerminateInstances": True,
-                "shouldDecrementTargetCapacity": decrement_capacity,
-                "drainingTimeout": 1}
-        group_id = self._get_group_id_from_instance_id(instance_id)
-        self.session.put(SPOTINST_API + group_id + '/detachInstances', data=json.dumps(data))

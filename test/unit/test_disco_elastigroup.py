@@ -2,7 +2,6 @@
 Tests of disco_elastigroup
 """
 import random
-import json
 
 from unittest import TestCase
 
@@ -58,6 +57,7 @@ class DiscoElastigroupTests(TestCase):
     def test_delete_groups_bad_hostclass(self):
         """Verifies elastigroup not deleted for bad hostclass"""
         self.elastigroup._delete_group = MagicMock()
+        self.elastigroup._spotinst_call = MagicMock()
 
         self.elastigroup.delete_groups(hostclass="mhcfoo")
 
@@ -66,6 +66,7 @@ class DiscoElastigroupTests(TestCase):
     def test_delete_groups_bad_groupname(self):
         """Verifies elastigroup not deleted for bad group name"""
         self.elastigroup._delete_group = MagicMock()
+        self.elastigroup._spotinst_call = MagicMock()
 
         self.elastigroup.delete_groups(group_name='moon_mhcfoo_12345678')
 
@@ -76,7 +77,7 @@ class DiscoElastigroupTests(TestCase):
         mock_group = self.mock_elastigroup(hostclass='mhcfoo')
 
         self.elastigroup._delete_group = MagicMock()
-        self.elastigroup._get_existing_groups = MagicMock(return_value=[mock_group])
+        self.elastigroup.get_existing_groups = MagicMock(return_value=[mock_group])
 
         self.elastigroup.delete_groups(hostclass='mhcfoo')
 
@@ -87,7 +88,7 @@ class DiscoElastigroupTests(TestCase):
         mock_group = self.mock_elastigroup(hostclass='mhcfoo')
 
         self.elastigroup._delete_group = MagicMock()
-        self.elastigroup._get_existing_groups = MagicMock(return_value=[mock_group])
+        self.elastigroup.get_existing_groups = MagicMock(return_value=[mock_group])
 
         self.elastigroup.delete_groups(group_name=mock_group['name'])
 
@@ -98,7 +99,7 @@ class DiscoElastigroupTests(TestCase):
         mock_group1 = self.mock_elastigroup(hostclass="mhcfoo")
         mock_group2 = self.mock_elastigroup(hostclass="mhcbar")
 
-        self.elastigroup._get_existing_groups = MagicMock(return_value=[mock_group1, mock_group2])
+        self.elastigroup.get_existing_groups = MagicMock(return_value=[mock_group1, mock_group2])
         self.elastigroup._get_group_instances = MagicMock(return_value=['instance1', 'instance2'])
 
         actual_listings = self.elastigroup.list_groups()
@@ -129,10 +130,12 @@ class DiscoElastigroupTests(TestCase):
         """Verifies new elastigroup is created"""
         self.elastigroup._create_az_subnets_dict = MagicMock()
         self.elastigroup._create_elastigroup_config = MagicMock(return_value=dict())
+        self.elastigroup.get_existing_group = MagicMock(return_value=None)
+        self.elastigroup._spotinst_call = MagicMock()
 
         self.elastigroup.update_group(hostclass="mhcfoo")
 
-        self.elastigroup.session.post.assert_called_once_with(SPOTINST_API, data=json.dumps({}))
+        self.elastigroup._spotinst_call.assert_called_once_with(data={}, method='post')
 
     def test_update_existing_group(self):
         """Verifies existing elastigroup is updated"""
@@ -150,8 +153,9 @@ class DiscoElastigroupTests(TestCase):
         self.elastigroup._create_az_subnets_dict = MagicMock()
         self.elastigroup._create_elastigroup_config = MagicMock(return_value=mock_group_config)
         self.elastigroup.get_existing_group = MagicMock(return_value=mock_group)
+        self.elastigroup._spotinst_call = MagicMock()
 
         self.elastigroup.update_group(hostclass="mhcfoo")
 
-        self.elastigroup.session.put.assert_called_once_with(SPOTINST_API + mock_group['id'],
-                                                             data=json.dumps(mock_group_config))
+        self.elastigroup._spotinst_call.assert_called_once_with(path='/' + mock_group['id'],
+                                                                data=mock_group_config, method='put')
