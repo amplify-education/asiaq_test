@@ -70,7 +70,7 @@ class DiscoElastigroup(BaseGroup):
         try:
             response = method_to_call(SPOTINST_API + path, data=json.dumps(data) if data else None)
         except Exception as err:
-            raise SpotinstException('Error while communicating with SpotInst API', err)
+            raise SpotinstException('Error while communicating with SpotInst API: {}'.format(err))
         if response.status_code == 200:
             return response
         else:
