@@ -49,9 +49,9 @@ class DiscoAWSTests(TestCase):
     @patch_disco_aws
     def test_create_scaling_schedule_only_desired(self, mock_config, **kwargs):
         """test create_scaling_schedule with only desired schedule"""
-        aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, autoscale=MagicMock())
+        aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, discogroup=MagicMock())
         aws.create_scaling_schedule("1", "2@1 0 * * *:3@6 0 * * *", "5", hostclass="mhcboo")
-        aws.autoscale.assert_has_calls([
+        aws.discogroup.assert_has_calls([
             call.delete_all_recurring_group_actions(hostclass='mhcboo', group_name=None),
             call.create_recurring_group_action('1 0 * * *', hostclass='mhcboo', group_name=None,
                                                min_size=None, desired_capacity=2, max_size=None),
@@ -62,23 +62,23 @@ class DiscoAWSTests(TestCase):
     @patch_disco_aws
     def test_create_scaling_schedule_no_sched(self, mock_config, **kwargs):
         """test create_scaling_schedule with only desired schedule"""
-        aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, autoscale=MagicMock())
+        aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, discogroup=MagicMock())
         aws.create_scaling_schedule("1", "2", "5", hostclass="mhcboo")
-        aws.autoscale.assert_has_calls([
+        aws.discogroup.assert_has_calls([
             call.delete_all_recurring_group_actions(hostclass='mhcboo', group_name=None)
         ])
 
     @patch_disco_aws
     def test_create_scaling_schedule_overlapping(self, mock_config, **kwargs):
         """test create_scaling_schedule with only desired schedule"""
-        aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, autoscale=MagicMock())
+        aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, discogroup=MagicMock())
         aws.create_scaling_schedule(
             "1@1 0 * * *:2@6 0 * * *",
             "2@1 0 * * *:3@6 0 * * *",
             "6@1 0 * * *:9@6 0 * * *",
             hostclass="mhcboo"
         )
-        aws.autoscale.assert_has_calls([
+        aws.discogroup.assert_has_calls([
             call.delete_all_recurring_group_actions(hostclass='mhcboo', group_name=None),
             call.create_recurring_group_action('1 0 * * *', hostclass='mhcboo', group_name=None,
                                                min_size=1, desired_capacity=2, max_size=6),
@@ -89,14 +89,14 @@ class DiscoAWSTests(TestCase):
     @patch_disco_aws
     def test_create_scaling_schedule_mixed(self, mock_config, **kwargs):
         """test create_scaling_schedule with only desired schedule"""
-        aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, autoscale=MagicMock())
+        aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, discogroup=MagicMock())
         aws.create_scaling_schedule(
             "1@1 0 * * *:2@7 0 * * *",
             "2@1 0 * * *:3@6 0 * * *",
             "6@2 0 * * *:9@6 0 * * *",
             hostclass="mhcboo"
         )
-        aws.autoscale.assert_has_calls([
+        aws.discogroup.assert_has_calls([
             call.delete_all_recurring_group_actions(hostclass='mhcboo', group_name=None),
             call.create_recurring_group_action('1 0 * * *', hostclass='mhcboo', group_name=None,
                                                min_size=1, desired_capacity=2, max_size=None),
@@ -136,15 +136,15 @@ class DiscoAWSTests(TestCase):
         self.assertEqual(metadata["hostclass"], "mhcunittest")
         self.assertFalse(metadata["no_destroy"])
         self.assertTrue(metadata["chaos"])
-        _lc = aws.autoscale.get_configs()[0]
+        _lc = aws.discogroup.get_configs()[0]
         self.assertRegexpMatches(_lc.name, r".*_mhcunittest_[0-9]*")
         self.assertEqual(_lc.image_id, mock_ami.id)
-        self.assertTrue(aws.autoscale.get_existing_group(hostclass="mhcunittest"))
-        _ag = aws.autoscale.get_existing_groups()[0]
-        self.assertRegexpMatches(_ag.name, r"unittestenv_mhcunittest_[0-9]*")
-        self.assertEqual(_ag.min_size, 1)
-        self.assertEqual(_ag.max_size, 1)
-        self.assertEqual(_ag.desired_capacity, 1)
+        self.assertTrue(aws.discogroup.get_existing_group(hostclass="mhcunittest"))
+        _ag = aws.discogroup.get_existing_groups()[0]
+        self.assertRegexpMatches(_ag['name'], r"unittestenv_mhcunittest_[0-9]*")
+        self.assertEqual(_ag['min_size'], 1)
+        self.assertEqual(_ag['max_size'], 1)
+        self.assertEqual(_ag['desired_capacity'], 1)
 
     @patch_disco_aws
     def test_provision_hc_simple_with_no_chaos(self, mock_config, **kwargs):
@@ -168,15 +168,15 @@ class DiscoAWSTests(TestCase):
         self.assertEqual(metadata["hostclass"], "mhcunittest")
         self.assertFalse(metadata["no_destroy"])
         self.assertFalse(metadata["chaos"])
-        _lc = aws.autoscale.get_configs()[0]
+        _lc = aws.discogroup.get_configs()[0]
         self.assertRegexpMatches(_lc.name, r".*_mhcunittest_[0-9]*")
         self.assertEqual(_lc.image_id, mock_ami.id)
-        self.assertTrue(aws.autoscale.get_existing_group(hostclass="mhcunittest"))
-        _ag = aws.autoscale.get_existing_groups()[0]
-        self.assertRegexpMatches(_ag.name, r"unittestenv_mhcunittest_[0-9]*")
-        self.assertEqual(_ag.min_size, 1)
-        self.assertEqual(_ag.max_size, 1)
-        self.assertEqual(_ag.desired_capacity, 1)
+        self.assertTrue(aws.discogroup.get_existing_group(hostclass="mhcunittest"))
+        _ag = aws.discogroup.get_existing_groups()[0]
+        self.assertRegexpMatches(_ag['name'], r"unittestenv_mhcunittest_[0-9]*")
+        self.assertEqual(_ag['min_size'], 1)
+        self.assertEqual(_ag['max_size'], 1)
+        self.assertEqual(_ag['desired_capacity'], 1)
 
     @patch_disco_aws
     def test_provision_hc_with_chaos_using_config(self, mock_config, **kwargs):
@@ -202,15 +202,15 @@ class DiscoAWSTests(TestCase):
         self.assertEqual(metadata["hostclass"], "mhcunittest")
         self.assertFalse(metadata["no_destroy"])
         self.assertTrue(metadata["chaos"])
-        _lc = aws.autoscale.get_configs()[0]
+        _lc = aws.discogroup.get_configs()[0]
         self.assertRegexpMatches(_lc.name, r".*_mhcunittest_[0-9]*")
         self.assertEqual(_lc.image_id, mock_ami.id)
-        self.assertTrue(aws.autoscale.get_existing_group(hostclass="mhcunittest"))
-        _ag = aws.autoscale.get_existing_groups()[0]
-        self.assertRegexpMatches(_ag.name, r"unittestenv_mhcunittest_[0-9]*")
-        self.assertEqual(_ag.min_size, 1)
-        self.assertEqual(_ag.max_size, 1)
-        self.assertEqual(_ag.desired_capacity, 1)
+        self.assertTrue(aws.discogroup.get_existing_group(hostclass="mhcunittest"))
+        _ag = aws.discogroup.get_existing_groups()[0]
+        self.assertRegexpMatches(_ag['name'], r"unittestenv_mhcunittest_[0-9]*")
+        self.assertEqual(_ag['min_size'], 1)
+        self.assertEqual(_ag['max_size'], 1)
+        self.assertEqual(_ag['desired_capacity'], 1)
 
     @patch_disco_aws
     def test_provision_hostclass_schedules(self, mock_config, **kwargs):
@@ -231,10 +231,10 @@ class DiscoAWSTests(TestCase):
                                       desired_size="2@1 0 * * *:3@6 0 * * *",
                                       max_size="6@1 0 * * *:9@6 0 * * *")
 
-        _ag = aws.autoscale.get_existing_groups()[0]
-        self.assertEqual(_ag.min_size, 1)  # minimum of listed sizes
-        self.assertEqual(_ag.desired_capacity, 3)  # maximum of listed sizes
-        self.assertEqual(_ag.max_size, 9)  # maximum of listed sizes
+        _ag = aws.discogroup.get_existing_groups()[0]
+        self.assertEqual(_ag['min_size'], 1)  # minimum of listed sizes
+        self.assertEqual(_ag['desired_capacity'], 3)  # maximum of listed sizes
+        self.assertEqual(_ag['max_size'], 9)  # maximum of listed sizes
 
     @patch_disco_aws
     def test_provision_hostclass_sched_some_none(self, mock_config, **kwargs):
@@ -254,11 +254,11 @@ class DiscoAWSTests(TestCase):
                                       min_size="",
                                       desired_size="2@1 0 * * *:3@6 0 * * *", max_size="")
 
-        _ag = aws.autoscale.get_existing_groups()[0]
-        print("({0}, {1}, {2})".format(_ag.min_size, _ag.desired_capacity, _ag.max_size))
-        self.assertEqual(_ag.min_size, 0)  # minimum of listed sizes
-        self.assertEqual(_ag.desired_capacity, 3)  # maximum of listed sizes
-        self.assertEqual(_ag.max_size, 3)  # maximum of listed sizes
+        _ag = aws.discogroup.get_existing_groups()[0]
+        print("({0}, {1}, {2})".format(_ag['min_size'], _ag['desired_capacity'], _ag['max_size']))
+        self.assertEqual(_ag['min_size'], 0)  # minimum of listed sizes
+        self.assertEqual(_ag['desired_capacity'], 3)  # maximum of listed sizes
+        self.assertEqual(_ag['max_size'], 3)  # maximum of listed sizes
 
     @patch_disco_aws
     def test_provision_hostclass_sched_all_none(self, mock_config, **kwargs):
@@ -277,11 +277,11 @@ class DiscoAWSTests(TestCase):
                                       hostclass="mhcunittest", owner="unittestuser",
                                       min_size="", desired_size="", max_size="")
 
-        _ag0 = aws.autoscale.get_existing_groups()[0]
+        _ag0 = aws.discogroup.get_existing_groups()[0]
 
-        self.assertEqual(_ag0.min_size, 0)  # minimum of listed sizes
-        self.assertEqual(_ag0.desired_capacity, 0)  # maximum of listed sizes
-        self.assertEqual(_ag0.max_size, 0)  # maximum of listed sizes
+        self.assertEqual(_ag0['min_size'], 0)  # minimum of listed sizes
+        self.assertEqual(_ag0['desired_capacity'], 0)  # maximum of listed sizes
+        self.assertEqual(_ag0['max_size'], 0)  # maximum of listed sizes
 
         with patch("disco_aws_automation.DiscoAWS.get_meta_network", return_value=_get_meta_network_mock()):
             with patch("boto.ec2.connection.EC2Connection.get_all_snapshots", return_value=[]):
@@ -292,11 +292,11 @@ class DiscoAWSTests(TestCase):
                                       hostclass="mhcunittest", owner="unittestuser",
                                       min_size="3", desired_size="6", max_size="9")
 
-        _ag1 = aws.autoscale.get_existing_groups()[0]
+        _ag1 = aws.discogroup.get_existing_groups()[0]
 
-        self.assertEqual(_ag1.min_size, 3)  # minimum of listed sizes
-        self.assertEqual(_ag1.desired_capacity, 6)  # maximum of listed sizes
-        self.assertEqual(_ag1.max_size, 9)  # maximum of listed sizes
+        self.assertEqual(_ag1['min_size'], 3)  # minimum of listed sizes
+        self.assertEqual(_ag1['desired_capacity'], 6)  # maximum of listed sizes
+        self.assertEqual(_ag1['max_size'], 9)  # maximum of listed sizes
 
         with patch("disco_aws_automation.DiscoAWS.get_meta_network", return_value=_get_meta_network_mock()):
             with patch("boto.ec2.connection.EC2Connection.get_all_snapshots", return_value=[]):
@@ -307,11 +307,11 @@ class DiscoAWSTests(TestCase):
                                       hostclass="mhcunittest", owner="unittestuser",
                                       min_size="", desired_size="", max_size="")
 
-        _ag2 = aws.autoscale.get_existing_groups()[0]
+        _ag2 = aws.discogroup.get_existing_groups()[0]
 
-        self.assertEqual(_ag2.min_size, 3)  # minimum of listed sizes
-        self.assertEqual(_ag2.desired_capacity, 6)  # maximum of listed sizes
-        self.assertEqual(_ag2.max_size, 9)  # maximum of listed sizes
+        self.assertEqual(_ag2['min_size'], 3)  # minimum of listed sizes
+        self.assertEqual(_ag2['desired_capacity'], 6)  # maximum of listed sizes
+        self.assertEqual(_ag2['max_size'], 9)  # maximum of listed sizes
 
     @patch_disco_aws
     def test_update_elb_delete(self, mock_config, **kwargs):

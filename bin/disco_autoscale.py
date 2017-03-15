@@ -10,7 +10,6 @@ import sys
 from collections import defaultdict
 
 from disco_aws_automation import DiscoGroup
-from disco_aws_automation import DiscoAutoscale
 from disco_aws_automation.disco_aws_util import run_gracefully
 from disco_aws_automation.disco_config import read_config
 from disco_aws_automation.disco_logging import configure_logging
@@ -156,7 +155,6 @@ def run():
     environment_name = args.env or config.get("disco_aws", "default_environment")
 
     discogroup = DiscoGroup(environment_name)
-    autoscale = DiscoAutoscale(environment_name)
 
     # Autoscaling group commands
     if args.mode == "listgroups":
@@ -177,16 +175,16 @@ def run():
 
     # Launch Configuration commands
     elif args.mode == "listconfigs":
-        for config in autoscale.get_configs():
+        for config in discogroup.get_configs():
             print("{0:24} {1}".format(config.name, config.image_id))
     elif args.mode == "cleanconfigs":
-        autoscale.clean_configs()
+        discogroup.clean_configs()
     elif args.mode == "deleteconfig":
-        autoscale.delete_config(args.config)
+        discogroup.delete_config(args.config)
 
     # Scaling policy commands
     elif args.mode == "listpolicies":
-        policies = autoscale.list_policies(
+        policies = discogroup.list_policies(
             group_name=args.group_name,
             policy_types=args.policy_types,
             policy_names=args.policy_names
@@ -224,7 +222,7 @@ def run():
         else:
             parsed_steps = []
 
-        autoscale.create_policy(
+        discogroup.create_policy(
             group_name=args.group_name,
             policy_name=args.policy_name,
             policy_type=args.policy_type,
@@ -237,7 +235,7 @@ def run():
             estimated_instance_warmup=args.estimated_instance_warmup
         )
     elif args.mode == "deletepolicy":
-        autoscale.delete_policy(args.policy_name, args.group_name)
+        discogroup.delete_policy(args.policy_name, args.group_name)
 
     sys.exit(0)
 

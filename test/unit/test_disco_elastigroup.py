@@ -133,7 +133,7 @@ class DiscoElastigroupTests(TestCase):
         self.elastigroup.get_existing_group = MagicMock(return_value=None)
         self.elastigroup._spotinst_call = MagicMock()
 
-        self.elastigroup.update_group(hostclass="mhcfoo")
+        self.elastigroup.update_group(hostclass="mhcfoo", spotinst=True)
 
         self.elastigroup._spotinst_call.assert_called_once_with(data={}, method='post')
 
@@ -155,7 +155,7 @@ class DiscoElastigroupTests(TestCase):
         self.elastigroup.get_existing_group = MagicMock(return_value=mock_group)
         self.elastigroup._spotinst_call = MagicMock()
 
-        self.elastigroup.update_group(hostclass="mhcfoo")
+        self.elastigroup.update_group(hostclass="mhcfoo", spotinst=True)
 
         self.elastigroup._spotinst_call.assert_called_once_with(path='/' + mock_group['id'],
                                                                 data=mock_group_config, method='put')

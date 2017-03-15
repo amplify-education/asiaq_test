@@ -67,7 +67,10 @@ class DiscoElastigroup(BaseGroup):
         if method not in ['get', 'post', 'put', 'delete']:
             raise Exception('Method {} is not supported'.format(method))
         method_to_call = getattr(self.session, method)
-        response = method_to_call(SPOTINST_API + path, data=json.dumps(data) if data else None)
+        try:
+            response = method_to_call(SPOTINST_API + path, data=json.dumps(data) if data else None)
+        except Exception as err:
+            raise SpotinstException('Error while communicating with SpotInst API', err)
         if response.status_code == 200:
             return response
         else:
@@ -97,10 +100,9 @@ class DiscoElastigroup(BaseGroup):
         try:
             groups = self._spotinst_call().json()['response']['items']
             groups = [group for group in groups if group['name'].startswith(self.environment_name)]
-        except SpotinstException:
-            raise
         except KeyError:
             return []
+
         if group_name:
             groups = [group for group in groups if group['name'] == group_name]
         filtered_groups = [group for group in groups
@@ -128,11 +130,7 @@ class DiscoElastigroup(BaseGroup):
 
     def _get_group_instances(self, group_id):
         """Returns list of instance ids in a group"""
-        try:
-            return self._spotinst_call(path='/' + group_id + '/status').json()['response']['items']
-        except SpotinstException as err:
-            logger.info('Unable to get Spotinst group instances: %s', err.message)
-            return []
+        return self._spotinst_call(path='/' + group_id + '/status').json()['response']['items']
 
     def get_instances(self, hostclass=None, group_name=None):
         """Returns elastigroup instances for hostclass in the current environment"""
@@ -262,13 +260,16 @@ class DiscoElastigroup(BaseGroup):
                      load_balancers=None, subnets=None, security_groups=None, instance_monitoring=None,
                      ebs_optimized=None, image_id=None, key_name=None, associate_public_ip_address=None,
                      user_data=None, tags=None, instance_profile_name=None, block_device_mappings=None,
-                     group_name=None, create_if_exists=False, termination_policies=None):
+                     group_name=None, create_if_exists=False, termination_policies=None, spotinst=False):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
         # We need unused argument to match method in autoscale
         # pylint: disable=unused-argument
         """Updates an existing elastigroup if it exists,
         otherwise this creates a new elastigroup."""
+        if not spotinst:
+            raise SpotinstException('DiscoElastiGroup must be used for creating SpotInst groups')
+
         group_config = self._create_elastigroup_config(
             hostclass=hostclass,
             availability_vs_cost="balanced",
@@ -296,27 +297,17 @@ class DiscoElastigroup(BaseGroup):
             # Remove fields not allowed in update
             del group_config['group']['capacity']['unit']
             del group_config['group']['compute']['product']
-            try:
-                self._spotinst_call(path='/' + group_id, data=group_config, method='put')
-                return {'name': group['name']}
-            except SpotinstException as err:
-                logger.info('Unable to update Spotinst group: %s', err.message)
-        else:
-            try:
-                new_group = self._spotinst_call(data=group_config, method='post').json()
-                new_group_name = new_group['response']['items'][0]['name']
-                return {'name': new_group_name}
-            except SpotinstException as err:
-                logger.info('Unable to create Spotinst group: %s', err.message)
 
-    def _delete_group(self, group_id, force=False):
+            self._spotinst_call(path='/' + group_id, data=group_config, method='put')
+            return {'name': group['name']}
+        else:
+            new_group = self._spotinst_call(data=group_config, method='post').json()
+            new_group_name = new_group['response']['items'][0]['name']
+            return {'name': new_group_name}
+
+    def _delete_group(self, group_id):
         """Delete an elastigroup by group id"""
-        # We need argument `force` to match method in autoscale
-        # pylint: disable=unused-argument
-        try:
-            self._spotinst_call(path='/' + group_id, method='delete')
-        except SpotinstException as err:
-            logger.info('Unable to delete Spotinst group: %s', err.message)
+        self._spotinst_call(path='/' + group_id, method='delete')
 
     def delete_groups(self, hostclass=None, group_name=None, force=False):
         """Delete all elastigroups based on hostclass"""
@@ -347,13 +338,67 @@ class DiscoElastigroup(BaseGroup):
                 }
             }
             logger.info("Scaling down group %s", group['name'])
-            try:
-                self._spotinst_call(path='/' + group['id'], data=group_update, method='put')
-            except SpotinstException:
-                raise
+            self._spotinst_call(path='/' + group['id'], data=group_update, method='put')
 
             if wait:
                 self.wait_instance_termination(group_name=group_name, group=group, noerror=noerror)
+
+    def terminate(self, instance_id, decrement_capacity=True):
+        """
+        Terminates an instance using the autoscaling API.
+
+        When decrement_capacity is True this allows us to avoid
+        autoscaling immediately replacing a terminated instance.
+        """
+        pass
+
+    def delete_all_recurring_group_actions(self, hostclass=None, group_name=None):
+        """Deletes all recurring scheduled actions for a hostclass"""
+        pass
+
+    def create_recurring_group_action(self, recurrance, min_size=None, desired_capacity=None, max_size=None,
+                                      hostclass=None, group_name=None):
+        """Creates a recurring scheduled action for a hostclass"""
+        pass
+
+    def update_elb(self, elb_names, hostclass=None, group_name=None):
+        """Updates an existing autoscaling group to use a different set of load balancers"""
+        pass
+
+    def get_launch_config(self, hostclass=None, group_name=None):
+        """Create new launchconfig group name"""
+        pass
+
+    def clean_configs(self):
+        """Delete unused Launch Configurations in current environment"""
+        pass
+
+    def get_configs(self, names=None):
+        """Returns Launch Configurations in current environment"""
+        pass
+
+    def delete_config(self, config_name):
+        """Delete a specific Launch Configuration"""
+        pass
+
+    def list_policies(self, group_name=None, policy_types=None, policy_names=None):
+        """Returns all autoscaling policies"""
+        pass
+
+    # pylint: disable=too-many-arguments
+    def create_policy(self, group_name, policy_name, policy_type="SimpleScaling", adjustment_type=None,
+                      min_adjustment_magnitude=None, scaling_adjustment=None, cooldown=600,
+                      metric_aggregation_type=None, step_adjustments=None, estimated_instance_warmup=None):
+        """
+        Creates a new autoscaling policy, or updates an existing one if the autoscaling group name and
+        policy name already exist. Handles the logic of constructing the correct autoscaling policy request,
+        because not all parameters are required.
+        """
+        pass
+
+    def delete_policy(self, policy_name, group_name):
+        """Deletes an autoscaling policy"""
+        pass
 
     def _get_group_id_from_instance_id(self, instance_id):
         groups = self.get_existing_groups()

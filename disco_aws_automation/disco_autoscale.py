@@ -288,7 +288,7 @@ class DiscoAutoscale(BaseGroup):
                      load_balancers=None, subnets=None, security_groups=None, instance_monitoring=None,
                      ebs_optimized=None, image_id=None, key_name=None, associate_public_ip_address=None,
                      user_data=None, tags=None, instance_profile_name=None, block_device_mappings=None,
-                     group_name=None, create_if_exists=False, termination_policies=None):
+                     group_name=None, create_if_exists=False, termination_policies=None, spotinst=False):
         """
         Create a new autoscaling group or update an existing one
         """
@@ -296,6 +296,9 @@ class DiscoAutoscale(BaseGroup):
         # We need unused argument to match method in autoscale
         # pylint: disable=R0913, R0914
         # pylint: disable=unused-argument
+        if spotinst:
+            raise Exception('DiscoAutoscale cannot be used to create SpotInst groups')
+
         launch_config = self.get_config(
             name=self.get_launch_config_name(hostclass),
             image_id=image_id,

@@ -23,7 +23,6 @@ from .disco_config import normalize_path
 
 from .disco_alarm import DiscoAlarm
 from .disco_alarm_config import DiscoAlarmsConfig
-from .disco_autoscale import DiscoAutoscale
 from .disco_group import DiscoGroup
 from .disco_config import read_config
 from .disco_constants import CREDENTIAL_BUCKET_TEMPLATE, NETWORKS, VPC_CONFIG_FILE
@@ -577,8 +576,6 @@ class DiscoVPC(object):
 
     def _destroy_instances(self):
         """ Find all instances in vpc and terminate them """
-        autoscale = DiscoAutoscale(environment_name=self.environment_name)
-        # autoscale.delete_groups(force=True)
         discogroup = DiscoGroup(environment_name=self.environment_name)
         discogroup.delete_groups()
         reservations = throttled_call(self.boto3_ec2.describe_instances,
@@ -597,7 +594,7 @@ class DiscoVPC(object):
         waiter = self.boto3_ec2.get_waiter('instance_terminated')
         waiter.wait(InstanceIds=instances,
                     Filters=create_filters({'instance-state-name': ['terminated']}))
-        autoscale.clean_configs()
+        discogroup.clean_configs()
 
         logger.debug("waiting for instance shutdown scripts")
         time.sleep(60)  # see http://copperegg.com/hooking-into-the-aws-shutdown-flow/

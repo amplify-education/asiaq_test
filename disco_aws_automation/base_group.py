@@ -48,6 +48,85 @@ class BaseGroup(object):
         """Scale down number of instances in a group"""
         return
 
+    @abstractmethod
+    def terminate(self, instance_id, decrement_capacity=True):
+        """
+        Terminates an instance using the autoscaling API.
+
+        When decrement_capacity is True this allows us to avoid
+        autoscaling immediately replacing a terminated instance.
+        """
+        pass
+
+    @abstractmethod
+    def delete_all_recurring_group_actions(self, hostclass=None, group_name=None):
+        """Deletes all recurring scheduled actions for a hostclass"""
+        pass
+
+    @abstractmethod
+    def create_recurring_group_action(self, recurrance, min_size=None, desired_capacity=None, max_size=None,
+                                      hostclass=None, group_name=None):
+        """Creates a recurring scheduled action for a hostclass"""
+        pass
+
+    @abstractmethod
+    def update_elb(self, elb_names, hostclass=None, group_name=None):
+        """Updates an existing autoscaling group to use a different set of load balancers"""
+        pass
+
+    @abstractmethod
+    def get_launch_config(self, hostclass=None, group_name=None):
+        """Create new launchconfig group name"""
+        pass
+
+    # pylint: disable=R0913, R0914
+    @abstractmethod
+    def update_group(self, hostclass, desired_size=None, min_size=None, max_size=None, instance_type=None,
+                     load_balancers=None, subnets=None, security_groups=None, instance_monitoring=None,
+                     ebs_optimized=None, image_id=None, key_name=None, associate_public_ip_address=None,
+                     user_data=None, tags=None, instance_profile_name=None, block_device_mappings=None,
+                     group_name=None, create_if_exists=False, termination_policies=None, spotinst=False):
+        """
+        Create a new autoscaling group or update an existing one
+        """
+        pass
+
+    @abstractmethod
+    def clean_configs(self):
+        """Delete unused Launch Configurations in current environment"""
+        pass
+
+    @abstractmethod
+    def get_configs(self, names=None):
+        """Returns Launch Configurations in current environment"""
+        pass
+
+    @abstractmethod
+    def delete_config(self, config_name):
+        """Delete a specific Launch Configuration"""
+        pass
+
+    @abstractmethod
+    def list_policies(self, group_name=None, policy_types=None, policy_names=None):
+        """Returns all autoscaling policies"""
+        pass
+
+    @abstractmethod
+    def create_policy(self, group_name, policy_name, policy_type="SimpleScaling", adjustment_type=None,
+                      min_adjustment_magnitude=None, scaling_adjustment=None, cooldown=600,
+                      metric_aggregation_type=None, step_adjustments=None, estimated_instance_warmup=None):
+        """
+        Creates a new autoscaling policy, or updates an existing one if the autoscaling group name and
+        policy name already exist. Handles the logic of constructing the correct autoscaling policy request,
+        because not all parameters are required.
+        """
+        pass
+
+    @abstractmethod
+    def delete_policy(self, policy_name, group_name):
+        """Deletes an autoscaling policy"""
+        pass
+
     @property
     def boto3_ec(self):
         """Lazily create boto3 ec2 connection"""
