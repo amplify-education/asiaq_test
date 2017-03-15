@@ -137,7 +137,7 @@ class BaseGroup(object):
     def wait_instance_termination(self, group_name=None, group=None, noerror=False):
         """Wait for instance to be terminated during scaledown"""
         waiter = throttled_call(self.boto3_ec.get_waiter, 'instance_terminated')
-        instance_ids = [inst['id'] for inst in self.get_instances(group_name=group_name)]
+        instance_ids = [inst['instance_id'] for inst in self.get_instances(group_name=group_name)]
 
         try:
             logger.info("Waiting for scaledown of group %s", group['name'])
