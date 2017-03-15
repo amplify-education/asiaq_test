@@ -97,11 +97,8 @@ class DiscoElastigroup(BaseGroup):
         Returns all elastigroups for a given hostclass or group name, sorted by most recent creation. If no
         elastigroup can be found, returns an empty list.
         """
-        try:
-            groups = self._spotinst_call().json()['response']['items']
-            groups = [group for group in groups if group['name'].startswith(self.environment_name)]
-        except KeyError:
-            return []
+        groups = self._spotinst_call().json()['response'].get('items', [])
+        groups = [group for group in groups if group['name'].startswith(self.environment_name)]
 
         if group_name:
             groups = [group for group in groups if group['name'] == group_name]
