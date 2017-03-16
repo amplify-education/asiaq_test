@@ -43,7 +43,7 @@ class DiscoDeploy(object):
         :param aws a DiscoAWS instance to use
         :param test_aws DiscoAWS instance for integration tests. may be different environment than "aws" param
         :param bake a DiscoBake instance to use
-        :param autoscale a DiscoAutoscale instance to use
+        :param discogroup a DiscoGroup instance to use
         :param elb a DiscoELB instance to use
         :param pipeline_definition a list of dicts containing hostname, deployable and other pipeline values
         :param allow_any_hostclass do not restrict to hostclasses in the pipeline definition
