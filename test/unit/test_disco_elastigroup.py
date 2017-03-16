@@ -5,8 +5,8 @@ import random
 
 from unittest import TestCase
 
-import requests
-from mock import MagicMock, create_autospec
+import requests_mock
+from mock import MagicMock
 from disco_aws_automation import DiscoElastigroup
 
 ENVIRONMENT_NAME = "moon"
@@ -45,12 +45,19 @@ class DiscoElastigroupTests(TestCase):
 
         return mock_elastigroup
 
+    def assert_request_made(self, requests, url, method):
+        """Assert that a request was made to the given url and method"""
+        filtered_items = [item for item in requests.request_history
+                          if item.url == url and item.method == method]
+
+        history_contains = len(filtered_items) > 0
+
+        self.assertEqual(history_contains, True, "%s request was not made to %s" % (url, method))
+
     def setUp(self):
         """Pre-test setup"""
-        self.session = create_autospec(requests.Session)
         self.elastigroup = DiscoElastigroup(
             ENVIRONMENT_NAME,
-            session=self.session,
             account_id=ACCOUNT_ID
         )
 
@@ -126,16 +133,28 @@ class DiscoElastigroupTests(TestCase):
 
         self.assertEqual(actual_listings, mock_listings)
 
-    def test_create_new_group(self):
+    @requests_mock.Mocker()
+    def test_create_new_group(self, requests):
         """Verifies new elastigroup is created"""
         self.elastigroup._create_az_subnets_dict = MagicMock()
         self.elastigroup._create_elastigroup_config = MagicMock(return_value=dict())
         self.elastigroup.get_existing_group = MagicMock(return_value=None)
-        self.elastigroup._spotinst_call = MagicMock()
 
-        self.elastigroup.update_group(hostclass="mhcfoo", spotinst=True)
+        mock_response = {
+            'response': {
+                'items': [{
+                    'name': 'mhcfoo'
+                }]
+            }
+        }
 
-        self.elastigroup._spotinst_call.assert_called_once_with(data={}, method='post')
+        requests.post('https://api.spotinst.io/aws/ec2/group/', json=mock_response)
+        requests.get('https://api.spotinst.io/aws/ec2/group/', json=mock_response)
+
+        group = self.elastigroup.update_group(hostclass="mhcfoo", spotinst=True)
+
+        self.assert_request_made(requests, 'https://api.spotinst.io/aws/ec2/group/', 'POST')
+        self.assertEqual(group['name'], 'mhcfoo')
 
     def test_update_existing_group(self):
         """Verifies existing elastigroup is updated"""
