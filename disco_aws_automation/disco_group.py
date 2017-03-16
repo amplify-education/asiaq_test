@@ -35,9 +35,9 @@ class DiscoGroup(BaseGroup):
             logger.info('Unable to get existing Spotinst group: %s', err.message)
             spot_group = []
         if asg_group and spot_group:
-            return sorted([asg_group.__dict__, spot_group], key=lambda grp: grp['name'], reverse=True)[0]
+            return sorted([asg_group, spot_group], key=lambda grp: grp['name'], reverse=True)[0]
         elif asg_group:
-            return asg_group.__dict__
+            return asg_group
         elif spot_group:
             return spot_group
         else:
@@ -45,7 +45,7 @@ class DiscoGroup(BaseGroup):
 
     def get_existing_groups(self, hostclass=None, group_name=None):
         asg_groups = self.autoscale.get_existing_groups()
-        asg_groups = [group.__dict__ for group in asg_groups]
+        asg_groups = [group for group in asg_groups]
         try:
             spot_groups = self.elastigroup.get_existing_groups()
         except SpotinstException as err:
@@ -67,7 +67,7 @@ class DiscoGroup(BaseGroup):
 
     def get_instances(self, hostclass=None, group_name=None):
         asg_instances = self.autoscale.get_instances(hostclass=hostclass, group_name=group_name)
-        asg_instances = [instance.__dict__ for instance in asg_instances]
+        asg_instances = [instance for instance in asg_instances]
         try:
             spot_instances = self.elastigroup.get_instances(hostclass=hostclass, group_name=group_name)
         except SpotinstException as err:
@@ -106,6 +106,7 @@ class DiscoGroup(BaseGroup):
         When decrement_capacity is True this allows us to avoid
         autoscaling immediately replacing a terminated instance.
         """
+        # todo check if instance belongs to spotinst or ASG and decrement the correct group
         self.autoscale.terminate(instance_id, decrement_capacity)
 
     def delete_all_recurring_group_actions(self, hostclass=None, group_name=None):
