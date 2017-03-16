@@ -45,7 +45,6 @@ class DiscoGroup(BaseGroup):
 
     def get_existing_groups(self, hostclass=None, group_name=None):
         asg_groups = self.autoscale.get_existing_groups()
-        asg_groups = [group for group in asg_groups]
         try:
             spot_groups = self.elastigroup.get_existing_groups()
         except SpotinstException as err:
@@ -67,7 +66,6 @@ class DiscoGroup(BaseGroup):
 
     def get_instances(self, hostclass=None, group_name=None):
         asg_instances = self.autoscale.get_instances(hostclass=hostclass, group_name=group_name)
-        asg_instances = [instance for instance in asg_instances]
         try:
             spot_instances = self.elastigroup.get_instances(hostclass=hostclass, group_name=group_name)
         except SpotinstException as err:
