@@ -695,9 +695,6 @@ class DiscoAWS(object):
                 for (hostclass, termination_policies, hdict) in hostclass_iter]
 
             if metadata[0]:
-                for _hc in metadata:
-                    if _hc.get('spotinst'):
-                        self.elastigroup.wait_for_instance_id(_hc['group_name'])
                 self.smoketest(self.wait_for_autoscaling_instances(
                     [_hc for _hc in metadata if _hc["hostclass"] in flammable]))
 

@@ -300,6 +300,8 @@ class DiscoElastigroup(BaseGroup):
         else:
             new_group = self._spotinst_call(data=group_config, method='post').json()
             new_group_name = new_group['response']['items'][0]['name']
+
+            self.wait_for_instance_id(new_group_name)
             return {'name': new_group_name}
 
     def _delete_group(self, group_id):
