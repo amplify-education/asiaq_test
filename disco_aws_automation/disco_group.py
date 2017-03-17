@@ -48,8 +48,8 @@ class DiscoGroup(BaseGroup):
 
         try:
             return fun(*args, **kwargs)
-        except SpotinstException as err:
-            logger.info('Unable to call DiscoElastigroup.%s: %s', fun.__name__, err.message)
+        except SpotinstException:
+            logger.exception('Unable to call DiscoElastigroup.%s', fun.__name__)
             return default
 
     def get_existing_groups(self, hostclass=None, group_name=None):
