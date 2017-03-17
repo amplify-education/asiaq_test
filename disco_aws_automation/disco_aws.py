@@ -259,7 +259,8 @@ class DiscoAWS(object):
             block_device_mappings = [self.disco_storage.configure_storage(
                 hostclass=hostclass, ami_id=ami.id,
                 extra_space=extra_space, extra_disk=extra_disk, iops=iops,
-                ephemeral_disk_count=self.disco_storage.get_ephemeral_disk_count(instance_type))]
+                ephemeral_disk_count=min([self.disco_storage.get_ephemeral_disk_count(i_type)
+                                          for i_type in instance_type.split(':')]))]
         else:
             block_device_mappings = [old_config.block_device_mappings]
         return block_device_mappings
