@@ -24,6 +24,7 @@ class DiscoElastigroup(BaseGroup):
         self.environment_name = environment_name
         self._session = session
         self._account_id = account_id
+        self.token_warning_shown = None
         super(DiscoElastigroup, self).__init__()
 
     @property
@@ -34,11 +35,13 @@ class DiscoElastigroup(BaseGroup):
         Environment variable example:
         SPOTINST_TOKEN=d7e6c5abb51bb04fcaa411b7b70cce414c931bf719f7db0674b296e588630515
         """
-        try:
-            token = os.environ['SPOTINST_TOKEN']
-            return token
-        except KeyError:
-            logger.info('Create environment variable "SPOTINST_TOKEN"')
+        if os.environ.get('SPOTINST_TOKEN'):
+            return os.environ.get('SPOTINST_TOKEN')
+        else:
+            if not self.token_warning_shown:
+                logger.warn('Create environment variable "SPOTINST_TOKEN" in order to use SpotInst')
+                self.token_warning_shown = True
+            return None
 
     @property
     def session(self):
@@ -62,6 +65,12 @@ class DiscoElastigroup(BaseGroup):
         if not self._account_id:
             self._account_id = boto3.client('sts').get_caller_identity().get('Account')
         return self._account_id
+
+    def is_spotinst_enabled(self):
+        """Return True if SpotInst should be used"""
+
+        # if the token is missing then don't use spotinst
+        return self.token is not None
 
     def _spotinst_call(self, path='/', data=None, method='get'):
         if method not in ['get', 'post', 'put', 'delete']:
