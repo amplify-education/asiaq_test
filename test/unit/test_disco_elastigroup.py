@@ -2,12 +2,11 @@
 Tests of disco_elastigroup
 """
 import random
-import json
 
 from unittest import TestCase
 
-import requests
-from mock import MagicMock, create_autospec
+import requests_mock
+from mock import MagicMock
 from disco_aws_automation import DiscoElastigroup
 
 ENVIRONMENT_NAME = "moon"
@@ -39,25 +38,43 @@ class DiscoElastigroupTests(TestCase):
             "compute": {
                 "product": "Linux/UNIX",
                 "launchSpecification": {
-                    "imageId": ami_id
-                }
+                    "imageId": ami_id,
+                    "loadBalancersConfig": {
+                        "loadBalancers": [{
+                            "name": "elb-1234",
+                            "type": "CLASSIC"
+                        }]
+                    }
+                },
+                "availabilityZones": [{
+                    "name": 'us-moon-1a',
+                    "subnetId": "subnet-abcd1234"
+                }]
             }
         }
 
         return mock_elastigroup
 
+    def assert_request_made(self, requests, url, method):
+        """Assert that a request was made to the given url and method"""
+        filtered_items = [item for item in requests.request_history
+                          if item.url == url and item.method == method]
+
+        history_contains = len(filtered_items) > 0
+
+        self.assertEqual(history_contains, True, "%s request was not made to %s" % (url, method))
+
     def setUp(self):
         """Pre-test setup"""
-        self.session = create_autospec(requests.Session)
         self.elastigroup = DiscoElastigroup(
             ENVIRONMENT_NAME,
-            session=self.session,
             account_id=ACCOUNT_ID
         )
 
     def test_delete_groups_bad_hostclass(self):
         """Verifies elastigroup not deleted for bad hostclass"""
         self.elastigroup._delete_group = MagicMock()
+        self.elastigroup._spotinst_call = MagicMock()
 
         self.elastigroup.delete_groups(hostclass="mhcfoo")
 
@@ -66,6 +83,7 @@ class DiscoElastigroupTests(TestCase):
     def test_delete_groups_bad_groupname(self):
         """Verifies elastigroup not deleted for bad group name"""
         self.elastigroup._delete_group = MagicMock()
+        self.elastigroup._spotinst_call = MagicMock()
 
         self.elastigroup.delete_groups(group_name='moon_mhcfoo_12345678')
 
@@ -76,7 +94,7 @@ class DiscoElastigroupTests(TestCase):
         mock_group = self.mock_elastigroup(hostclass='mhcfoo')
 
         self.elastigroup._delete_group = MagicMock()
-        self.elastigroup._get_existing_groups = MagicMock(return_value=[mock_group])
+        self.elastigroup.get_existing_groups = MagicMock(return_value=[mock_group])
 
         self.elastigroup.delete_groups(hostclass='mhcfoo')
 
@@ -87,18 +105,24 @@ class DiscoElastigroupTests(TestCase):
         mock_group = self.mock_elastigroup(hostclass='mhcfoo')
 
         self.elastigroup._delete_group = MagicMock()
-        self.elastigroup._get_existing_groups = MagicMock(return_value=[mock_group])
+        self.elastigroup.get_existing_groups = MagicMock(return_value=[mock_group])
 
         self.elastigroup.delete_groups(group_name=mock_group['name'])
 
         self.elastigroup._delete_group.assert_called_once_with(group_id=mock_group['id'])
 
-    def test_list_groups_with_groups(self):
+    @requests_mock.Mocker()
+    def test_list_groups_with_groups(self, requests):
         """Verifies that listgroups correctly formats elastigroups"""
         mock_group1 = self.mock_elastigroup(hostclass="mhcfoo")
         mock_group2 = self.mock_elastigroup(hostclass="mhcbar")
 
-        self.elastigroup._get_existing_groups = MagicMock(return_value=[mock_group1, mock_group2])
+        requests.get(SPOTINST_API, json={
+            'response': {
+                'items': [mock_group1, mock_group2]
+            }
+        })
+
         self.elastigroup._get_group_instances = MagicMock(return_value=['instance1', 'instance2'])
 
         actual_listings = self.elastigroup.list_groups()
@@ -125,14 +149,28 @@ class DiscoElastigroupTests(TestCase):
 
         self.assertEqual(actual_listings, mock_listings)
 
-    def test_create_new_group(self):
+    @requests_mock.Mocker()
+    def test_create_new_group(self, requests):
         """Verifies new elastigroup is created"""
         self.elastigroup._create_az_subnets_dict = MagicMock()
         self.elastigroup._create_elastigroup_config = MagicMock(return_value=dict())
+        self.elastigroup.get_existing_group = MagicMock(return_value=None)
 
-        self.elastigroup.update_group(hostclass="mhcfoo")
+        mock_response = {
+            'response': {
+                'items': [{
+                    'name': 'mhcfoo'
+                }]
+            }
+        }
 
-        self.elastigroup.session.post.assert_called_once_with(SPOTINST_API, data=json.dumps({}))
+        requests.post(SPOTINST_API, json=mock_response)
+        requests.get(SPOTINST_API, json=mock_response)
+
+        group = self.elastigroup.update_group(hostclass="mhcfoo", spotinst=True)
+
+        self.assert_request_made(requests, SPOTINST_API, 'POST')
+        self.assertEqual(group['name'], 'mhcfoo')
 
     def test_update_existing_group(self):
         """Verifies existing elastigroup is updated"""
@@ -150,8 +188,9 @@ class DiscoElastigroupTests(TestCase):
         self.elastigroup._create_az_subnets_dict = MagicMock()
         self.elastigroup._create_elastigroup_config = MagicMock(return_value=mock_group_config)
         self.elastigroup.get_existing_group = MagicMock(return_value=mock_group)
+        self.elastigroup._spotinst_call = MagicMock()
 
-        self.elastigroup.update_group(hostclass="mhcfoo")
+        self.elastigroup.update_group(hostclass="mhcfoo", spotinst=True)
 
-        self.elastigroup.session.put.assert_called_once_with(SPOTINST_API + mock_group['id'],
-                                                             data=json.dumps(mock_group_config))
+        self.elastigroup._spotinst_call.assert_called_once_with(path='/' + mock_group['id'],
+                                                                data=mock_group_config, method='put')
