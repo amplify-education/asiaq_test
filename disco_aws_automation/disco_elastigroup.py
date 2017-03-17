@@ -98,7 +98,29 @@ class DiscoElastigroup(BaseGroup):
         elastigroup can be found, returns an empty list.
         """
         groups = self._spotinst_call().json()['response'].get('items', [])
-        groups = [group for group in groups if group['name'].startswith(self.environment_name)]
+
+        # get a dict for each group that matches the structure that would be returned by DiscoAutoscale
+        # this dict needs to have at least all the fields that the interface specifies
+        groups = [
+            {
+                'name': group['name'],
+                'min_size': group['capacity']['minimum'],
+                'max_size': group['capacity']['maximum'],
+                'desired_capacity': group['capacity']['target'],
+                'launch_config_name': None,
+                'termination_policies': [],
+                'vpc_zone_identifier': ','.join(
+                    zone['subnetId'] for zone in group['compute']['availabilityZones']
+                ),
+                'load_balancers': [
+                    elb['name'] for elb
+                    in group['compute']['launchSpecification']['loadBalancersConfig']['loadBalancers']
+                ],
+                'image_id': group['compute']['launchSpecification']['imageId'],
+                'id': group['id']
+            }
+            for group in groups if group['name'].startswith(self.environment_name)
+        ]
 
         if group_name:
             groups = [group for group in groups if group['name'] == group_name]
@@ -148,11 +170,11 @@ class DiscoElastigroup(BaseGroup):
         """Returns list of objects for display purposes for all groups"""
         groups = self.get_existing_groups()
         return [{'name': group['name'],
-                 'image_id': group['compute']['launchSpecification']['imageId'],
+                 'image_id': group['image_id'],
                  'group_cnt': len(self._get_group_instances(group['id'])),
-                 'min_size': group['capacity']['minimum'],
-                 'desired_capacity': group['capacity']['target'],
-                 'max_size': group['capacity']['maximum'],
+                 'min_size': group['min_size'],
+                 'desired_capacity': group['desired_capacity'],
+                 'max_size': group['max_size'],
                  'type': 'spot'} for group in groups]
 
     def _create_elastigroup_config(self, hostclass, availability_vs_cost, desired_size, min_size, max_size,

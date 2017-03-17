@@ -38,8 +38,18 @@ class DiscoElastigroupTests(TestCase):
             "compute": {
                 "product": "Linux/UNIX",
                 "launchSpecification": {
-                    "imageId": ami_id
-                }
+                    "imageId": ami_id,
+                    "loadBalancersConfig": {
+                        "loadBalancers": [{
+                            "name": "elb-1234",
+                            "type": "CLASSIC"
+                        }]
+                    }
+                },
+                "availabilityZones": [{
+                    "name": 'us-moon-1a',
+                    "subnetId": "subnet-abcd1234"
+                }]
             }
         }
 
@@ -101,12 +111,18 @@ class DiscoElastigroupTests(TestCase):
 
         self.elastigroup._delete_group.assert_called_once_with(group_id=mock_group['id'])
 
-    def test_list_groups_with_groups(self):
+    @requests_mock.Mocker()
+    def test_list_groups_with_groups(self, requests):
         """Verifies that listgroups correctly formats elastigroups"""
         mock_group1 = self.mock_elastigroup(hostclass="mhcfoo")
         mock_group2 = self.mock_elastigroup(hostclass="mhcbar")
 
-        self.elastigroup.get_existing_groups = MagicMock(return_value=[mock_group1, mock_group2])
+        requests.get(SPOTINST_API, json={
+            'response': {
+                'items': [mock_group1, mock_group2]
+            }
+        })
+
         self.elastigroup._get_group_instances = MagicMock(return_value=['instance1', 'instance2'])
 
         actual_listings = self.elastigroup.list_groups()
@@ -148,12 +164,12 @@ class DiscoElastigroupTests(TestCase):
             }
         }
 
-        requests.post('https://api.spotinst.io/aws/ec2/group/', json=mock_response)
-        requests.get('https://api.spotinst.io/aws/ec2/group/', json=mock_response)
+        requests.post(SPOTINST_API, json=mock_response)
+        requests.get(SPOTINST_API, json=mock_response)
 
         group = self.elastigroup.update_group(hostclass="mhcfoo", spotinst=True)
 
-        self.assert_request_made(requests, 'https://api.spotinst.io/aws/ec2/group/', 'POST')
+        self.assert_request_made(requests, SPOTINST_API, 'POST')
         self.assertEqual(group['name'], 'mhcfoo')
 
     def test_update_existing_group(self):

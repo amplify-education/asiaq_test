@@ -625,9 +625,9 @@ class DiscoDeploy(object):
         # If there is an already existing ASG, use its sizing. Otherwise, use the pipeline's sizing or a
         # reasonable default.
         if old_group:
-            desired_size = old_group.get('desired_capacity') or old_group['capacity']['target']
-            max_size = old_group.get('max_size') or old_group['capacity']['maximum']
-            min_size = old_group.get('min_size') or old_group['capacity']['minimum']
+            desired_size = old_group['desired_capacity']
+            max_size = old_group['max_size']
+            min_size = old_group['min_size']
         else:
             # The 'or 1' is because some people set their desired size to 0 in their pipeline.
             desired_size = int(size_as_maximum_int_or_none(
