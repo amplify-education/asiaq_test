@@ -42,7 +42,7 @@ class TestDiscoAWS(IntegrationTest, DiscoEnv, TestCase):
         """
         max_wait = 300
         max_time = time() + max_wait
-        hostclass = "mhcs3proxy"
+        hostclass = "mhcbanana"
 
         last_status = self.isready(hostclass)
         while time() < max_time and not last_status:
