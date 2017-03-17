@@ -421,7 +421,7 @@ class DiscoAWS(object):
             create_if_exists=create_if_exists,
             termination_policies=termination_policies,
             group_name=group_name,
-            spotinst=is_truthy(str(spotinst) or self.config('spotinst', hostclass))
+            spotinst=is_truthy(str(spotinst)) or is_truthy(self.config('spotinst', hostclass))
         )
 
         self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group['name'])
