@@ -25,15 +25,14 @@ class DiscoGroup(BaseGroup):
             group_name=group_name,
             throw_on_two_groups=throw_on_two_groups
         )
-        try:
-            spot_group = self.elastigroup.get_existing_group(
-                hostclass=hostclass,
-                group_name=group_name,
-                throw_on_two_groups=throw_on_two_groups
-            )
-        except SpotinstException as err:
-            logger.info('Unable to get existing Spotinst group: %s', err.message)
-            spot_group = []
+        spot_group = self._elastigroup_call(
+            self.elastigroup.get_existing_group,
+            default=[],
+            hostclass=hostclass,
+            group_name=group_name,
+            throw_on_two_groups=throw_on_two_groups
+        )
+
         if asg_group and spot_group:
             return sorted([asg_group, spot_group], key=lambda grp: grp['name'], reverse=True)[0]
         elif asg_group:
@@ -43,42 +42,49 @@ class DiscoGroup(BaseGroup):
         else:
             logger.info('No group found')
 
+    def _elastigroup_call(self, fun, default=None, *args, **kwargs):
+        if not self.elastigroup.is_spotinst_enabled():
+            return default
+
+        try:
+            return fun(*args, **kwargs)
+        except SpotinstException as err:
+            logger.info('Unable to call DiscoElastigroup.%s: %s', fun.__name__, err.message)
+            return default
+
     def get_existing_groups(self, hostclass=None, group_name=None):
         asg_groups = self.autoscale.get_existing_groups()
-        try:
-            spot_groups = self.elastigroup.get_existing_groups()
-        except SpotinstException as err:
-            logger.info('Unable to get existing Spotinst groups: %s', err.message)
-            spot_groups = []
+        spot_groups = self._elastigroup_call(self.elastigroup.get_existing_groups, default=[])
+
         return asg_groups + spot_groups
 
     def list_groups(self):
         """Returns list of objects for display purposes for all groups"""
         asg_groups = self.autoscale.list_groups()
-        try:
-            spot_groups = self.elastigroup.list_groups()
-        except SpotinstException as err:
-            logger.info('Unable to list Spotinst groups: %s', err.message)
-            spot_groups = []
+        spot_groups = self._elastigroup_call(self.elastigroup.list_groups, default=[])
+
         groups = asg_groups + spot_groups
         groups.sort(key=lambda grp: grp['name'])
         return groups
 
     def get_instances(self, hostclass=None, group_name=None):
         asg_instances = self.autoscale.get_instances(hostclass=hostclass, group_name=group_name)
-        try:
-            spot_instances = self.elastigroup.get_instances(hostclass=hostclass, group_name=group_name)
-        except SpotinstException as err:
-            logger.info('Unable to get Spotinst group instances: %s', err.message)
-            spot_instances = []
+        spot_instances = self._elastigroup_call(
+            self.elastigroup.get_instances, default=[],
+            hostclass=hostclass,
+            group_name=group_name
+        )
+
         return asg_instances + spot_instances
 
     def delete_groups(self, hostclass=None, group_name=None, force=False):
         self.autoscale.delete_groups(hostclass=hostclass, group_name=group_name, force=force)
-        try:
-            self.elastigroup.delete_groups(hostclass=hostclass, group_name=group_name, force=force)
-        except SpotinstException as err:
-            logger.info('Unable to delete Spotinst groups: %s', err.message)
+        self._elastigroup_call(
+            self.elastigroup.delete_groups,
+            hostclass=hostclass,
+            group_name=group_name,
+            force=force
+        )
 
     def scaledown_groups(self, hostclass=None, group_name=None, wait=False, noerror=False):
         self.autoscale.scaledown_groups(
@@ -87,15 +93,14 @@ class DiscoGroup(BaseGroup):
             wait=wait,
             noerror=noerror
         )
-        try:
-            self.elastigroup.scaledown_groups(
-                hostclass=hostclass,
-                group_name=group_name,
-                wait=wait,
-                noerror=noerror
-            )
-        except SpotinstException as err:
-            logger.info('Unable to scaledown Spotinst groups: %s', err.message)
+
+        self._elastigroup_call(
+            self.elastigroup.scaledown_groups,
+            hostclass=hostclass,
+            group_name=group_name,
+            wait=wait,
+            noerror=noerror
+        )
 
     def terminate(self, instance_id, decrement_capacity=True):
         """
@@ -138,14 +143,30 @@ class DiscoGroup(BaseGroup):
         """
         Create a new autoscaling group or update an existing one
         """
-        service = self._service(spotinst)
-
-        return service.update_group(hostclass, desired_size, min_size, max_size, instance_type,
-                                    load_balancers, subnets, security_groups, instance_monitoring,
-                                    ebs_optimized, image_id, key_name,
-                                    associate_public_ip_address, user_data, tags, instance_profile_name,
-                                    block_device_mappings, group_name, create_if_exists, termination_policies,
-                                    spotinst)
+        return self._service_call(
+            spotinst, 'update_group',
+            hostclass=hostclass,
+            desired_size=desired_size,
+            min_size=min_size,
+            max_size=max_size,
+            instance_type=instance_type,
+            load_balancers=load_balancers,
+            subnets=subnets,
+            security_groups=security_groups,
+            instance_monitoring=instance_monitoring,
+            ebs_optimized=ebs_optimized,
+            image_id=image_id,
+            key_name=key_name,
+            associate_public_ip_address=associate_public_ip_address,
+            user_data=user_data,
+            tags=tags,
+            instance_profile_name=instance_profile_name,
+            block_device_mappings=block_device_mappings,
+            group_name=group_name,
+            create_if_exists=create_if_exists,
+            termination_policies=termination_policies,
+            spotinst=spotinst
+        )
 
     def clean_configs(self):
         """Delete unused Launch Configurations in current environment"""
@@ -179,12 +200,11 @@ class DiscoGroup(BaseGroup):
         """Deletes an autoscaling policy"""
         self.autoscale.delete_policy(policy_name, group_name)
 
-    def _service(self, spotinst):
-        """
-        User either autoscale or elastigroup service, depending on
-        hostclass configuration in disco_aws.ini (e.g. spotinst=True)
-        """
-        if spotinst:
-            return self.elastigroup
+    def _service_call(self, use_spotinst, fun_name, default=None, *args, **kwargs):
+        """Make a call to either DiscoAutoscale or DiscoElastigroup"""
+        if use_spotinst:
+            fun = getattr(self.elastigroup, fun_name)
+            return self._elastigroup_call(fun, default, *args, **kwargs)
         else:
-            return self.autoscale
+            fun = getattr(self.autoscale, fun_name)
+            return fun(*args, **kwargs)
