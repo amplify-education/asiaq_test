@@ -2,9 +2,10 @@
 Tests of disco_aws
 """
 from unittest import TestCase
+
 from mock import MagicMock, create_autospec
 
-from disco_aws_automation import DiscoChaos, DiscoAWS, DiscoAutoscale
+from disco_aws_automation import DiscoChaos, DiscoAWS, DiscoGroup
 from test.helpers.patch_disco_aws import (get_default_config_dict,
                                           get_mock_config,
                                           TEST_ENV_NAME)
@@ -33,9 +34,9 @@ class DiscoChaosTests(TestCase):
 
     def test_get_autoscaling_group_right_params(self):
         '''Test that get_autoscaling_groups makes only valid calls'''
-        self.chaos._disco_aws.autoscale = create_autospec(DiscoAutoscale)
+        self.chaos._disco_aws.discogroup = create_autospec(DiscoGroup)
         self.chaos._get_autoscaling_groups()
-        self.assertEqual(self.chaos._disco_aws.autoscale.get_existing_groups.call_count, 1)
+        self.assertEqual(self.chaos._disco_aws.discogroup.get_existing_groups.call_count, 1)
 
     def test_terminate_right_params(self):
         '''Test that terminate makes only valid calls'''

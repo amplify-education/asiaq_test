@@ -200,6 +200,10 @@ class DiscoGroup(BaseGroup):
         """Deletes an autoscaling policy"""
         self.autoscale.delete_policy(policy_name, group_name)
 
+    def update_snapshot(self, snapshot_id, snapshot_size, hostclass=None, group_name=None):
+        """Updates all of a hostclasses existing autoscaling groups to use a different snapshot"""
+        self.autoscale.update_snapshot(snapshot_id, snapshot_size, hostclass, group_name)
+
     def _service_call(self, use_spotinst, fun_name, default=None, *args, **kwargs):
         """Make a call to either DiscoAutoscale or DiscoElastigroup"""
         if use_spotinst:
