@@ -577,7 +577,7 @@ class DiscoVPC(object):
     def _destroy_instances(self):
         """ Find all instances in vpc and terminate them """
         discogroup = DiscoGroup(environment_name=self.environment_name)
-        discogroup.delete_groups()
+        discogroup.delete_groups(force=True)
         reservations = throttled_call(self.boto3_ec2.describe_instances,
                                       Filters=self.vpc_filters())['Reservations']
         instances = [i['InstanceId']
