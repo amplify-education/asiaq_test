@@ -126,7 +126,7 @@ def run():
             aws.disco_storage.delete_snapshot(snapshot_id)
     elif args.mode == "update":
         snapshot = aws.disco_storage.get_latest_snapshot(args.hostclass)
-        aws.autoscale.update_snapshot(snapshot.id, snapshot.volume_size, hostclass=args.hostclass)
+        aws.discogroup.update_snapshot(snapshot.id, snapshot.volume_size, hostclass=args.hostclass)
 
 if __name__ == "__main__":
     run_gracefully(run)

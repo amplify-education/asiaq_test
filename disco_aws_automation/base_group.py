@@ -150,3 +150,8 @@ class BaseGroup(object):
                 raise
 
         return True
+
+    @abstractmethod
+    def update_snapshot(self, snapshot_id, snapshot_size, hostclass=None, group_name=None):
+        """Updates all of a hostclasses existing autoscaling groups to use a different snapshot"""
+        pass

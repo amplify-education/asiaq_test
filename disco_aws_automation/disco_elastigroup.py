@@ -430,6 +430,10 @@ class DiscoElastigroup(BaseGroup):
         """Deletes an autoscaling policy"""
         pass
 
+    def update_snapshot(self, snapshot_id, snapshot_size, hostclass=None, group_name=None):
+        """Updates all of a hostclasses existing autoscaling groups to use a different snapshot"""
+        pass
+
     def _get_group_id_from_instance_id(self, instance_id):
         groups = self.get_existing_groups()
         for group in groups:
