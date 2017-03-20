@@ -215,16 +215,7 @@ class DiscoGroup(BaseGroup):
 
     def list_policies(self, group_name=None, policy_types=None, policy_names=None):
         """Returns all autoscaling policies"""
-        asg_policies = self.autoscale.list_policies(group_name, policy_types, policy_names)
-        spot_policies = self._elastigroup_call(
-            self.elastigroup.list_policies,
-            default=[],
-            group_name=group_name,
-            policy_types=policy_types,
-            policy_names=policy_names
-        )
-
-        return asg_policies + spot_policies
+        return self.autoscale.list_policies(group_name, policy_types, policy_names)
 
     def create_policy(self, group_name, policy_name, policy_type="SimpleScaling", adjustment_type=None,
                       min_adjustment_magnitude=None, scaling_adjustment=None, cooldown=600,

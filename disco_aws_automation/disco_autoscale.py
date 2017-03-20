@@ -420,7 +420,7 @@ class DiscoAutoscale(BaseGroup):
                         'min_size': group['min_size'],
                         'desired_capacity': group['desired_capacity'],
                         'max_size': group['max_size'],
-                        'type': group['asg']}
+                        'type': group['type']}
             grp_list.append(grp_dict)
         return grp_list
 
