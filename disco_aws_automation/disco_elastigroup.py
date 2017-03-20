@@ -127,7 +127,8 @@ class DiscoElastigroup(BaseGroup):
                 ],
                 'image_id': group['compute']['launchSpecification']['imageId'],
                 'id': group['id'],
-                'type': 'spot'
+                'type': 'spot',
+                'blockDeviceMappings': group['compute']['launchSpecification']['blockDeviceMappings']
             }
             for group in groups if group['name'].startswith(self.environment_name)
         ]
@@ -433,7 +434,58 @@ class DiscoElastigroup(BaseGroup):
 
     def update_snapshot(self, snapshot_id, snapshot_size, hostclass=None, group_name=None):
         """Updates all of a hostclasses existing autoscaling groups to use a different snapshot"""
-        pass
+        existing_group = self.get_existing_group(hostclass, group_name)
+
+        if not existing_group:
+            raise Exception(
+                'Elastigroup for %s hostclass and %s group name does not exist' %
+                (str(hostclass), str(group_name))
+            )
+
+        block_device_mappings = existing_group['blockDeviceMappings']
+
+        # find which device uses snapshots. throw errors if none found or more than 1 found
+        snapshot_devices = [device for device in block_device_mappings if device.get('snapshotId')]
+
+        if not snapshot_devices:
+            raise Exception("Hostclass %s does not mount a snapshot" % hostclass)
+        elif len(snapshot_devices) > 1:
+            raise Exception(
+                "Unsupported configuration: hostclass %s has multiple snapshot based devices." % hostclass
+            )
+
+        snapshot_device = snapshot_devices[0]
+        old_snapshot_id = snapshot_device['snapshotId']
+
+        if old_snapshot_id == snapshot_id:
+            logger.debug(
+                "Autoscaling group %s is already referencing latest snapshot %s",
+                hostclass or group_name,
+                snapshot_id
+            )
+            return
+
+        snapshot_device['snapshotId'] = snapshot_id
+        snapshot_device['volumeSize'] = snapshot_size
+
+        group_config = {
+            'group': {
+                'compute': {
+                    'launchSpecification': {
+                        'blockDeviceMappings': block_device_mappings
+                    }
+                }
+            }
+        }
+
+        logger.info(
+            "Updating %s group's snapshot from %s to %s",
+            hostclass or group_name,
+            old_snapshot_id,
+            snapshot_id
+        )
+
+        self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
 
     def _get_group_id_from_instance_id(self, instance_id):
         groups = self.get_existing_groups()

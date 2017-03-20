@@ -44,7 +44,8 @@ class DiscoElastigroupTests(TestCase):
                             "name": "elb-1234",
                             "type": "CLASSIC"
                         }]
-                    }
+                    },
+                    "blockDeviceMappings": []
                 },
                 "availabilityZones": [{
                     "name": 'us-moon-1a',
