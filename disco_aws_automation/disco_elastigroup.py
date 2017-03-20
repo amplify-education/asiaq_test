@@ -262,8 +262,7 @@ class DiscoElastigroup(BaseGroup):
             "compute": compute
         }
 
-        logger.info(
-            "Creating elastigroup config for elastigroup '%s'", group_name)
+        logger.info("Creating elastigroup config for elastigroup '%s'", group_name)
 
         elastigroup_config = {"group": group}
         return elastigroup_config
@@ -395,7 +394,47 @@ class DiscoElastigroup(BaseGroup):
 
     def update_elb(self, elb_names, hostclass=None, group_name=None):
         """Updates an existing autoscaling group to use a different set of load balancers"""
-        pass
+        existing_group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
+
+        if not existing_group:
+            logger.warning(
+                "Auto Scaling group %s does not exist. Cannot change %s ELB(s)",
+                hostclass or group_name,
+                ', '.join(elb_names)
+            )
+            return set(), set()
+
+        new_lbs = set(elb_names) - set(existing_group['load_balancers'])
+        extras = set(existing_group['load_balancers']) - set(elb_names)
+
+        if new_lbs or extras:
+            logger.info(
+                "Updating ELBs for group %s from [%s] to [%s]",
+                existing_group['name'],
+                ", ".join(existing_group['load_balancers']),
+                ", ".join(elb_names)
+            )
+
+        elb_configs = [{
+            'name': elb,
+            'type': 'CLASSIC'
+        } for elb in elb_names]
+
+        group_config = {
+            'group': {
+                'compute': {
+                    'launchSpecification': {
+                        'loadBalancersConfig': {
+                            'loadBalancers': elb_configs
+                        }
+                    }
+                }
+            }
+        }
+
+        self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
+
+        return new_lbs, extras
 
     def get_launch_config(self, hostclass=None, group_name=None):
         """Create new launchconfig group name"""
