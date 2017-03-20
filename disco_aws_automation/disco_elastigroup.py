@@ -490,7 +490,7 @@ class DiscoElastigroup(BaseGroup):
 
     def list_policies(self, group_name=None, policy_types=None, policy_names=None):
         """Returns all autoscaling policies"""
-        return []
+        raise Exception('Scaling for Elastigroups is not implemented')
 
     # pylint: disable=too-many-arguments
     def create_policy(self, group_name, policy_name, policy_type="SimpleScaling", adjustment_type=None,
@@ -501,11 +501,11 @@ class DiscoElastigroup(BaseGroup):
         policy name already exist. Handles the logic of constructing the correct autoscaling policy request,
         because not all parameters are required.
         """
-        pass
+        raise Exception('Scaling for Elastigroups is not implemented')
 
     def delete_policy(self, policy_name, group_name):
         """Deletes an autoscaling policy"""
-        pass
+        raise Exception('Scaling for Elastigroups is not implemented')
 
     def update_snapshot(self, snapshot_id, snapshot_size, hostclass=None, group_name=None):
         """Updates all of a hostclasses existing autoscaling groups to use a different snapshot"""
