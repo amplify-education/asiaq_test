@@ -399,19 +399,19 @@ class DiscoElastigroup(BaseGroup):
 
     def get_launch_config(self, hostclass=None, group_name=None):
         """Create new launchconfig group name"""
-        pass
+        raise Exception('Elastigroups don\'t have launch configs')
 
     def clean_configs(self):
         """Delete unused Launch Configurations in current environment"""
-        pass
+        raise Exception('Elastigroups don\'t have launch configs')
 
     def get_configs(self, names=None):
         """Returns Launch Configurations in current environment"""
-        pass
+        raise Exception('Elastigroups don\'t have launch configs')
 
     def delete_config(self, config_name):
         """Delete a specific Launch Configuration"""
-        pass
+        raise Exception('Elastigroups don\'t have launch configs')
 
     def list_policies(self, group_name=None, policy_types=None, policy_names=None):
         """Returns all autoscaling policies"""
