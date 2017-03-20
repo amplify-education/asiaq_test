@@ -392,7 +392,9 @@ class DiscoElastigroup(BaseGroup):
 
             group_config = {
                 'group': {
-                    'scheduling': []
+                    'scheduling': {
+                        'tasks': []
+                    }
                 }
             }
 
