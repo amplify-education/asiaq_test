@@ -126,7 +126,8 @@ class DiscoElastigroup(BaseGroup):
                     in group['compute']['launchSpecification']['loadBalancersConfig']['loadBalancers']
                 ],
                 'image_id': group['compute']['launchSpecification']['imageId'],
-                'id': group['id']
+                'id': group['id'],
+                'type': 'spot'
             }
             for group in groups if group['name'].startswith(self.environment_name)
         ]
@@ -184,7 +185,7 @@ class DiscoElastigroup(BaseGroup):
                  'min_size': group['min_size'],
                  'desired_capacity': group['desired_capacity'],
                  'max_size': group['max_size'],
-                 'type': 'spot'} for group in groups]
+                 'type': group['type']} for group in groups]
 
     def _create_elastigroup_config(self, hostclass, availability_vs_cost, desired_size, min_size, max_size,
                                    instance_type, zones, load_balancers, security_groups, instance_monitoring,
@@ -413,7 +414,7 @@ class DiscoElastigroup(BaseGroup):
 
     def list_policies(self, group_name=None, policy_types=None, policy_names=None):
         """Returns all autoscaling policies"""
-        pass
+        return []
 
     # pylint: disable=too-many-arguments
     def create_policy(self, group_name, policy_name, policy_type="SimpleScaling", adjustment_type=None,
