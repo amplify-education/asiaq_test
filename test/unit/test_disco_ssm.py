@@ -14,11 +14,13 @@ from disco_aws_automation.disco_ssm import SSM_DOCUMENTS_DIR, SSM_OUTPUT_ERROR_D
 from test.helpers.patch_disco_aws import (get_mock_config,
                                           TEST_ENV_NAME)
 
+MOCK_BUCKET_PREFIX = 'asiaq-test-buckets'
+MOCK_S3_BUCKET_NAME = MOCK_BUCKET_PREFIX + '--ssm'
 
 MOCK_AWS_CONFIG_DEFINITION = {
     'disco_aws': {
         'default_environment': TEST_ENV_NAME,
-        's3_bucket_base': 'asiaq-test-buckets',
+        's3_bucket_base': MOCK_BUCKET_PREFIX,
     }}
 MOCK_AWS_DOCUMENTS = [
     {
@@ -187,7 +189,7 @@ def _get_mock_s3():
         return response
 
     def _mock_head_bucket(Bucket):
-        if Bucket != TEST_SSM_S3_BUCKET:
+        if Bucket != MOCK_S3_BUCKET_NAME:
             raise ClientError({'Error': {}}, 'HeadBucket')
         return None
 
@@ -484,7 +486,7 @@ class DiscoSSMTests(TestCase):
         """Verify that we get correct S3 bucket"""
 
         self.assertEquals(
-            'asiaq-test-buckets--ssm',
+            MOCK_S3_BUCKET_NAME,
             self._ssm.get_s3_bucket_name()
         )
 
