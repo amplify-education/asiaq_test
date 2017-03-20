@@ -2291,7 +2291,7 @@ Some important notes about executing SSM documents:
 * SSM documents have a default timeout of one minute. If this timeout is not otherwise overwritten, the output will still be returned but the command itself will be marked as a failure.
 * The output of SSM documents will be uploaded to an S3 bucket named using variables configured in `disco_aws.ini`, using the following scheme:
 `${s3_bucket_base}--ssm--${s3_bucket_suffix}`.  Both variables can be made environment-specific, or the s3_bucket_suffix variable can be
-omitted entirely.  If the bucket does not exist, dire consequences will likely ensue.
+omitted entirely.  If the bucket does not exist, then the output of SSM documents will be limited to 2500 characters.
 
 Testing Hostclasses
 -------------------
