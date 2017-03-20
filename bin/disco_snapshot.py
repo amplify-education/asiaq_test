@@ -60,6 +60,9 @@ def get_parser():
     parser_take_group.add_argument('--hostclass', dest='hostclasses', default=[], action='append', type=str)
     parser_take_group.add_argument('--ami', dest='amis', default=[], action='append', type=str)
     parser_take_group.add_argument('--volume-id', dest='volume_id', type=str)
+    parser_take.add_argument('--tag', dest='tags', required=False, action='append', type=str,
+                             help='The key-value pair used to tag the snapshot '
+                                  '(Example: --tag disk_usage:300MB)')
 
     parser_update = subparsers.add_parser(
         'update', help='Update snapshot used by new instances in a hostclass')
@@ -92,7 +95,8 @@ def run():
 
     aws = DiscoAWS(config, environment_name=environment_name)
     if args.mode == "create":
-        aws.disco_storage.create_ebs_snapshot(args.hostclass, args.size, not args.unencrypted)
+        product_line = aws.hostclass_option_default(args.hostclass, 'product_line', 'unknown')
+        aws.disco_storage.create_ebs_snapshot(args.hostclass, args.size, product_line, not args.unencrypted)
     elif args.mode == "list":
         for snapshot in aws.disco_storage.get_snapshots(args.hostclasses):
             print("{0:26} {1:13} {2:9} {3} {4:4}".format(
@@ -102,7 +106,10 @@ def run():
         aws.disco_storage.cleanup_ebs_snapshots(args.keep)
     elif args.mode == "capture":
         if args.volume_id:
-            snapshot_id = aws.disco_storage.take_snapshot(args.volume_id)
+            extra_snapshot_tags = None
+            if args.tags:
+                extra_snapshot_tags = dict(tag_item.split(':') for tag_item in args.tags)
+            snapshot_id = aws.disco_storage.take_snapshot(args.volume_id, snapshot_tags=extra_snapshot_tags)
             print("Successfully created snapshot: {0}".format(snapshot_id))
         else:
             instances = instances_from_args(aws, args)
@@ -119,7 +126,7 @@ def run():
             aws.disco_storage.delete_snapshot(snapshot_id)
     elif args.mode == "update":
         snapshot = aws.disco_storage.get_latest_snapshot(args.hostclass)
-        aws.autoscale.update_snapshot(snapshot.id, snapshot.volume_size, hostclass=args.hostclass)
+        aws.discogroup.update_snapshot(snapshot.id, snapshot.volume_size, hostclass=args.hostclass)
 
 if __name__ == "__main__":
     run_gracefully(run)

@@ -222,7 +222,7 @@ class RDS(threading.Thread):
         logger.info("Updating RDS cluster %s", instance_params["DBInstanceIdentifier"])
         params = RDS.delete_keys(instance_params, [
             "Engine", "LicenseModel", "DBSubnetGroupName", "PubliclyAccessible",
-            "MasterUsername", "Port", "CharacterSetName", "StorageEncrypted"])
+            "MasterUsername", "Port", "CharacterSetName", "StorageEncrypted", "Tags"])
         throttled_call(self.client.modify_db_instance, ApplyImmediately=apply_immediately, **params)
         logger.info("Rebooting cluster to apply Param group %s", instance_params["DBInstanceIdentifier"])
         keep_trying(RDS_STATE_POLL_INTERVAL,
@@ -265,6 +265,13 @@ class RDS(threading.Thread):
         preferred_maintenance_window = self.config_with_default(self.config_rds, section,
                                                                 'preferred_maintenance_window',
                                                                 None)
+        tags = [
+            {'Key': 'environment', 'Value': env_name},
+            {'Key': 'db-name', 'Value': database_name},
+            {'Key': 'productline', 'Value': self.config_with_default(self.config_rds, section,
+                                                                     'product_line',
+                                                                     'unknown')}
+        ]
 
         instance_params = {
             'AllocatedStorage': self.config_integer(self.config_rds, section, 'allocated_storage'),
@@ -289,7 +296,8 @@ class RDS(threading.Thread):
             'VpcSecurityGroupIds': [self.rds_security_group_id],
             'StorageEncrypted': self.config_truthy(self.config_rds, section, 'storage_encrypted'),
             'BackupRetentionPeriod': self.config_integer(self.config_rds, section,
-                                                         'backup_retention_period', 1)
+                                                         'backup_retention_period', 1),
+            'Tags': tags
         }
 
         # If custom windows were set, use them. If windows are not specified, we will use the AWS defaults
@@ -575,11 +583,14 @@ class DiscoRDS(object):
         """ Delete an RDS instance/cluster. Final snapshot is automatically taken. """
         logger.info("Deleting RDS cluster %s", instance_identifier)
 
+        db_instance = throttled_call(
+            self.client.describe_db_instances,
+            DBInstanceIdentifier=instance_identifier
+        )["DBInstances"][0]
+        db_subnet_group_name = db_instance["DBSubnetGroup"]["DBSubnetGroupName"]
+
         if skip_final_snapshot:
-            allocated_storage = throttled_call(
-                self.client.describe_db_instances,
-                DBInstanceIdentifier=instance_identifier
-            )["DBInstances"][0]["AllocatedStorage"]
+            allocated_storage = db_instance["AllocatedStorage"]
 
             ansi_color_red = "\033[91m"
             ansi_color_none = "\033[0m"
@@ -587,6 +598,12 @@ class DiscoRDS(object):
                   " will be dropped and no backup taken. Data will be irrecoverable." + ansi_color_none)
             response = raw_input("Confirm by typing the amount of allocated storage that will be dropped: ")
             if response == str(allocated_storage):
+                try:
+                    throttled_call(self.client.delete_db_subnet_group, DBSubnetGroupName=db_subnet_group_name)
+                except Exception as err:
+                    logger.exception("Unable to delete subnet group '%s': %s", db_subnet_group_name,
+                                     repr(err))
+
                 throttled_call(
                     self.client.delete_db_instance,
                     DBInstanceIdentifier=instance_identifier,
@@ -601,6 +618,7 @@ class DiscoRDS(object):
             final_snapshot = "%s-final-snapshot" % instance_identifier
             try:
                 throttled_call(self.client.delete_db_snapshot, DBSnapshotIdentifier=final_snapshot)
+                throttled_call(self.client.delete_db_subnet_group, DBSubnetGroupName=db_subnet_group_name)
             except botocore.exceptions.ClientError:
                 pass
             keep_trying(

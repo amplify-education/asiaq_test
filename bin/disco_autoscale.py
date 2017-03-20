@@ -9,7 +9,7 @@ import sys
 
 from collections import defaultdict
 
-from disco_aws_automation import DiscoAutoscale
+from disco_aws_automation import DiscoGroup
 from disco_aws_automation.disco_aws_util import run_gracefully
 from disco_aws_automation.disco_config import read_config
 from disco_aws_automation.disco_logging import configure_logging
@@ -154,41 +154,37 @@ def run():
 
     environment_name = args.env or config.get("disco_aws", "default_environment")
 
-    autoscale = DiscoAutoscale(environment_name)
+    discogroup = DiscoGroup(environment_name)
 
     # Autoscaling group commands
     if args.mode == "listgroups":
-        format_str = "{0} {1:12} {2:3} {3:3} {4:3} {5:3}"
-        groups = autoscale.get_existing_groups()
-        instances = autoscale.get_instances()
+        format_str = "{0} {1:12} {2:3} {3:3} {4:3} {5:3} {6:4}"
+        groups = discogroup.list_groups()
         if args.debug:
             print(format_str.format(
-                "Name".ljust(35 + len(environment_name)), "AMI", "min", "des", "max", "cnt"))
+                "Name".ljust(35 + len(environment_name)), "AMI", "min", "des", "max", "cnt", "type"))
         for group in groups:
-            launch_cfg = list(autoscale.get_configs(names=[group.launch_config_name]))
-            image_id = launch_cfg[0].image_id if len(launch_cfg) else ""
-            group_str = group.name.ljust(35 + len(environment_name))
-            group_cnt = len([instance for instance in instances if instance.group_name == group.name])
-            print(format_str.format(group_str, image_id,
-                                    group.min_size, group.desired_capacity, group.max_size,
-                                    group_cnt))
+            print (format_str.format(group['name'].ljust(35 + len(environment_name)),
+                                     group['image_id'], group['min_size'], group['desired_capacity'],
+                                     group['max_size'], group['group_cnt'], group['type']))
+
     elif args.mode == "cleangroups":
-        autoscale.clean_groups()
+        discogroup.delete_groups()
     elif args.mode == "deletegroup":
-        autoscale.delete_groups(hostclass=args.hostclass, group_name=args.name, force=args.force)
+        discogroup.delete_groups(hostclass=args.hostclass, group_name=args.name, force=args.force)
 
     # Launch Configuration commands
     elif args.mode == "listconfigs":
-        for config in autoscale.get_configs():
+        for config in discogroup.get_configs():
             print("{0:24} {1}".format(config.name, config.image_id))
     elif args.mode == "cleanconfigs":
-        autoscale.clean_configs()
+        discogroup.clean_configs()
     elif args.mode == "deleteconfig":
-        autoscale.delete_config(args.config)
+        discogroup.delete_config(args.config)
 
     # Scaling policy commands
     elif args.mode == "listpolicies":
-        policies = autoscale.list_policies(
+        policies = discogroup.list_policies(
             group_name=args.group_name,
             policy_types=args.policy_types,
             policy_names=args.policy_names
@@ -226,7 +222,7 @@ def run():
         else:
             parsed_steps = []
 
-        autoscale.create_policy(
+        discogroup.create_policy(
             group_name=args.group_name,
             policy_name=args.policy_name,
             policy_type=args.policy_type,
@@ -239,7 +235,7 @@ def run():
             estimated_instance_warmup=args.estimated_instance_warmup
         )
     elif args.mode == "deletepolicy":
-        autoscale.delete_policy(args.policy_name, args.group_name)
+        discogroup.delete_policy(args.policy_name, args.group_name)
 
     sys.exit(0)
 

@@ -10,6 +10,7 @@ import socket
 import time
 from ConfigParser import ConfigParser
 
+from datetime import datetime
 from boto.exception import EC2ResponseError
 import boto3
 from botocore.exceptions import ClientError
@@ -22,7 +23,8 @@ from .disco_config import normalize_path
 
 from .disco_alarm import DiscoAlarm
 from .disco_alarm_config import DiscoAlarmsConfig
-from .disco_autoscale import DiscoAutoscale
+from .disco_group import DiscoGroup
+from .disco_config import read_config
 from .disco_constants import CREDENTIAL_BUCKET_TEMPLATE, NETWORKS, VPC_CONFIG_FILE
 from .disco_elasticache import DiscoElastiCache
 from .disco_elb import DiscoELB
@@ -35,7 +37,7 @@ from .disco_vpc_gateways import DiscoVPCGateways
 from .disco_vpc_peerings import DiscoVPCPeerings
 from .disco_vpc_sg_rules import DiscoVPCSecurityGroupRules
 from .resource_helper import (tag2dict, create_filters, keep_trying, throttled_call)
-from .exceptions import (VPCConfigError, VPCEnvironmentError)
+from .exceptions import (IPRangeError, VPCConfigError, VPCEnvironmentError)
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +49,9 @@ class DiscoVPC(object):
     This class contains all our VPC orchestration code
     """
 
-    def __init__(self, environment_name, environment_type, vpc=None, config_file=None, boto3_ec2=None):
+    def __init__(self, environment_name, environment_type, vpc=None,
+                 config_file=None, boto3_ec2=None, defer_creation=False,
+                 aws_config=None, skip_enis_pre_allocate=False, vpc_tags=None):
         self.config_file = config_file or VPC_CONFIG_FILE
 
         self.environment_name = environment_name
@@ -59,6 +63,9 @@ class DiscoVPC(object):
         self._networks = None
         self._alarms_config = None
         self._disco_vpc_endpoints = None
+        self._aws_config = aws_config
+        self._skip_enis_pre_allocate = skip_enis_pre_allocate
+        self._vpc_tags = vpc_tags
 
         if boto3_ec2:
             self.boto3_ec2 = boto3_ec2
@@ -79,8 +86,15 @@ class DiscoVPC(object):
 
         if vpc:
             self.vpc = vpc
-        else:
-            self._create_environment()
+        elif not defer_creation:
+            self.create()
+
+    @property
+    def aws_config(self):
+        "Auto-populate and return an AsiaqConfig for the standard configuration file."
+        if not self._aws_config:
+            self._aws_config = read_config(environment=self.environment_name)
+        return self._aws_config
 
     @property
     def config(self):
@@ -88,7 +102,9 @@ class DiscoVPC(object):
         if not self._config:
             try:
                 config = ConfigParser()
-                config.read(normalize_path(self.config_file))
+                config_file = normalize_path(self.config_file)
+                logger.info("Reading VPC config %s", config_file)
+                config.read(config_file)
                 self._config = config
             except Exception:
                 return None
@@ -250,6 +266,28 @@ class DiscoVPC(object):
 
         return metanetworks
 
+    def _reserve_hostclass_ip_addresses(self):
+        """
+        Reserves static ip addresses used by hostclasses by pre-creating the ENIs,
+        so that these IPs won't be occupied by AWS services, such as RDS, ElastiCache, etc.
+        """
+        for hostclass in self.aws_config.get_hostclasses_from_section_names():
+            ip_address = self.aws_config.get_asiaq_option(
+                "ip_address", section=hostclass, required=False)
+            if ip_address:
+                meta_network = self.networks[
+                    self.aws_config.get_asiaq_option("meta_network", section=hostclass)]
+
+                if ip_address.startswith("-") or ip_address.startswith("+"):
+                    try:
+                        ip_address = str(meta_network.ip_by_offset(ip_address))
+                    except IPRangeError as exc:
+                        logger.warn("Failed to reserve IP address (%s) for hostclass (%s) due "
+                                    "to IPRangeError: %s", ip_address, hostclass, exc.message)
+                        continue
+
+                meta_network.get_interface(ip_address)
+
     def find_instance_route_table(self, instance):
         """ Return route tables corresponding to instance """
         rt_filters = self.vpc_filters()
@@ -374,11 +412,39 @@ class DiscoVPC(object):
 
         return created_dhcp_options[0]
 
-    def _create_environment(self):
-
+    def create(self):
         """Create a new disco style environment VPC"""
-        vpc_cidr = self.get_config("vpc_cidr")
 
+        # Create the VPC
+        self._create_vpc()
+
+        # Enable DNS
+        throttled_call(self.boto3_ec2.modify_vpc_attribute,
+                       VpcId=self.vpc['VpcId'], EnableDnsSupport={'Value': True})
+        throttled_call(self.boto3_ec2.modify_vpc_attribute,
+                       VpcId=self.vpc['VpcId'], EnableDnsHostnames={'Value': True})
+
+        self._networks = self._create_new_meta_networks()
+        if not self._skip_enis_pre_allocate:
+            self._reserve_hostclass_ip_addresses()
+
+        self._update_dhcp_options()
+
+        self.disco_vpc_sg_rules.update_meta_network_sg_rules()
+        self.disco_vpc_gateways.update_gateways_and_routes()
+        self.disco_vpc_gateways.update_nat_gateways_and_routes()
+        self.disco_vpc_endpoints.update()
+        self.configure_notifications()
+        self.disco_vpc_peerings.update_peering_connections(self)
+        self.rds.update_all_clusters_in_vpc(parallel=True)
+
+    def _get_vpc_cidr(self):
+        """
+        Get the vpc cidr from the config or get a random free subnet using the ip_space and the vpc_cidr_size
+        :return: the allocated vpc CIDR
+        """
+
+        vpc_cidr = self.get_config("vpc_cidr")
         # if a vpc_cidr is not configured then allocate one dynamically
         if not vpc_cidr:
             ip_space = self.get_config("ip_space")
@@ -396,34 +462,47 @@ class DiscoVPC(object):
             if vpc_cidr is None:
                 raise VPCConfigError('Cannot create VPC %s. No subnets available' % self.environment_name)
 
-        # Create VPC
+        return vpc_cidr
+
+    def _create_vpc(self):
+        """
+        Create a new VPC and add the default and custom tags
+        :param vpc_cidr:
+        :return:
+        """
+
+        # Get the vpc CIDR
+        vpc_cidr = self._get_vpc_cidr()
+
+        # Create the new VPC
         self.vpc = throttled_call(self.boto3_ec2.create_vpc, CidrBlock=str(vpc_cidr))['Vpc']
         waiter = self.boto3_ec2.get_waiter('vpc_available')
         waiter.wait(VpcIds=[self.vpc['VpcId']])
+
+        # Add tags to VPC
+        self._add_vpc_tags()
+
+        logger.debug("vpc: %s", self.vpc)
+
+    def _add_vpc_tags(self):
+        """
+        Add tags to VPC. This function will add the default tags and the tags specified on the create
+        vpc command
+        """
+        # get the resource representing the new VPC
         ec2 = boto3.resource('ec2')
         vpc = ec2.Vpc(self.vpc['VpcId'])
-        tags = vpc.create_tags(Tags=[{'Key': 'Name', 'Value': self.environment_name},
-                                     {'Key': 'type', 'Value': self.environment_type}])
-        logger.debug("vpc: %s", self.vpc)
+
+        tag_list = [{'Key': 'Name', 'Value': self.environment_name},
+                    {'Key': 'type', 'Value': self.environment_type},
+                    {'Key': 'create_date', 'Value': datetime.utcnow().isoformat()}]
+
+        if self._vpc_tags:
+            # Add the extra tags to the list of default tags
+            tag_list.extend(self._vpc_tags)
+
+        tags = vpc.create_tags(Tags=tag_list)
         logger.debug("vpc tags: %s", tags)
-
-        # Enable DNS
-        throttled_call(self.boto3_ec2.modify_vpc_attribute,
-                       VpcId=self.vpc['VpcId'], EnableDnsSupport={'Value': True})
-        throttled_call(self.boto3_ec2.modify_vpc_attribute,
-                       VpcId=self.vpc['VpcId'], EnableDnsHostnames={'Value': True})
-
-        self._networks = self._create_new_meta_networks()
-
-        self._update_dhcp_options()
-
-        self.disco_vpc_sg_rules.update_meta_network_sg_rules()
-        self.disco_vpc_gateways.update_gateways_and_routes()
-        self.disco_vpc_gateways.update_nat_gateways_and_routes()
-        self.disco_vpc_endpoints.update()
-        self.configure_notifications()
-        self.disco_vpc_peerings.update_peering_connections(self)
-        self.rds.update_all_clusters_in_vpc(parallel=True)
 
     def configure_notifications(self, dry_run=False):
         """
@@ -497,8 +576,8 @@ class DiscoVPC(object):
 
     def _destroy_instances(self):
         """ Find all instances in vpc and terminate them """
-        autoscale = DiscoAutoscale(environment_name=self.environment_name)
-        autoscale.clean_groups(force=True)
+        discogroup = DiscoGroup(environment_name=self.environment_name)
+        discogroup.delete_groups(force=True)
         reservations = throttled_call(self.boto3_ec2.describe_instances,
                                       Filters=self.vpc_filters())['Reservations']
         instances = [i['InstanceId']
@@ -515,7 +594,7 @@ class DiscoVPC(object):
         waiter = self.boto3_ec2.get_waiter('instance_terminated')
         waiter.wait(InstanceIds=instances,
                     Filters=create_filters({'instance-state-name': ['terminated']}))
-        autoscale.clean_configs()
+        discogroup.clean_configs()
 
         logger.debug("waiting for instance shutdown scripts")
         time.sleep(60)  # see http://copperegg.com/hooking-into-the-aws-shutdown-flow/
@@ -571,9 +650,9 @@ class DiscoVPC(object):
         # If DHCP options didn't get created correctly during VPC creation, what we have here
         # could be the default DHCP options, which cannot be deleted. We need to check the tag
         # to make sure we are deleting the one that belongs to the VPC.
-        if len(dhcp_options) > 0:
+        if len(dhcp_options) > 0 and dhcp_options[0].get('Tags'):
             tags = tag2dict(dhcp_options[0]['Tags'])
-            if tags['Name'] == self.environment_name:
+            if tags.get('Name') == self.environment_name:
                 throttled_call(self.boto3_ec2.delete_dhcp_options, DhcpOptionsId=dhcp_options_id)
 
     @staticmethod

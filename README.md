@@ -10,6 +10,7 @@ Table of Contents
   * [History](#history)
   * [Overview](#overview)
   * [Setting up AWS accounts](#setting-up-aws-accounts)
+  * [Setting up Spotinst account](#setting-up-spotinst-account)
   * [Installation](#installation)
   * [Baking Host Images](#baking-host-images)
   * [Environments](#environments)
@@ -228,7 +229,7 @@ Bake a phase 1 AMI
 
 Follow the link in the error message, then hit continue, select Manual Launch, click the Accept Terms button, wait 30 seconds and then re-run the bake command.
 
-Apin up the build environment
+Spin up the build environment
 
     disco_aws.py --env build spinup --pipeline pipelines/build.csv
 
@@ -326,6 +327,14 @@ Start up deployenator (a jenkins host for deployment automation) for each produc
 
 \#. For the moment, all production environments share the same produciton account.
 \#. Every production VPC is managed by its own deployenator.
+
+Setting up Spotinst account
+---------------------------
+[Spotinst](https://spotinst.com) is a new way of reducing your cloud computing bill by making use of AWS EC2 spot instances market. Asiaq uses Spotinst [REST API](https://spotinst.atlassian.net/wiki?utm_source=website&utm_medium=header) to communicate with Spotinst. You would need to create a Spotinst account, and once logged in you can create an API token by navigating to *Settings* > *API*. Here you can create **Permanent Tokens** or **Temporary Token**.
+
+In order to use Spotinst API token with Asiaq you would have to create an environment variable
+
+	export SPOTINST_TOKEN=d7e6c5abb51bb04fcaa411b7b70cce414c931bf719f7db0674b296e588630515
 
 Installation
 ------------
@@ -635,7 +644,7 @@ Environments
 
 Environments created by Asiaq are separated out by VPCs.
 Each environment resides in its own VPC and has its own metanetworks,
-gateways, instances, and so on. All environment management is done with
+gateways, instances, and so on. Most environment management is done with
 the disco_vpc_ui.py tool.
 
 ### Listing Active Environments
@@ -647,7 +656,8 @@ List all the running VPC style environments:
 ### Creating Environment(s)
 
 Creating an environment (a VPC) requires two pieces of information. The name of
-the environment, and the environment type.
+the environment, and the environment type. Sandbox VPC must also be tagged using the --tag option with the
+productline name of the environment it belongs to.
 
 The environment names must be unique, check that the selected name will
 not collide with any currently running environment by [listing active
@@ -665,7 +675,7 @@ fits your purpose or define a new one.
 
 Creating environment:
 
-    disco_vpc_ui.py create --type sandbox --name test
+    disco_vpc_ui.py create --type sandbox --name test --tag productline:myteamproductline
 
 ### Updating an Active Environment
 
@@ -708,6 +718,38 @@ If you will be doing a lot of work in a particular environment you can
 define the DEFAULT_ENV environment variable and disco_aws.py will
 default to working in that environment.
 
+### Working with "sandbox" environments
+
+As a special case, asiaq has a convenience tool that creates VPCs with
+the "sandbox" type, and provides a few shortcuts:
+
+    * the VPC will automatically be provisioned using the pipeline file
+      in "sandboxes/${SANDBOX_NAME}/pipeline.csv
+    * a preset list of configuration files may be synced to an S3
+      bucket, so that hosts that spin up in a named sandbox are able
+      to configure themselves differently if need be (this can be
+      useful for managing service discovery, if the sandbox does not
+      contain an instance of every possible hostclass and its
+      dependencies).
+
+To spin up a sandbox, from a pipeline that has already been created in
+the appropriate configuration location, you can simply run
+
+    asiaq sandbox $SANDBOX_NAME
+
+To configure configuration-file syncing, set the `sandbox_sync_config`
+option in the `disco_aws` section of the main configuration file to
+the name of the S3 bucket, and populate the `sandbox_sync_config`
+option.  This option is line-based, and contains whitespace-separated
+tuples in the form (local file, remote directory): for each line, the file
+`sandboxes/$SANDBOX_NAME/$LOCAL_FILE` will be copied to the s3 bucket
+in the location `$REMOTE_DIRECTORY/$SANDBOX_NAME`.  So, by way of example:
+
+    sandbox_config_bucket=us-west-2.myproject.sandboxes
+    sandbox_sync_config=zk_blacklist zookeeper-sync-black-lists
+        trusted_ip_list   firewall-trusted-cidrs
+
+
 Provisioning a pipeline
 -----------------------
 
@@ -719,13 +761,13 @@ command:
 
 The format of the CSV file is pretty simple. Here is a short sample:
 
-    sequence,hostclass,min_size,desired_size,max_size,instance_type,extra_disk,iops,smoke_test,ami,deployable,integration_test
+    sequence,hostclass,min_size,desired_size,max_size,instance_type,extra_disk,iops,smoke_test,ami,deployable,integration_test,spotinst
     1,mhcdiscologger,,1,,m3.large,200,,no,ami-12345678,no,
     1,mhcdiscoes,,2,,m3.large,200,,no,no,
     2,mhcdiscotaskstatus,,1,,m3.large,,,no,yes,disco_profiling_task_status_service
-    2,mhcdiscoinferenceworer,1,1@45 19 * * *:3@33 19 * * *,,5,m3.large,,,no,yes,disco_inference_workflow
+    2,mhcdiscoinferenceworer,1,1@45 19 * * *:3@33 19 * * *,,5,m3.large,,,no,yes,disco_inference_workflow,no
 
-Field descriptions:
+### Field Descriptions
 
 1.  Instance boot sequence number. The smaller the number the earlier
     the machines are started, relative to others. This field need not to
@@ -752,13 +794,16 @@ Field descriptions:
 11. deployable If true we can replace an instance with a newer one
 12. integration_test Name of the integration test to run to verify
     instances are in a good state
+13. Use spotinst to provision hostclasses
 
+#### Schedule Scaling
 The desired_size can be either an integer or a colon (:) separated list
 of integers with cron formatted times at which to apply each size. Using
 the at symbol (@) to separate the desired size and the cron
 specification. For example, `"1@30 10 * * *:5@45 1 * * *"` says to scale
 to one host at 10:30 AM UTC and scale to 5 hosts at 1:45 AM UTC.
 
+### Manual Provisioning
 But you can also provision machines one at a time using the provision
 command, for example:
 
@@ -771,6 +816,7 @@ There are a number of optional parameters as well, here is a selection:
     --ami ami-XXXX  This will use a specific AMI rather than the latest for the hostclass
     --extra-space   This will resize the root partition on boot with the specified number of extra gigabytes of disk
     --extra-disk    This will attach an extra EBS volume with the specified number of gigabytes
+    --spotinst      This will make use of Spotinst to provision the hostclass
 
 Note: "Extra space" will automatically be added to the root partition,
 but this slows down provisioning. An "extra disk" has to be formatted
@@ -796,34 +842,39 @@ step and proceed to Destroying an Active Environment_.
 Autoscaling
 -----------
 
-When disco_aws.py is used to provision a hostclass it creates an
-autoscaling group. You don't generally need to deal with these directly,
-but if you would like to see the state of autoscaling groups you can use
-disco_autoscale.py.
+Asiaq supports two ways of autoscaling:
 
-You can list autoscaling configurations:
+* Autoscaling groups managed in AWS
+* Elastigroups managed in [Spotinst](https://spotinst.com/)
 
-   disco_autoscale.py listconfigs
+
+When *disco_aws.py* is used to provision a hostclass, it creates an autoscaling group. Depending on how a hostclass is configured in *disco_aws.ini*, e.g.:
+
+	[mhcmyhostclass]
+	spotinst=True
+
+the autoscaling group will be created in either AWS or Spotinst. You don't generally need to deal with these directly, but if you would like to see the state of autoscaling groups you can use disco_autoscale.py.
+
+You can list autoscaling configurations <sup>*</sup>:
+
+    disco_autoscale.py listconfigs
 
 You can list autoscaling groups:
 
-   disco_autoscale.py listgroups
+    disco_autoscale.py listgroups
 
-And you can list autoscaling policies:
+And you can list autoscaling policies <sup>*</sup>:
 
-   disco_autoscale.py listpolicies
+    disco_autoscale.py listpolicies
 
-There are also commands to delete each of these. Generally you can
-simply use disco_aws.py and disco_vpc.py and they will handle the
-details for you.
+<sup>*</sup> _Applies only to AWS autoscaling groups_
+
+There are also commands to delete each of these. Generally you can simply use *disco_aws.py* and *disco_vpc.py* and they will handle the details for you.
 
 Defining a new hostclass
 ------------------------
 
-A *hostclass* is our functional unit for deployment. Multiple machines
-may be instantiated from a single hostclass, but every machine in the
-hostclass has the same specific function, configuration and set of
-packages installed.
+A *hostclass* is our functional unit for deployment. Multiple machines may be instantiated from a single hostclass, but every machine in the hostclass has the same specific function, configuration and set of packages installed.
 
 When defining a new hostclass use the create command to start:
 
@@ -891,7 +942,7 @@ Provisioning a pipeline_ for more details.
 ##### Enhanced Networking
 By default, Asiaq does not set the enhanced networking attribute on AMIs that it builds. If you install enhanced networking compatible drivers (or your phase 1 AMI comes with them) and want to ensure that your hostclass is started with enhanced networking, you must configure this behavior in ```disco_aws.ini```. Below is an example of this:
 
-```ini
+```
 [mhcfoo]
 enhanced_networking=true
 ```
@@ -974,18 +1025,7 @@ Logging within Asiaq is all done over syslog. All hosts come
 pre-configured with a local relaying rsyslog. To make use of it, send
 syslog to `UDP 514`, `TCP 514`, or `/dev/log`.
 
-All logs should have a
-[syslogtag](http://tools.ietf.org/html/rfc3164#section-4.1.3)
-corresponding to the application name. If its a custom Asiaq service
-then syslogtag should be of the following format
-`disco.$app_name.$log_type` ($log_type examples: app, errors, audit,
-stat). This tag is used to organize log files on log aggregator as well
-as makes it easy to search for logs through kibana. For services which
-log to syslog with
-[syslogtag](http://tools.ietf.org/html/rfc3164#section-4.1.3) but don't
-follow the `disco.$app_name.$log_type` convention additional rule should
-be added to `discoroot/etc/rsyslog.conf~mhcdiscologger`. Specifying
-which file the logs should be written to. For example:
+All logs should have a [syslogtag](http://tools.ietf.org/html/rfc3164#section-4.1.3) corresponding to the application name. If it is a custom Asiaq service, then syslogtag should be of the following format `disco.$app_name.$log_type` (log_type examples: app, errors, audit, stat). This tag is used to organize log files on log aggregator as well as makes it easy to search for logs through kibana. For services which log to syslog with [syslogtag](http://tools.ietf.org/html/rfc3164#section-4.1.3) but don't follow the `disco.$app_name.$log_type` convention, additional rule should be added to `discoroot/etc/rsyslog.conf~mhcdiscologger`, specifying which file the logs should be written to. For example:
 
     # Handle mongo logs
     :syslogtag, startswith, "mongod" /opt/wgen/log/mongo.log
@@ -996,10 +1036,7 @@ All application should write logs over syslog instead of a local file.
 Network Configuration
 ---------------------
 
-Options which affect network are split into disco_aws.ini and
-disco_vpc.ini. Former is used for all configuration that is hostclass
-specific while disco_vpc.ini is used for environment wide
-configuration.
+Options which affect network are split into *disco_aws.ini* and *disco_vpc.ini*. Former is used for all configuration that is hostclass specific while disco_vpc.ini is used for environment wide configuration.
 
 ### Environment Network options
 
@@ -1434,6 +1471,17 @@ you can run this command:
 There are also commands to list, cleanup, delete and capture snapshots
 which work how you would expect them to work.
 
+When capturing a new snapshot the following tags are added automatically to the snapshot:
+-   `hostclass` The hostclass name associated with the volume
+-   `env` The environment of the associated with the volume
+-   `productline` The productline of the associated with the volume
+
+You can also add your own tags using the --tag option.
+For example the following command capture a new snapshot and tag the snapshot
+using the tag Key "disk_usage" and the tag value 400MB
+
+    disco_snapshot.py --env production --volume-id vol-001 --tag disk-usage:400MB
+
 There is also a create command that allows you to create the initial
 EBS volume snapshot for a hostclass. This initial volume will not be
 formatted. The volume created and its snapshot will be encrypted by default.
@@ -1475,30 +1523,31 @@ The IAM configuration is made up of several directories:
     Groups based (IAM Users) on policy `.iam` files.
 -   **s3**: Specifies policies for buckets.
 
-There are several policy types: - **.iam**: These are the IAM policies
-themselves. They say what can be done to what resources from which
-locations. - **.tr** These determine the trust relationship between
-accounts. - **.acp**: These are S3 Access Control Lists. When IAM won't
-do what you need. - **.lifecycle** These determine when S3 buckets are
-sent to Glacier or expired. - **.logging** These determine whether and
-where S3 access logs are sent. - **.versioning** These determine whether
-versioning is enabled for an S3 bucket.
+There are several policy types:
+- **.iam**: These are the IAM policies themselves. They say what can be
+            done to what resources from which locations.
+- **.tr**: These determine the trust relationship between accounts.
+- **.acp**: These are S3 Access Control Lists. When IAM won't do what you need.
+- **.lifecycle**: These determine when S3 buckets are sent to Glacier or expired.
+- **.logging**: These determine whether and where S3 access logs are sent.
+- **.versioning**: These determine whether versioning is enabled for an S3 bucket.
 
 The syntax of the IAM policies is described in the [AWS IAM Policy
 Reference](http://docs.aws.amazon.com/IAM/latest/UserGuide/policy-reference.html).
 
 In the disco_aws.ini file there is an [iam] section. This contains up
-to six variables: - **saml_provider_name** Name of SAML Identity
-Assertion Provider (for SSO) - **saml_provider_url** URL of SAML
-Identity Assertion Provider (for SSO) - **role_prefix** This plus "_"
-is prepended to user groups and roles. - **policy_blacklist** This
-prevents a subset of the defined groups and roles from being created.
-This is used with ["@prod](mailto:"@prod)" to keep developer account
-policies from leaking into the production account. -
-**prune_empty_groups** When set to True any groups to which no user
-belongs are pruned. - **naked_roles** This specifies roles to which the
-role_prefix is not applied. This is used when policies need to have a
-specific name for cross account access. For example: SecurityMonkey.
+to six variables:
+- **saml_provider_name**: Name of SAML Identity Assertion Provider (for SSO)
+- **saml_provider_url**: URL of SAML Identity Assertion Provider (for SSO)
+- **role_prefix** This plus "_" is prepended to user groups and roles.
+- **policy_blacklist**: This prevents a subset of the defined groups
+and roles from being created. This is used with ["@prod](mailto:"@prod)"
+to keep developer account policies from leaking into the production account. 
+- **prune_empty_groups**: When set to True any groups to which no user
+belongs are pruned.
+- **naked_roles**: This specifies roles to which the role_prefix is not
+applied. This is used when policies need to have a specific name for
+cross account access. For example: SecurityMonkey.
 
 ### Commands for managing Access Control
 
@@ -1863,10 +1912,10 @@ Options:
 -   `domain_name` Top level domain name to use as a suffix for all ELB domain names
 -   `elb` Create an ELB for this hostclass
 -   `elb_meta_network` [Optional] Meta network to run ELB in, defaults to same meta network as instances
--   `elb_health_check_url` [Default /] The heartbeat end-point to test instance health
--   `elb_instance_port` [Default=80] The port number that your services are running on
--   `elb_instance_protocol` [Default inferred from port] HTTP | HTTPS | SSL | TCP
--   `elb_port` [Default=80] Comma separated list of port numbers to expose in the ELB.
+-   `elb_health_check_url` [Default /] The heartbeat end-point to test instance health.  Note that if you have multiple port mappings, the health check will use the first mapping using HTTP(S) on the instance side.  If there are no HTTP(S) mappings, the health check will use the first mapping.
+-   `elb_instance_port` [Default inferred from protocol] A comma separated list of port numbers that your services are running on
+-   `elb_instance_protocol` [Default inferred from port] A comma separated list of instance protocols.  The protocols should be in the same order as the instance ports. HTTP | HTTPS | SSL | TCP
+-   `elb_port` [Default inferred from protocol] Comma separated list of port numbers to expose in the ELB.
 -   `elb_protocol` [Default inferred from port] Comma separated list of protocols to expose from ELB. The protocols should be in the same order as the ELB ports. HTTP | HTTPS | SSL | TCP
 -   `elb_public` [Default no] yes | no Should the ELB have a publicly routable IP
 -   `elb_sticky_app_cookie` [Optional] Enable sticky sessions by setting the session cookie of your application
@@ -2223,7 +2272,17 @@ The `update-documents` command also accepts the `--dry-run` flag, which causes t
 
 ### Execution
 
-The mechanism for executing SSM commands is `disco_aws.py exec-ssm`. See the `--help` of that subcommand for usage instructions.
+The mechanism for executing SSM commands is `disco_aws.py exec-ssm`.
+
+Here's an example of executing a document of a hostclass in staging:
+
+`AWS_PROFILE=<YOUR PROD PROFILE NAME> disco_aws.py --env staging exec-ssm --document ifconfig --hostclass mhcbar`
+
+SSM also supports parameters. If the document you are executing supports parameters, you can specify the parameters as key=value pairs with the `--parameters` argument, repeating the `--parameters` argument for every parameter you need to specify. Here's an example:
+
+`disco_aws.py exec-ssm --document run-tests --hostclass mhcfoo --parameter test=loadtest`
+
+For more information, see `disco_aws.py exec-ssm --help` for full usage instructions.
 
 Some important notes about executing SSM documents:
 
