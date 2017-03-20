@@ -522,7 +522,8 @@ class DiscoElastigroup(BaseGroup):
         block_device_mappings = existing_group['blockDeviceMappings']
 
         # find which device uses snapshots. throw errors if none found or more than 1 found
-        snapshot_devices = [device for device in block_device_mappings if device.get('snapshotId')]
+        snapshot_devices = [device['ebs'] for device in block_device_mappings
+                            if device.get('ebs', {}).get('snapshotId')]
 
         if not snapshot_devices:
             raise Exception("Hostclass %s does not mount a snapshot" % hostclass)
