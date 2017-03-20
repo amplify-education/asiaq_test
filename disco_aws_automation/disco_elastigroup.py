@@ -561,11 +561,3 @@ class DiscoElastigroup(BaseGroup):
         )
 
         self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
-
-    def _get_group_id_from_instance_id(self, instance_id):
-        groups = self.get_existing_groups()
-        for group in groups:
-            group_id = group['id']
-            instance_ids = [instance['instanceId'] for instance in self._get_group_instances(group_id)]
-            if instance_id in instance_ids:
-                return group_id
