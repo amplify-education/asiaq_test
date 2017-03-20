@@ -51,6 +51,9 @@ class DiscoElastigroupTests(TestCase):
                     "name": 'us-moon-1a',
                     "subnetId": "subnet-abcd1234"
                 }]
+            },
+            "scheduling": {
+                "tasks": []
             }
         }
 

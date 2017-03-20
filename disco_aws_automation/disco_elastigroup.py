@@ -128,7 +128,8 @@ class DiscoElastigroup(BaseGroup):
                 'image_id': group['compute']['launchSpecification']['imageId'],
                 'id': group['id'],
                 'type': 'spot',
-                'blockDeviceMappings': group['compute']['launchSpecification']['blockDeviceMappings']
+                'blockDeviceMappings': group['compute']['launchSpecification']['blockDeviceMappings'],
+                'scheduling': group['scheduling']
             }
             for group in groups if group['name'].startswith(self.environment_name)
         ]
@@ -385,12 +386,47 @@ class DiscoElastigroup(BaseGroup):
 
     def delete_all_recurring_group_actions(self, hostclass=None, group_name=None):
         """Deletes all recurring scheduled actions for a hostclass"""
-        pass
+        groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
+        for existing_group in groups:
+            logger.info("Deleting scheduled actions for autoscaling group %s", existing_group['name'])
+
+            group_config = {
+                'group': {
+                    'scheduling': []
+                }
+            }
+
+            self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
 
     def create_recurring_group_action(self, recurrance, min_size=None, desired_capacity=None, max_size=None,
                                       hostclass=None, group_name=None):
         """Creates a recurring scheduled action for a hostclass"""
-        pass
+        existing_group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
+
+        task = {
+            'cronExpression': recurrance,
+            'taskType': 'scale'
+        }
+
+        if min_size:
+            task['scaleMinCapcity'] = min_size
+
+        if max_size:
+            task['scaleMaxCapcity'] = max_size
+
+        if desired_capacity:
+            task['scaleTargetCapcity'] = desired_capacity
+
+        existing_schedule = existing_group['scheduling']
+        existing_schedule.append(task)
+
+        group_config = {
+            'group': {
+                'scheduling': existing_schedule
+            }
+        }
+
+        self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
 
     def update_elb(self, elb_names, hostclass=None, group_name=None):
         """Updates an existing autoscaling group to use a different set of load balancers"""
