@@ -4,7 +4,6 @@ import logging
 from .base_group import BaseGroup
 from .disco_autoscale import DiscoAutoscale
 from .disco_elastigroup import DiscoElastigroup
-from .exceptions import SpotinstException
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +51,7 @@ class DiscoGroup(BaseGroup):
         if not self.elastigroup.is_spotinst_enabled():
             return default
 
-        try:
-            return fun(*args, **kwargs)
-        except SpotinstException:
-            logger.exception('Unable to call DiscoElastigroup.%s', fun.__name__)
-            return default
+        return fun(*args, **kwargs)
 
     def get_existing_groups(self, hostclass=None, group_name=None):
         asg_groups = self.autoscale.get_existing_groups()
