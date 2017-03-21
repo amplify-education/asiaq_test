@@ -25,7 +25,7 @@ class DiscoGroup(BaseGroup):
             group_name=group_name,
             throw_on_two_groups=throw_on_two_groups
         )
-        spot_group = self._elastigroup_call(
+        spot_group = self._safe_elastigroup_call(
             self.elastigroup.get_existing_group,
             default=[],
             hostclass=hostclass,
@@ -40,9 +40,9 @@ class DiscoGroup(BaseGroup):
         elif spot_group:
             return spot_group
         else:
-            logger.info('No group found')
+            logger.info('No group found for hostclass %s and group name %s ', hostclass, group_name)
 
-    def _elastigroup_call(self, fun, default=None, *args, **kwargs):
+    def _safe_elastigroup_call(self, fun, default=None, *args, **kwargs):
         """
         Call a function in DiscoElastiGroup and handle cases when SpotInst usage is disabled
         Args:
@@ -60,14 +60,14 @@ class DiscoGroup(BaseGroup):
 
     def get_existing_groups(self, hostclass=None, group_name=None):
         asg_groups = self.autoscale.get_existing_groups()
-        spot_groups = self._elastigroup_call(self.elastigroup.get_existing_groups, default=[])
+        spot_groups = self._safe_elastigroup_call(self.elastigroup.get_existing_groups, default=[])
 
         return asg_groups + spot_groups
 
     def list_groups(self):
         """Returns list of objects for display purposes for all groups"""
         asg_groups = self.autoscale.list_groups()
-        spot_groups = self._elastigroup_call(self.elastigroup.list_groups, default=[])
+        spot_groups = self._safe_elastigroup_call(self.elastigroup.list_groups, default=[])
 
         groups = asg_groups + spot_groups
         groups.sort(key=lambda grp: grp['name'])
@@ -75,7 +75,7 @@ class DiscoGroup(BaseGroup):
 
     def get_instances(self, hostclass=None, group_name=None):
         asg_instances = self.autoscale.get_instances(hostclass=hostclass, group_name=group_name)
-        spot_instances = self._elastigroup_call(
+        spot_instances = self._safe_elastigroup_call(
             self.elastigroup.get_instances,
             default=[],
             hostclass=hostclass,
@@ -86,7 +86,7 @@ class DiscoGroup(BaseGroup):
 
     def delete_groups(self, hostclass=None, group_name=None, force=False):
         self.autoscale.delete_groups(hostclass=hostclass, group_name=group_name, force=force)
-        self._elastigroup_call(
+        self._safe_elastigroup_call(
             self.elastigroup.delete_groups,
             hostclass=hostclass,
             group_name=group_name,
@@ -101,7 +101,7 @@ class DiscoGroup(BaseGroup):
             noerror=noerror
         )
 
-        self._elastigroup_call(
+        self._safe_elastigroup_call(
             self.elastigroup.scaledown_groups,
             hostclass=hostclass,
             group_name=group_name,
@@ -122,7 +122,11 @@ class DiscoGroup(BaseGroup):
     def delete_all_recurring_group_actions(self, hostclass=None, group_name=None):
         """Deletes all recurring scheduled actions for a hostclass"""
         self.autoscale.delete_all_recurring_group_actions(hostclass, group_name)
-        self._elastigroup_call(self.elastigroup.delete_all_recurring_group_actions, hostclass, group_name)
+        self._safe_elastigroup_call(
+            self.elastigroup.delete_all_recurring_group_actions,
+            hostclass,
+            group_name
+        )
 
     def create_recurring_group_action(self, recurrance, min_size=None, desired_capacity=None, max_size=None,
                                       hostclass=None, group_name=None):
@@ -261,7 +265,7 @@ class DiscoGroup(BaseGroup):
             snapshot_size=snapshot_size
         )
 
-    def _service_call(self, use_spotinst, fun_name, default=None, *args, **kwargs):
+    def _service_call(self, use_spotinst, fun_name, *args, **kwargs):
         """
         Make a call to either DiscoAutoscale or DiscoElastigroup
         Args:
@@ -271,7 +275,7 @@ class DiscoGroup(BaseGroup):
         """
         if use_spotinst:
             fun = getattr(self.elastigroup, fun_name)
-            return self._elastigroup_call(fun, default, *args, **kwargs)
+            return fun(*args, **kwargs)
         else:
             fun = getattr(self.autoscale, fun_name)
             return fun(*args, **kwargs)
