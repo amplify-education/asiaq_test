@@ -45,7 +45,15 @@ class DiscoElastigroupTests(TestCase):
                             "type": "CLASSIC"
                         }]
                     },
-                    "blockDeviceMappings": []
+                    "blockDeviceMappings": [{
+                        "deviceName": "/dev/xvda",
+                        "ebs": {
+                            "deleteOnTermination": "true",
+                            "volumeSize": "80",
+                            "volumeType": "gp2",
+                            "snapshotId": "snapshot-abcd1234"
+                        }
+                    }]
                 },
                 "availabilityZones": [{
                     "name": 'us-moon-1a',
@@ -53,20 +61,25 @@ class DiscoElastigroupTests(TestCase):
                 }]
             },
             "scheduling": {
-                "tasks": []
+                "tasks": [{
+                    'taskType': 'scale',
+                    'cronExpression': '12 0 * * *',
+                    'scaleMinCapcity': 5
+                }]
             }
         }
 
         return mock_elastigroup
 
-    def assert_request_made(self, requests, url, method):
+    def assert_request_made(self, requests, url, method, json=None):
         """Assert that a request was made to the given url and method"""
         filtered_items = [item for item in requests.request_history
-                          if item.url == url and item.method == method]
+                          if (item.url == url and item.method == method) and
+                          (not json or item.json() == json)]
 
         history_contains = len(filtered_items) > 0
 
-        self.assertEqual(history_contains, True, "%s request was not made to %s" % (url, method))
+        self.assertTrue(history_contains, "%s request was not made to %s with data %s" % (url, method, json))
 
     def setUp(self):
         """Pre-test setup"""
@@ -181,6 +194,7 @@ class DiscoElastigroupTests(TestCase):
         mock_group = self.mock_elastigroup(hostclass='mhcfoo')
         mock_group_config = {
             "group": {
+                "name": "moon_mhcfoo_1234",
                 "capacity": {
                     "unit": "instance"
                 },
@@ -198,3 +212,155 @@ class DiscoElastigroupTests(TestCase):
 
         self.elastigroup._spotinst_call.assert_called_once_with(path='/' + mock_group['id'],
                                                                 data=mock_group_config, method='put')
+
+    @requests_mock.Mocker()
+    def test_update_snapshot(self, requests):
+        """Verifies that snapshots for a Elastigroup are updated"""
+        mock_group = self.mock_elastigroup(hostclass='mhcfoo')
+
+        requests.get(SPOTINST_API, json={
+            "response": {
+                "items": [mock_group]
+            }
+        })
+
+        requests.put(SPOTINST_API + mock_group['id'], json={})
+
+        self.elastigroup.update_snapshot('snapshot-newsnapshotid', 100, hostclass='mhcfoo')
+
+        expected_request = {
+            'group': {
+                'compute': {
+                    'launchSpecification': {
+                        'blockDeviceMappings': [{
+                            "deviceName": "/dev/xvda",
+                            "ebs": {
+                                "deleteOnTermination": "true",
+                                "volumeSize": 100,
+                                "volumeType": "gp2",
+                                "snapshotId": "snapshot-newsnapshotid"
+                            }
+                        }]
+                    }
+                }
+            }
+        }
+
+        self.assert_request_made(requests, SPOTINST_API + mock_group['id'], 'PUT', json=expected_request)
+
+    @requests_mock.Mocker()
+    def test_update_elb(self, requests):
+        """Verifies ELBs for a Elastigroup are updated"""
+        mock_group = self.mock_elastigroup(hostclass='mhcfoo')
+
+        requests.get(SPOTINST_API, json={
+            "response": {
+                "items": [mock_group]
+            }
+        })
+
+        requests.put(SPOTINST_API + mock_group['id'], json={})
+
+        self.elastigroup.update_elb(['elb-newelb'], hostclass='mhcfoo')
+
+        expected_request = {
+            'group': {
+                'compute': {
+                    'launchSpecification': {
+                        'loadBalancersConfig': {
+                            'loadBalancers': [{
+                                'name': 'elb-newelb',
+                                'type': 'CLASSIC'
+                            }]
+                        }
+                    }
+                }
+            }
+        }
+
+        self.assert_request_made(requests, SPOTINST_API + mock_group['id'], 'PUT', json=expected_request)
+
+    @requests_mock.Mocker()
+    def test_create_recurring_group_action(self, requests):
+        """Verifies recurring actions are created for Elastigroups"""
+        mock_group = self.mock_elastigroup(hostclass='mhcfoo')
+
+        requests.get(SPOTINST_API, json={
+            "response": {
+                "items": [mock_group]
+            }
+        })
+
+        requests.put(SPOTINST_API + mock_group['id'], json={})
+
+        self.elastigroup.create_recurring_group_action('0 0 * * *', min_size=1, hostclass='mhcfoo')
+
+        expected_request = {
+            'group': {
+                'scheduling': {
+                    'tasks': [{
+                        'taskType': 'scale',
+                        'cronExpression': '12 0 * * *',
+                        'scaleMinCapcity': 5
+                    }, {
+                        'taskType': 'scale',
+                        'cronExpression': '0 0 * * *',
+                        'scaleMinCapcity': 1
+                    }]
+                }
+            }
+        }
+
+        self.assert_request_made(requests, SPOTINST_API + mock_group['id'], 'PUT', json=expected_request)
+
+    @requests_mock.Mocker()
+    def test_delete_all_recurring_group_actions(self, requests):
+        """Verifies recurring actions are deleted for Elastigroups"""
+        mock_group = self.mock_elastigroup(hostclass='mhcfoo')
+
+        requests.get(SPOTINST_API, json={
+            "response": {
+                "items": [mock_group]
+            }
+        })
+
+        requests.put(SPOTINST_API + mock_group['id'], json={})
+
+        self.elastigroup.delete_all_recurring_group_actions(hostclass='mhcfoo')
+
+        expected_request = {
+            'group': {
+                'scheduling': {
+                    'tasks': []
+                }
+            }
+        }
+
+        self.assert_request_made(requests, SPOTINST_API + mock_group['id'], 'PUT', json=expected_request)
+
+    @requests_mock.Mocker()
+    def test_scaledown(self, requests):
+        """Verifies Elastigroups are scaled down"""
+        mock_group = self.mock_elastigroup(hostclass='mhcfoo')
+
+        requests.get(SPOTINST_API, json={
+            "response": {
+                "items": [mock_group]
+            }
+        })
+
+        requests.put(SPOTINST_API + mock_group['id'], json={})
+
+        self.elastigroup.scaledown_groups(hostclass='mhcfoo')
+
+        expected_request = {
+            "group": {
+                "capacity": {
+                    "target": 0,
+                    "minimum": 0,
+                    "maximum": 0
+                }
+            }
+        }
+
+        self.assert_request_made(requests, SPOTINST_API + mock_group['id'], 'PUT', json=expected_request)

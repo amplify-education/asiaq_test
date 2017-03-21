@@ -83,8 +83,8 @@ class DiscoElastigroup(BaseGroup):
         if response.status_code == 200:
             return response
         else:
-            raise SpotinstException('Spotinst API error. Path: {} - Status code: {} - Reason: {}'.
-                                    format(path, response.status_code, response.reason))
+            raise SpotinstException('Spotinst API error. Path: {} - Status code: {} - Reason: {} - Text {}'.
+                                    format(path, response.status_code, response.reason, response.text))
 
     def _get_new_groupname(self, hostclass):
         """Returns a new elastigroup name when given a hostclass"""
@@ -123,13 +123,15 @@ class DiscoElastigroup(BaseGroup):
                 ),
                 'load_balancers': [
                     elb['name'] for elb
-                    in group['compute']['launchSpecification']['loadBalancersConfig']['loadBalancers']
+                    # loadBalancers will be None instead of a empty list if there is no ELB
+                    in (group['compute']['launchSpecification']['loadBalancersConfig']['loadBalancers'] or [])
                 ],
                 'image_id': group['compute']['launchSpecification']['imageId'],
                 'id': group['id'],
                 'type': 'spot',
-                'blockDeviceMappings': group['compute']['launchSpecification']['blockDeviceMappings'],
-                'scheduling': group['scheduling']
+                # blockDeviceMappings will be None instead of a empty list if there is no ELB
+                'blockDeviceMappings': (group['compute']['launchSpecification']['blockDeviceMappings'] or []),
+                'scheduling': group.get('scheduling', {'tasks': []})
             }
             for group in groups if group['name'].startswith(self.environment_name)
         ]
@@ -198,9 +200,19 @@ class DiscoElastigroup(BaseGroup):
         # We need unused argument to match method in autoscale
         # pylint: disable=unused-argument
         """Create new elastigroup configuration"""
-        strategy = {'risk': 100, 'availabilityVsCost': availability_vs_cost,
-                    'utilizeReservedInstances': True, 'fallbackToOd': True}
-        capacity = {'target': desired_size, 'minimum': min_size, 'maximum': max_size, 'unit': "instance"}
+        strategy = {
+            'risk': 100,
+            'availabilityVsCost': availability_vs_cost,
+            'utilizeReservedInstances': True,
+            'fallbackToOd': True
+        }
+
+        capacity = {
+            'target': desired_size or 0,
+            'minimum': min_size or 0,
+            'maximum': max_size or 0,
+            'unit': "instance"
+        }
 
         compute = {"instanceTypes": {
             "ondemand": instance_type.split(':')[0],
@@ -221,8 +233,9 @@ class DiscoElastigroup(BaseGroup):
                 if ebs.snapshot_id:
                     bdm['ebs']['snapshotId'] = ebs.snapshot_id
                 bdms.append(bdm)
-            else:
-                bdms = None
+
+        if len(bdms) == 0:
+            bdms = None
 
         network_interfaces = [
             {"deleteOnTermination": True,
@@ -328,6 +341,11 @@ class DiscoElastigroup(BaseGroup):
             del group_config['group']['capacity']['unit']
             del group_config['group']['compute']['product']
 
+            # don't rename the group during an update.
+            # this happens when None is passed in for the group_name arg during a group update
+            # so a new name is generated in the config and then we run update using that name
+            del group_config['group']['name']
+
             self._spotinst_call(path='/' + group_id, data=group_config, method='put')
             return {'name': group['name']}
         else:
@@ -417,10 +435,10 @@ class DiscoElastigroup(BaseGroup):
             task['scaleMaxCapcity'] = max_size
 
         if desired_capacity:
-            task['scaleTargetCapcity'] = desired_capacity
+            task['scaleTargetCapacity'] = desired_capacity
 
         existing_schedule = existing_group['scheduling']
-        existing_schedule.append(task)
+        existing_schedule['tasks'].append(task)
 
         group_config = {
             'group': {
