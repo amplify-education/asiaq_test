@@ -139,8 +139,12 @@ class BaseGroup(object):
         waiter = throttled_call(self.boto3_ec.get_waiter, 'instance_terminated')
         instance_ids = [inst['instance_id'] for inst in self.get_instances(group_name=group_name)]
 
+        # don't wait if there are no instances to wait for
+        if not instance_ids:
+            return True
+
         try:
-            logger.info("Waiting for scaledown of group %s", group['name'])
+            logger.info("Waiting for scaledown of group %s, instances %s", group['name'], instance_ids)
             waiter.wait(InstanceIds=instance_ids)
         except WaiterError:
             if noerror:

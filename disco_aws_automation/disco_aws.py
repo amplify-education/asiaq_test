@@ -702,10 +702,7 @@ class DiscoAWS(object):
     @staticmethod
     def _instance_count_lt_min_size(group, all_instances):
         group_instances = [_i for _i in all_instances if _i['group_name'] == group['name']]
-        if group.get('id'):
-            return len(group_instances) < group['capacity']['minimum']
-        else:
-            return len(group_instances) < group['min_size']
+        return len(group_instances) < group['min_size']
 
     def wait_for_autoscaling_instances(self, metadata_list, timeout=AUTOSCALE_TIMEOUT):
         """
