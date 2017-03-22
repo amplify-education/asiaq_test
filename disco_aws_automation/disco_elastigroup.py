@@ -434,32 +434,33 @@ class DiscoElastigroup(BaseGroup):
     def create_recurring_group_action(self, recurrance, min_size=None, desired_capacity=None, max_size=None,
                                       hostclass=None, group_name=None):
         """Creates a recurring scheduled action for a hostclass"""
-        existing_group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
-
-        task = {
-            'cronExpression': recurrance,
-            'taskType': 'scale'
-        }
-
-        if min_size:
-            task['scaleMinCapcity'] = min_size
-
-        if max_size:
-            task['scaleMaxCapcity'] = max_size
-
-        if desired_capacity:
-            task['scaleTargetCapacity'] = desired_capacity
-
-        existing_schedule = existing_group['scheduling']
-        existing_schedule['tasks'].append(task)
-
-        group_config = {
-            'group': {
-                'scheduling': existing_schedule
+        existing_groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
+        for existing_group in existing_groups:
+            logger.info("Creating scheduled action for hostclass %s, group_name %s", hostclass, group_name)
+            task = {
+                'cronExpression': recurrance,
+                'taskType': 'scale'
             }
-        }
 
-        self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
+            if min_size:
+                task['scaleMinCapcity'] = min_size
+
+            if max_size:
+                task['scaleMaxCapcity'] = max_size
+
+            if desired_capacity:
+                task['scaleTargetCapacity'] = desired_capacity
+
+            existing_schedule = existing_group['scheduling']
+            existing_schedule['tasks'].append(task)
+
+            group_config = {
+                'group': {
+                    'scheduling': existing_schedule
+                }
+            }
+
+            self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
 
     def update_elb(self, elb_names, hostclass=None, group_name=None):
         """Updates an existing autoscaling group to use a different set of load balancers"""
