@@ -189,29 +189,30 @@ class DiscoElastigroupTests(TestCase):
         self.assert_request_made(requests, SPOTINST_API, 'POST')
         self.assertEqual(group['name'], 'mhcfoo')
 
-    def test_update_existing_group(self):
+    @requests_mock.Mocker()
+    def test_update_existing_group(self, requests):
         """Verifies existing elastigroup is updated"""
         mock_group = self.mock_elastigroup(hostclass='mhcfoo')
-        mock_group_config = {
-            "group": {
-                "name": "moon_mhcfoo_1234",
-                "capacity": {
-                    "unit": "instance"
-                },
-                "compute": {
-                    "product": "Linux/UNIX"
-                }
+
+        requests.get(SPOTINST_API, json={
+            "response": {
+                "items": [mock_group]
             }
-        }
-        self.elastigroup._create_az_subnets_dict = MagicMock()
-        self.elastigroup._create_elastigroup_config = MagicMock(return_value=mock_group_config)
-        self.elastigroup.get_existing_group = MagicMock(return_value=mock_group)
-        self.elastigroup._spotinst_call = MagicMock()
+        })
 
-        self.elastigroup.update_group(hostclass="mhcfoo", spotinst=True)
+        requests.put(SPOTINST_API + mock_group['id'])
 
-        self.elastigroup._spotinst_call.assert_called_once_with(path='/' + mock_group['id'],
-                                                                data=mock_group_config, method='put')
+        self.elastigroup.update_group(
+            hostclass="mhcfoo",
+            spotinst=True,
+            subnets=[{
+                'SubnetId': 'sub-1234',
+                'AvailabilityZone': 'us-moon-1'
+            }],
+            instance_type="m3.medium"
+        )
+
+        self.assert_request_made(requests, SPOTINST_API + mock_group['id'], 'PUT')
 
     @requests_mock.Mocker()
     def test_update_snapshot(self, requests):

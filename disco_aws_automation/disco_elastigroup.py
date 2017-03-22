@@ -207,10 +207,14 @@ class DiscoElastigroup(BaseGroup):
             'fallbackToOd': True
         }
 
+        _min_size = min_size or 0
+        _max_size = max([min_size, max_size, desired_size, 0])
+        _desired_capacity = desired_size or max_size
+
         capacity = {
-            'target': desired_size or 0,
-            'minimum': min_size or 0,
-            'maximum': max_size or 0,
+            'target': _desired_capacity,
+            'minimum': _min_size,
+            'maximum': _max_size,
             'unit': "instance"
         }
 
@@ -221,18 +225,19 @@ class DiscoElastigroup(BaseGroup):
                                  for zone, subnet_id in zones.iteritems()], "product": "Linux/UNIX"}
 
         bdms = []
-        for name, ebs in block_device_mappings[0].iteritems():
-            if any([ebs.size, ebs.iops, ebs.snapshot_id]):
-                bdm = {'deviceName': name, 'ebs': {'deleteOnTermination': ebs.delete_on_termination}}
-                if ebs.size:
-                    bdm['ebs']['volumeSize'] = ebs.size
-                if ebs.iops:
-                    bdm['ebs']['iops'] = ebs.iops
-                if ebs.volume_type:
-                    bdm['ebs']['volumeType'] = ebs.volume_type
-                if ebs.snapshot_id:
-                    bdm['ebs']['snapshotId'] = ebs.snapshot_id
-                bdms.append(bdm)
+        if block_device_mappings:
+            for name, ebs in block_device_mappings[0].iteritems():
+                if any([ebs.size, ebs.iops, ebs.snapshot_id]):
+                    bdm = {'deviceName': name, 'ebs': {'deleteOnTermination': ebs.delete_on_termination}}
+                    if ebs.size:
+                        bdm['ebs']['volumeSize'] = ebs.size
+                    if ebs.iops:
+                        bdm['ebs']['iops'] = ebs.iops
+                    if ebs.volume_type:
+                        bdm['ebs']['volumeType'] = ebs.volume_type
+                    if ebs.snapshot_id:
+                        bdm['ebs']['snapshotId'] = ebs.snapshot_id
+                    bdms.append(bdm)
 
         if len(bdms) == 0:
             bdms = None
@@ -345,6 +350,14 @@ class DiscoElastigroup(BaseGroup):
             # this happens when None is passed in for the group_name arg during a group update
             # so a new name is generated in the config and then we run update using that name
             del group_config['group']['name']
+
+            # don't update fields that weren't changed
+            if min_size is None:
+                group_config['group']['capacity']['minimum'] = group['min_size']
+            if max_size is None:
+                group_config['group']['capacity']['maximum'] = group['min_size']
+            if desired_size is None:
+                group_config['group']['capacity']['target'] = group['desired_capacity']
 
             self._spotinst_call(path='/' + group_id, data=group_config, method='put')
             return {'name': group['name']}
