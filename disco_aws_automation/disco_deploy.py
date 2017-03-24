@@ -554,7 +554,7 @@ class DiscoDeploy(object):
 
         # We are only deployable in testing if we are in the pipeline. Otherwise assume that we aren't
         # deployable. This must be done because we don't want to deploy things that shouldn't end up in
-        # the testing environment and but do need to be tested. An example would be hostclasses that are
+        # the testing environment but do need to be tested. An example would be hostclasses that are
         # only expected to exist in the bakery_environment. This doesn't hold true for update, which
         # should just always deploy things unless explicitly told no.
         deployable = pipeline_hostclass_dict and self.is_deployable(hostclass)
