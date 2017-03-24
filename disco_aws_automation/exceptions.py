@@ -57,11 +57,6 @@ class CommandError(RuntimeError):
     pass
 
 
-class MaintenanceModeError(RuntimeError):
-    """ Error entering or leaving maintenance mode """
-    pass
-
-
 class IntegrationTestError(RuntimeError):
     """ Error running integration tests """
     pass
@@ -184,4 +179,9 @@ class TooManyAutoscalingGroups(RuntimeError):
 
 class SpotinstException(Exception):
     """Generic Spotinst exception"""
+    pass
+
+
+class UnknownDeploymentStrategyException(Exception):
+    """Error trying to use an unknown deployment strategy"""
     pass
