@@ -83,8 +83,8 @@ class DiscoElastigroup(BaseGroup):
         if response.status_code == 200:
             return response
         else:
-            raise SpotinstException('Spotinst API error. Path: {} - Status code: {} - Reason: {}'.
-                                    format(path, response.status_code, response.reason))
+            raise SpotinstException('Spotinst API error. Path: {} - Status code: {} - Reason: {} - Text {}'.
+                                    format(path, response.status_code, response.reason, response.text))
 
     def _get_new_groupname(self, hostclass):
         """Returns a new elastigroup name when given a hostclass"""
@@ -123,10 +123,15 @@ class DiscoElastigroup(BaseGroup):
                 ),
                 'load_balancers': [
                     elb['name'] for elb
-                    in group['compute']['launchSpecification']['loadBalancersConfig']['loadBalancers']
+                    # loadBalancers will be None instead of a empty list if there is no ELB
+                    in (group['compute']['launchSpecification']['loadBalancersConfig']['loadBalancers'] or [])
                 ],
                 'image_id': group['compute']['launchSpecification']['imageId'],
-                'id': group['id']
+                'id': group['id'],
+                'type': 'spot',
+                # blockDeviceMappings will be None instead of a empty list if there is no ELB
+                'blockDeviceMappings': (group['compute']['launchSpecification']['blockDeviceMappings'] or []),
+                'scheduling': group.get('scheduling', {'tasks': []})
             }
             for group in groups if group['name'].startswith(self.environment_name)
         ]
@@ -184,7 +189,7 @@ class DiscoElastigroup(BaseGroup):
                  'min_size': group['min_size'],
                  'desired_capacity': group['desired_capacity'],
                  'max_size': group['max_size'],
-                 'type': 'spot'} for group in groups]
+                 'type': group['type']} for group in groups]
 
     def _create_elastigroup_config(self, hostclass, availability_vs_cost, desired_size, min_size, max_size,
                                    instance_type, zones, load_balancers, security_groups, instance_monitoring,
@@ -195,9 +200,23 @@ class DiscoElastigroup(BaseGroup):
         # We need unused argument to match method in autoscale
         # pylint: disable=unused-argument
         """Create new elastigroup configuration"""
-        strategy = {'risk': 100, 'availabilityVsCost': availability_vs_cost,
-                    'utilizeReservedInstances': True, 'fallbackToOd': True}
-        capacity = {'target': desired_size, 'minimum': min_size, 'maximum': max_size, 'unit': "instance"}
+        strategy = {
+            'risk': 100,
+            'availabilityVsCost': availability_vs_cost,
+            'utilizeReservedInstances': True,
+            'fallbackToOd': True
+        }
+
+        _min_size = min_size or 0
+        _max_size = max([min_size, max_size, desired_size, 0])
+        _desired_capacity = desired_size or max_size
+
+        capacity = {
+            'target': _desired_capacity,
+            'minimum': _min_size,
+            'maximum': _max_size,
+            'unit': "instance"
+        }
 
         compute = {"instanceTypes": {
             "ondemand": instance_type.split(':')[0],
@@ -206,20 +225,22 @@ class DiscoElastigroup(BaseGroup):
                                  for zone, subnet_id in zones.iteritems()], "product": "Linux/UNIX"}
 
         bdms = []
-        for name, ebs in block_device_mappings[0].iteritems():
-            if any([ebs.size, ebs.iops, ebs.snapshot_id]):
-                bdm = {'deviceName': name, 'ebs': {'deleteOnTermination': ebs.delete_on_termination}}
-                if ebs.size:
-                    bdm['ebs']['volumeSize'] = ebs.size
-                if ebs.iops:
-                    bdm['ebs']['iops'] = ebs.iops
-                if ebs.volume_type:
-                    bdm['ebs']['volumeType'] = ebs.volume_type
-                if ebs.snapshot_id:
-                    bdm['ebs']['snapshotId'] = ebs.snapshot_id
-                bdms.append(bdm)
-            else:
-                bdms = None
+        if block_device_mappings:
+            for name, ebs in block_device_mappings[0].iteritems():
+                if any([ebs.size, ebs.iops, ebs.snapshot_id]):
+                    bdm = {'deviceName': name, 'ebs': {'deleteOnTermination': ebs.delete_on_termination}}
+                    if ebs.size:
+                        bdm['ebs']['volumeSize'] = ebs.size
+                    if ebs.iops:
+                        bdm['ebs']['iops'] = ebs.iops
+                    if ebs.volume_type:
+                        bdm['ebs']['volumeType'] = ebs.volume_type
+                    if ebs.snapshot_id:
+                        bdm['ebs']['snapshotId'] = ebs.snapshot_id
+                    bdms.append(bdm)
+
+        if len(bdms) == 0:
+            bdms = None
 
         network_interfaces = [
             {"deleteOnTermination": True,
@@ -260,8 +281,7 @@ class DiscoElastigroup(BaseGroup):
             "compute": compute
         }
 
-        logger.info(
-            "Creating elastigroup config for elastigroup '%s'", group_name)
+        logger.info("Creating elastigroup config for elastigroup '%s'", group_name)
 
         elastigroup_config = {"group": group}
         return elastigroup_config
@@ -326,6 +346,19 @@ class DiscoElastigroup(BaseGroup):
             del group_config['group']['capacity']['unit']
             del group_config['group']['compute']['product']
 
+            # don't rename the group during an update.
+            # this happens when None is passed in for the group_name arg during a group update
+            # so a new name is generated in the config and then we run update using that name
+            del group_config['group']['name']
+
+            # don't update fields that weren't changed
+            if min_size is None:
+                group_config['group']['capacity']['minimum'] = group['min_size']
+            if max_size is None:
+                group_config['group']['capacity']['maximum'] = group['min_size']
+            if desired_size is None:
+                group_config['group']['capacity']['target'] = group['desired_capacity']
+
             self._spotinst_call(path='/' + group_id, data=group_config, method='put')
             return {'name': group['name']}
         else:
@@ -384,36 +417,114 @@ class DiscoElastigroup(BaseGroup):
 
     def delete_all_recurring_group_actions(self, hostclass=None, group_name=None):
         """Deletes all recurring scheduled actions for a hostclass"""
-        pass
+        groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
+        for existing_group in groups:
+            logger.info("Deleting scheduled actions for autoscaling group %s", existing_group['name'])
+
+            group_config = {
+                'group': {
+                    'scheduling': {
+                        'tasks': []
+                    }
+                }
+            }
+
+            self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
 
     def create_recurring_group_action(self, recurrance, min_size=None, desired_capacity=None, max_size=None,
                                       hostclass=None, group_name=None):
         """Creates a recurring scheduled action for a hostclass"""
-        pass
+        existing_groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
+        for existing_group in existing_groups:
+            logger.info("Creating scheduled action for hostclass %s, group_name %s", hostclass, group_name)
+            task = {
+                'cronExpression': recurrance,
+                'taskType': 'scale'
+            }
+
+            if min_size:
+                task['scaleMinCapcity'] = min_size
+
+            if max_size:
+                task['scaleMaxCapcity'] = max_size
+
+            if desired_capacity:
+                task['scaleTargetCapacity'] = desired_capacity
+
+            existing_schedule = existing_group['scheduling']
+            existing_schedule['tasks'].append(task)
+
+            group_config = {
+                'group': {
+                    'scheduling': existing_schedule
+                }
+            }
+
+            self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
 
     def update_elb(self, elb_names, hostclass=None, group_name=None):
         """Updates an existing autoscaling group to use a different set of load balancers"""
-        pass
+        existing_group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
+
+        if not existing_group:
+            logger.warning(
+                "Auto Scaling group %s does not exist. Cannot change %s ELB(s)",
+                hostclass or group_name,
+                ', '.join(elb_names)
+            )
+            return set(), set()
+
+        new_lbs = set(elb_names) - set(existing_group['load_balancers'])
+        extras = set(existing_group['load_balancers']) - set(elb_names)
+
+        if new_lbs or extras:
+            logger.info(
+                "Updating ELBs for group %s from [%s] to [%s]",
+                existing_group['name'],
+                ", ".join(existing_group['load_balancers']),
+                ", ".join(elb_names)
+            )
+
+        elb_configs = [{
+            'name': elb,
+            'type': 'CLASSIC'
+        } for elb in elb_names]
+
+        group_config = {
+            'group': {
+                'compute': {
+                    'launchSpecification': {
+                        'loadBalancersConfig': {
+                            'loadBalancers': elb_configs
+                        }
+                    }
+                }
+            }
+        }
+
+        self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
+
+        return new_lbs, extras
 
     def get_launch_config(self, hostclass=None, group_name=None):
         """Create new launchconfig group name"""
-        pass
+        raise Exception('Elastigroups don\'t have launch configs')
 
     def clean_configs(self):
         """Delete unused Launch Configurations in current environment"""
-        pass
+        raise Exception('Elastigroups don\'t have launch configs')
 
     def get_configs(self, names=None):
         """Returns Launch Configurations in current environment"""
-        pass
+        raise Exception('Elastigroups don\'t have launch configs')
 
     def delete_config(self, config_name):
         """Delete a specific Launch Configuration"""
-        pass
+        raise Exception('Elastigroups don\'t have launch configs')
 
     def list_policies(self, group_name=None, policy_types=None, policy_names=None):
         """Returns all autoscaling policies"""
-        pass
+        raise Exception('Scaling for Elastigroups is not implemented')
 
     # pylint: disable=too-many-arguments
     def create_policy(self, group_name, policy_name, policy_type="SimpleScaling", adjustment_type=None,
@@ -424,20 +535,64 @@ class DiscoElastigroup(BaseGroup):
         policy name already exist. Handles the logic of constructing the correct autoscaling policy request,
         because not all parameters are required.
         """
-        pass
+        raise Exception('Scaling for Elastigroups is not implemented')
 
     def delete_policy(self, policy_name, group_name):
         """Deletes an autoscaling policy"""
-        pass
+        raise Exception('Scaling for Elastigroups is not implemented')
 
     def update_snapshot(self, snapshot_id, snapshot_size, hostclass=None, group_name=None):
         """Updates all of a hostclasses existing autoscaling groups to use a different snapshot"""
-        pass
+        existing_group = self.get_existing_group(hostclass, group_name)
 
-    def _get_group_id_from_instance_id(self, instance_id):
-        groups = self.get_existing_groups()
-        for group in groups:
-            group_id = group['id']
-            instance_ids = [instance['instanceId'] for instance in self._get_group_instances(group_id)]
-            if instance_id in instance_ids:
-                return group_id
+        if not existing_group:
+            raise Exception(
+                'Elastigroup for %s hostclass and %s group name does not exist' %
+                (str(hostclass), str(group_name))
+            )
+
+        block_device_mappings = existing_group['blockDeviceMappings']
+
+        # find which device uses snapshots. throw errors if none found or more than 1 found
+        snapshot_devices = [device['ebs'] for device in block_device_mappings
+                            if device.get('ebs', {}).get('snapshotId')]
+
+        if not snapshot_devices:
+            raise Exception("Hostclass %s does not mount a snapshot" % hostclass)
+        elif len(snapshot_devices) > 1:
+            raise Exception(
+                "Unsupported configuration: hostclass %s has multiple snapshot based devices." % hostclass
+            )
+
+        snapshot_device = snapshot_devices[0]
+        old_snapshot_id = snapshot_device['snapshotId']
+
+        if old_snapshot_id == snapshot_id:
+            logger.debug(
+                "Autoscaling group %s is already referencing latest snapshot %s",
+                hostclass or group_name,
+                snapshot_id
+            )
+            return
+
+        snapshot_device['snapshotId'] = snapshot_id
+        snapshot_device['volumeSize'] = snapshot_size
+
+        group_config = {
+            'group': {
+                'compute': {
+                    'launchSpecification': {
+                        'blockDeviceMappings': block_device_mappings
+                    }
+                }
+            }
+        }
+
+        logger.info(
+            "Updating %s group's snapshot from %s to %s",
+            hostclass or group_name,
+            old_snapshot_id,
+            snapshot_id
+        )
+
+        self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')

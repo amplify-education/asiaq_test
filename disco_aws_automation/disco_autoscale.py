@@ -86,7 +86,8 @@ class DiscoAutoscale(BaseGroup):
                     'launch_config_name': group.launch_config_name,
                     'termination_policies': group.termination_policies,
                     'vpc_zone_identifier': group.vpc_zone_identifier,
-                    'load_balancers': group.load_balancers
+                    'load_balancers': group.load_balancers,
+                    'type': 'asg'
                 }
             next_token = groups.next_token
             if not next_token:
@@ -419,7 +420,7 @@ class DiscoAutoscale(BaseGroup):
                         'min_size': group['min_size'],
                         'desired_capacity': group['desired_capacity'],
                         'max_size': group['max_size'],
-                        'type': 'asg'}
+                        'type': group['type']}
             grp_list.append(grp_dict)
         return grp_list
 
@@ -544,7 +545,11 @@ class DiscoAutoscale(BaseGroup):
 
     def delete_policy(self, policy_name, group_name):
         """Deletes an autoscaling policy"""
-        return throttled_call(self.boto3_autoscale.delete_policy, policy_name, group_name)
+        return throttled_call(
+            self.boto3_autoscale.delete_policy,
+            PolicyName=policy_name,
+            AutoScalingGroupName=group_name
+        )
 
     def delete_all_recurring_group_actions(self, hostclass=None, group_name=None):
         """Deletes all recurring scheduled actions for a hostclass"""
