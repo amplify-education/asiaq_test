@@ -19,6 +19,8 @@ def get_parser():
     parser = argparse.ArgumentParser(description='Disco Credentialaterator')
     parser.add_argument('--debug', dest='debug', action='store_const',
                         const=True, default=False, help='Log in debug level.')
+    parser.add_argument('--silent', dest='silent', action='store_const',
+                        const=True, default=False, help='Disable logging')
     where = parser.add_mutually_exclusive_group(required=False)
     where.add_argument('--bucket', dest='bucket', type=str, help='Bucket to use')
     where.add_argument('--env', dest='env', type=str,
@@ -60,7 +62,7 @@ def run():
 
     parser = get_parser()
     args = parser.parse_args()
-    configure_logging(args.debug)
+    configure_logging(args.debug, args.silent)
 
     bucket_name = args.bucket or DiscoVPC.get_credential_buckets_from_env_name(config, args.env)[0]
     s3_bucket = DiscoS3Bucket(bucket_name)
