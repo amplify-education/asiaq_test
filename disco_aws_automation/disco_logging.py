@@ -13,9 +13,7 @@ def configure_logging(debug, silent=False):
         raise Exception('Debug and silent logging options are mutually exclusive')
 
     if silent:
-        logger.disabled = True
-        boto_logger.disabled = True
-        botocore_logger.disabled = True
+        logging.disable(logging.CRITICAL)
     elif debug:
         logger.setLevel(logging.DEBUG)
         boto_logger.setLevel(logging.INFO)
