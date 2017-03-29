@@ -30,6 +30,8 @@ class DiscoSSM(object):
     A simple class to manage SSM documents
     """
 
+    S3_BUCKET_TAG = "ssm"
+
     def __init__(self, environment_name=None, config_aws=None):
         self.config_aws = config_aws or read_config(environment=environment_name)
 
@@ -59,7 +61,7 @@ class DiscoSSM(object):
 
     def get_s3_bucket_name(self):
         """Convenience method for returning the configured s3 bucket for SSM"""
-        return self.config_aws.get_asiaq_option("ssm_s3_bucket", required=False)
+        return self.config_aws.get_asiaq_s3_bucket_name(self.S3_BUCKET_TAG)
 
     def execute(self, instance_ids, document_name, parameters=None, comment=None, desired_status='Success'):
         """

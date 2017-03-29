@@ -9,15 +9,15 @@ from datetime import datetime
 from datetime import timedelta
 
 import boto.ec2.instance
-from mock import MagicMock, create_autospec, call, ANY
+from mock import MagicMock, create_autospec, call
 
 from disco_aws_automation import DiscoDeploy, DiscoAWS, DiscoGroup, DiscoBake, DiscoELB
-from disco_aws_automation.disco_constants import DEPLOYMENT_STRATEGY_BLUE_GREEN, DEPLOYMENT_STRATEGY_CLASSIC
+from disco_aws_automation.disco_constants import DEPLOYMENT_STRATEGY_BLUE_GREEN
 from disco_aws_automation.exceptions import (
     TimeoutError,
-    MaintenanceModeError,
     IntegrationTestError,
-    TooManyAutoscalingGroups
+    TooManyAutoscalingGroups,
+    UnknownDeploymentStrategyException
 )
 from test.helpers.patch_disco_aws import get_mock_config
 
@@ -459,16 +459,6 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._disco_bake.promote_ami = MagicMock(side_effect=Exception())
         ami = MagicMock()
         self._ci_deploy._promote_ami(ami, "super")
-
-    def test_nodeploy_ami_dry_run(self):
-        """We don't call spinup in a no deploy AMI dry_run"""
-        self._ci_deploy.handle_nodeploy_ami(MagicMock(), dry_run=True)
-        self.assertEqual(self._disco_aws.spinup.call_count, 0)
-
-    def test_tested_ami_dry_run(self):
-        """We don't call spinup in a deployed AMI dry_run"""
-        self._ci_deploy.handle_tested_ami(MagicMock(), dry_run=True)
-        self.assertEqual(self._disco_aws.spinup.call_count, 0)
 
     def test_blue_green_dry_run(self):
         """We don't call spinup in a blue/green dry_run"""
@@ -920,182 +910,6 @@ class DiscoDeployTests(TestCase):
         self._disco_elb.wait_for_instance_health_state.assert_called_with(hostclass="mhcbluegreen",
                                                                           testing=True)
 
-    def test_nodeploy_ami_success(self):
-        '''No deploy instances are promoted and autoscaling updated, when smoketest passes'''
-        ami = MagicMock()
-        ami.name = "mhcscarey 1 2"
-        ami.id = "ami-12345678"
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
-        self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False,
-                                                   deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
-        self._disco_bake.promote_ami.assert_called_with(ami, 'tested')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, 1, launch_time=ANY)
-        self._disco_aws.spinup.assert_has_calls(
-            [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no',
-                    'min_size': 1, 'integration_test': None, 'desired_size': 2,
-                    'smoke_test': 'no', 'max_size': 2, 'hostclass': 'mhcscarey'}],
-                  testing=True),
-             call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no',
-                    'min_size': 1, 'desired_size': 1, 'max_size': 1,
-                    'integration_test': None, 'smoke_test': 'no',
-                    'hostclass': 'mhcscarey'}])])
-
-    def test_nodeploy_no_dict(self):
-        '''Instance not in pipeline is still tested and promoted'''
-        ami = MagicMock()
-        ami.name = "mhcnewscarey 1 2"
-        ami.id = "ami-12345678"
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
-        self._ci_deploy.handle_nodeploy_ami(ami, pipeline_dict=None, dry_run=False)
-        self._disco_bake.promote_ami.assert_called_with(ami, 'tested')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, 1, launch_time=ANY)
-        self._disco_aws.spinup.assert_called_once_with(
-            [{'ami': 'ami-12345678', 'sequence': 1, 'min_size': 0, 'desired_size': 1,
-              'smoke_test': 'no', 'max_size': 1, 'hostclass': 'mhcnewscarey'}], testing=True)
-        self._disco_group.delete_groups.assert_called_once_with(hostclass='mhcnewscarey', force=True)
-
-    def test_nodeploy_ami_failure(self):
-        '''No deploy instances are failed and not promoted when smoketest fails'''
-        ami = MagicMock()
-        ami.name = "mhcscarey 1 2"
-        ami.id = "ami-12345678"
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=False)
-        self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False,
-                          deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC)
-        self._disco_bake.promote_ami.assert_called_with(ami, 'failed')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id, 1, launch_time=ANY)
-        self._disco_aws.spinup.assert_has_calls(
-            [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no',
-                    'min_size': 1, 'integration_test': None, 'desired_size': 2,
-                    'smoke_test': 'no', 'max_size': 2, 'hostclass': 'mhcscarey'}],
-                  testing=True),
-             call([{'sequence': 1, 'deployable': 'no', 'min_size': 1,
-                    'integration_test': None, 'desired_size': 1, 'smoke_test': 'no',
-                    'max_size': 1, 'hostclass': 'mhcscarey'}])])
-
-    def test_smoketest_ami_success(self):
-        '''Smoketest instances are promoted and autoscaling updated on success'''
-        ami = MagicMock()
-        ami.name = "mhcsmokey 1 2"
-        ami.id = "ami-12345678"
-        self._existing_group.desired_capacity = 2
-        self._existing_group.max_size = 2
-        self._existing_group.min_size = 2
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
-        self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False,
-                                                   deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
-        self._disco_bake.promote_ami.assert_called_with(ami, 'tested')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id,
-                                                               self._existing_group.desired_capacity,
-                                                               launch_time=ANY)
-        self._disco_aws.spinup.assert_has_calls(
-            [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
-                    'min_size': 2, 'integration_test': None, 'desired_size': 4,
-                    'smoke_test': 'no', 'max_size': 4, 'hostclass': 'mhcsmokey'}]),
-             call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
-                    'min_size': 2, 'integration_test': None, 'desired_size': 2,
-                    'smoke_test': 'no', 'max_size': 2, 'hostclass': 'mhcsmokey'}])])
-
-    def test_smoketest_ami_failure(self):
-        '''Smoketest instances are failed and autoscaling updated on failure'''
-        ami = MagicMock()
-        ami.name = "mhcsmokey 1 2"
-        ami.id = "ami-12345678"
-        self._existing_group.desired_capacity = 2
-        self._existing_group.max_size = 2
-        self._existing_group.min_size = 2
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=False)
-        self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False,
-                          deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC)
-        self._disco_bake.promote_ami.assert_called_with(ami, 'failed')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id,
-                                                               self._existing_group.desired_capacity,
-                                                               launch_time=ANY)
-        self._disco_aws.spinup.assert_has_calls(
-            [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
-                    'min_size': 2, 'integration_test': None, 'desired_size': 4,
-                    'smoke_test': 'no', 'max_size': 4, 'hostclass': 'mhcsmokey'}]),
-             call([{'deployable': 'yes', 'sequence': 1, 'min_size': 2, 'integration_test': None,
-                    'desired_size': 2, 'max_size': 2, 'hostclass': 'mhcsmokey',
-                    'smoke_test': 'no'}])])
-
-    def test_timed_autoscaling_ami_success(self):
-        '''Timed autoscaling instances are promoted and correct autoscaling sizes updated on success'''
-        ami = MagicMock()
-        ami.name = "mhctimedautoscale 1 2"
-        ami.id = "ami-12345678"
-        self._existing_group.desired_capacity = 2
-        self._existing_group.max_size = 2
-        self._existing_group.min_size = 2
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
-        self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False,
-                                                   deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
-        self._disco_bake.promote_ami.assert_called_with(ami, 'tested')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id,
-                                                               self._existing_group.desired_capacity,
-                                                               launch_time=ANY)
-        self._disco_aws.spinup.assert_has_calls(
-            [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
-                    'integration_test': None, 'smoke_test': 'no', 'hostclass': 'mhctimedautoscale',
-                    'min_size': 2, 'desired_size': 4, 'max_size': 4}]),
-             call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
-                    'integration_test': None, 'smoke_test': 'no', 'hostclass': 'mhctimedautoscale',
-                    'min_size': 2, 'desired_size': 2, 'max_size': 2}])])
-        self._disco_aws.create_scaling_schedule.assert_called_once_with(
-            min_size='3@30 16 * * 1-5:4@00 17 * * 1-5',
-            desired_size='5@30 16 * * 1-5:6@00 17 * * 1-5',
-            max_size='5@30 16 * * 1-5:6@00 17 * * 1-5',
-            group_name=None,
-            hostclass='mhctimedautoscale'
-        )
-
-    def test_timed_autoscaling_ami_success_nd(self):
-        '''Timed autoscaling is not set for non-deployable hostclasses'''
-        ami = MagicMock()
-        ami.name = "mhctimedautoscalenodeploy 1 2"
-        ami.id = "ami-12345678"
-        self._existing_group.desired_capacity = 2
-        self._existing_group.max_size = 2
-        self._existing_group.min_size = 2
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
-        self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False,
-                                                   deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
-        self._disco_bake.promote_ami.assert_called_with(ami, 'tested')
-        self._ci_deploy.wait_for_smoketests.assert_called_with(ami.id,
-                                                               self._existing_group.desired_capacity,
-                                                               launch_time=ANY)
-        self._disco_aws.spinup.assert_has_calls(
-            [call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no',
-                    'integration_test': None, 'smoke_test': 'no', 'hostclass': 'mhctimedautoscalenodeploy',
-                    'min_size': 2, 'desired_size': 4, 'max_size': 4}], testing=True),
-             call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'no',
-                    'integration_test': None, 'smoke_test': 'no', 'hostclass': 'mhctimedautoscalenodeploy',
-                    'min_size': 2, 'desired_size': 2, 'max_size': 2}])])
-        self._disco_aws.create_scaling_schedule.assert_called_once_with(
-            min_size='3@30 16 * * 1-5:4@00 17 * * 1-5',
-            desired_size='5@30 16 * * 1-5:6@00 17 * * 1-5',
-            max_size='5@30 16 * * 1-5:6@00 17 * * 1-5',
-            group_name=None,
-            hostclass='mhctimedautoscalenodeploy'
-        )
-
-    def test_set_maintenance_mode_on(self):
-        '''_set_maintenance_mode makes expected remotecmd call'''
-        self._ci_deploy._disco_aws.remotecmd = MagicMock(return_value=(0, ""))
-        self._ci_deploy._set_maintenance_mode(hostclass="mhcfoo", instances=["i-1"], mode_on=True)
-        self._ci_deploy._disco_aws.remotecmd.assert_called_with(
-            "i-1", ["sudo", "/opt/wgen/bin/maintenance-mode.sh", "on"],
-            user="test_user", nothrow=True)
-
-    def test_set_maintenance_mode_error(self):
-        '''_set_maintenance_mode handles errors'''
-        self._ci_deploy._disco_aws.remotecmd = MagicMock(return_value=(1, ""))
-        self.assertRaises(MaintenanceModeError, self._ci_deploy._set_maintenance_mode,
-                          hostclass="foo", instances=["i-1"], mode_on=False)
-        self._ci_deploy._disco_aws.remotecmd.assert_called_with(
-            "i-1", ["sudo", "/opt/wgen/bin/maintenance-mode.sh", "off"],
-            user="test_user", nothrow=True)
-
     def test_get_latest_other_image_id_1(self):
         '''_get_latest_other_image_id uses amis of old deployed instances'''
         ami = self.mock_ami("mhcabc 1")
@@ -1177,26 +991,6 @@ class DiscoDeployTests(TestCase):
         self._disco_aws.instances = MagicMock(return_value=instances)
         self.assertEquals(self._ci_deploy._get_old_instances(ami_id1), [inst2])
 
-    def test_maintenance_mode_failure(self):
-        '''Test that we handle maintenance mode failure appropriately'''
-        ami = MagicMock()
-        ami.name = "mhcintegrated 1 2"
-        ami.id = "ami-12345678"
-        inst1 = self.mock_instance()
-        inst2 = self.mock_instance()
-        self._existing_group.desired_capacity = 2
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
-        self._ci_deploy._get_old_instances = MagicMock(return_value=[inst1])
-        self._ci_deploy._get_new_instances = MagicMock(return_value=[inst2])
-        self._ci_deploy.get_host = MagicMock()
-        self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
-        self._ci_deploy._disco_aws.remotecmd = MagicMock(return_value=(1, ''))
-        self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False,
-                          deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC)
-        self._ci_deploy._get_old_instances.assert_called_with(ami.id)
-        self._ci_deploy._disco_aws.terminate.assert_has_calls(
-            [call([inst1]), call([inst2], use_autoscaling=True)])
-
     def test_pre_test_failure(self):
         '''Test that an exception is raised if the pre-test fails'''
         ami = self.mock_ami("mhcintegrated 1 2")
@@ -1233,154 +1027,12 @@ class DiscoDeployTests(TestCase):
         self._disco_aws.instances_from_hostclasses = MagicMock(return_value=[])
         self.assertRaises(IntegrationTestError, self._ci_deploy.run_integration_tests, ami)
 
-    def test_run_integration_tests_success(self):
-        '''Test that handle run_tests success appropriately'''
-        ami = self.mock_ami("mhcintegrated 1 2")
-        inst1 = self.mock_instance()
-        inst2 = self.mock_instance()
-        self._existing_group.desired_capacity = 2
-        self._ci_deploy._set_maintenance_mode = MagicMock(return_value=True)
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
-        self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
-        self._ci_deploy._get_old_instances = MagicMock(return_value=[inst1])
-        self._ci_deploy._get_new_instances = MagicMock(return_value=[inst2])
-        self.assertIsNone(self._ci_deploy.test_ami(ami, dry_run=False,
-                                                   deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
-        self._ci_deploy._get_old_instances.assert_called_with(ami.id, launch_time=ANY)
-        self._ci_deploy._disco_aws.terminate.assert_has_calls(
-            [call([inst1], use_autoscaling=True)])
-
-    def test_wait_for_smoketests_fail(self):
-        '''Test that handle smoketest failure appropriately'''
-        ami = self.mock_ami("mhcintegrated 1 2")
-        inst1 = self.mock_instance()
-        inst2 = self.mock_instance()
-        self._existing_group.desired_capacity = 2
-        self._ci_deploy._set_maintenance_mode = MagicMock(return_value=True)
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=False)
-        self._ci_deploy.run_integration_tests = MagicMock(return_value=True)
-        self._ci_deploy._get_old_instances = MagicMock(return_value=[inst1])
-        self._ci_deploy._get_new_instances = MagicMock(return_value=[inst2])
-        self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False,
-                          deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC)
-        self._ci_deploy._get_new_instances.assert_called_with(ami.id, launch_time=ANY)
-        self._ci_deploy._disco_aws.terminate.assert_has_calls(
-            [call([inst2], use_autoscaling=True)])
-
-    def test_run_integration_tests_fail(self):
-        '''Test that run_integration_tests handles failure appropriately'''
-        ami = self.mock_ami("mhcintegrated 1 2")
-        inst1 = self.mock_instance()
-        inst2 = self.mock_instance()
-        self._existing_group.desired_capacity = 2
-        self._ci_deploy._set_maintenance_mode = MagicMock(return_value=True)
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
-        self._ci_deploy.run_integration_tests = MagicMock(side_effect=[True, False])
-        self._ci_deploy._get_old_instances = MagicMock(return_value=[inst1])
-        self._ci_deploy._get_new_instances = MagicMock(return_value=[inst2])
-        self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami, dry_run=False,
-                          deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC)
-        self._ci_deploy._get_new_instances.assert_called_with(ami.id, launch_time=ANY)
-        self._ci_deploy._disco_aws.terminate.assert_has_calls(
-            [call([inst2], use_autoscaling=True)])
-        self.assertEqual(self._ci_deploy._set_maintenance_mode.call_count, 2)
-
-    def test_run_integration_tests_fail_fallback(self):
-        '''Test that run_integration_tests handles failure with fallback amis'''
-        ami1 = self.mock_ami("mhcintegrated 1")
-        inst1 = self.mock_instance()
-        inst1.image_id = ami1.id
-        ami2 = self.mock_ami("mhcintegrated 2")
-        inst2 = self.mock_instance()
-        inst2.image_id = ami2.id
-        self._existing_group.desired_capacity = 2
-        self._existing_group.max_size = 2
-        self._ci_deploy._set_maintenance_mode = MagicMock(return_value=True)
-        self._ci_deploy.wait_for_smoketests = MagicMock(return_value=True)
-        self._ci_deploy.run_integration_tests = MagicMock(side_effect=[True, False])
-        self._ci_deploy._get_old_instances = MagicMock(return_value=[inst1])
-        self._ci_deploy._get_new_instances = MagicMock(return_value=[inst2])
-        self._ci_deploy._get_latest_other_image_id = MagicMock(return_value=ami1.id)
-        self.assertRaises(RuntimeError, self._ci_deploy.test_ami, ami2, dry_run=False,
-                          deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC)
-        self._disco_aws.spinup.assert_has_calls(
-            [
-                call([{'ami': ami2.id, 'sequence': 1, 'deployable': 'yes',
-                       'min_size': 2, 'integration_test': 'foo_service', 'desired_size': 4,
-                       'smoke_test': 'no', 'max_size': 4, 'hostclass': 'mhcintegrated'}]),
-                call([{'ami': ami1.id, 'sequence': 1, 'deployable': 'yes', 'min_size': 1,
-                       'integration_test': 'foo_service', 'desired_size': 2, 'smoke_test': 'no',
-                       'max_size': 2, 'hostclass': 'mhcintegrated'}])])
-
-    def test_ami_of_non_pipeline_hostclass(self):
-        '''Test test_ami handling of non-pipeline hostclass'''
-        ami = self.mock_ami("mhcbar 1")
-        self._existing_group.desired_capacity = 2
-        self._ci_deploy.handle_nodeploy_ami = MagicMock()
-        self.assertIsNone(self._ci_deploy.test_ami(
-            ami,
-            dry_run=False,
-            deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC
-        ))
-        self._ci_deploy.handle_nodeploy_ami.assert_has_calls([
-            call(
-                ami,
-                pipeline_dict=None,
-                dry_run=False,
-                old_group=self._existing_group.__dict__
-            )
-        ])
-
     def test_update_ami_not_in_pipeline(self):
         '''Test update_ami handling of non-pipeline hostclass'''
         ami = self.mock_ami("mhcbar 1")
         self._ci_deploy.is_deployable = MagicMock()
         self.assertRaises(RuntimeError, self._ci_deploy.update_ami, ami, dry_run=False)
         self.assertEqual(self._ci_deploy.is_deployable.call_count, 0)
-
-    def test_update_ami_not_in_autoscale_deploy(self):
-        '''Test update_ami handling new deployable hostclass'''
-        ami = self.mock_ami("mhcsmokey 1")
-        self._ci_deploy._disco_group.get_existing_group = MagicMock(return_value=None)
-        self._ci_deploy.handle_tested_ami = MagicMock(return_value=True)
-        self.assertIsNone(self._ci_deploy.update_ami(ami, dry_run=False,
-                                                     deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
-        self._ci_deploy._disco_group.get_existing_group.assert_called_with("mhcsmokey")
-        self._ci_deploy.handle_tested_ami.assert_called_with(
-            ami,
-            pipeline_dict={
-                'min_size': '2',
-                'integration_test': None,
-                'deployable': 'yes',
-                'desired_size': '2',
-                'hostclass': 'mhcsmokey'
-            },
-            dry_run=False,
-            old_group=None
-        )
-
-    def test_update_ami_not_in_autoscale_nodeploy(self):
-        '''Test update_ami handling new non-deployable hostclass'''
-        ami = self.mock_ami("mhcscarey 1")
-        self._ci_deploy.is_deployable = MagicMock(return_value=False)
-        self._ci_deploy._disco_group.get_existing_group = MagicMock(return_value=None)
-        self._ci_deploy.handle_nodeploy_ami = MagicMock(return_value=True)
-        self.assertIsNone(self._ci_deploy.update_ami(ami, dry_run=False,
-                                                     deployment_strategy=DEPLOYMENT_STRATEGY_CLASSIC))
-        self.assertEqual(self._ci_deploy.is_deployable.call_count, 1)
-        self._ci_deploy._disco_group.get_existing_group.assert_called_with("mhcscarey")
-        self._ci_deploy.handle_nodeploy_ami.assert_called_with(
-            ami,
-            pipeline_dict={
-                'min_size': '1',
-                'integration_test': None,
-                'deployable': 'no',
-                'desired_size': '1',
-                'hostclass': 'mhcscarey'
-            },
-            dry_run=False,
-            old_group=None
-        )
 
     def test_test_with_amis(self):
         '''Test test with amis'''
@@ -1499,7 +1151,7 @@ class DiscoDeployTests(TestCase):
 
     def test_correct_zero_pipeline_sizing(self):
         '''Tests that get deploy sizing corrects zero pipeline sizing'''
-        post_deploy_pipeline = self._ci_deploy._generate_post_deploy_pipeline(
+        post_deploy_pipeline = self._ci_deploy._generate_deploy_pipeline(
             pipeline_dict={
                 'desired_size': "0",
                 'min_size': "0",
@@ -1512,3 +1164,23 @@ class DiscoDeployTests(TestCase):
         self.assertEqual(post_deploy_pipeline['desired_size'], 1)
         self.assertEqual(post_deploy_pipeline['min_size'], 0)
         self.assertEqual(post_deploy_pipeline['max_size'], 1)
+
+    def test_unsupported_strategy_test(self):
+        """Tests exception for bad strategy with test_ami"""
+        self.assertRaises(
+            UnknownDeploymentStrategyException,
+            self._ci_deploy.test_ami,
+            ami=self._amis_by_name['mhcbar 2'],
+            deployment_strategy="foobar",
+            dry_run=False
+        )
+
+    def test_unsupported_strategy_update(self):
+        """Tests exception for bad strategy with update_ami"""
+        self.assertRaises(
+            UnknownDeploymentStrategyException,
+            self._ci_deploy.update_ami,
+            ami=self._amis_by_name['mhcfoo 4'],
+            deployment_strategy="foobar",
+            dry_run=False
+        )

@@ -2289,10 +2289,9 @@ Some important notes about executing SSM documents:
 * You cannot pick the user that is used for executing the SSM document. All SSM documents are executed as the root user.
 * SSM documents execute in parallel across all targets instances, not serially.
 * SSM documents have a default timeout of one minute. If this timeout is not otherwise overwritten, the output will still be returned but the command itself will be marked as a failure.
-
-#### Configuration
-
-Executing SSM documents can be somewhat customized through modifications to `disco_aws.ini`. You can set the `default_ssm_s3_bucket` option under the `disco_aws` section in the `disco_aws.ini`. The value of this option should correspond to an S3 bucket where the output of SSM documents should be uploaded for longer term storage. If this option is not set, then the output of SSM documents will be limited to 2500 characters.
+* The output of SSM documents will be uploaded to an S3 bucket named using variables configured in `disco_aws.ini`, using the following scheme:
+`${s3_bucket_base}--ssm--${s3_bucket_suffix}`.  Both variables can be made environment-specific, or the s3_bucket_suffix variable can be
+omitted entirely.  If the bucket does not exist, then the output of SSM documents will be limited to 2500 characters.
 
 Testing Hostclasses
 -------------------
@@ -2316,7 +2315,7 @@ There are a few configuration options for integration tests in ```disco_aws.ini`
 test_hostclass=mhcfootest
 test_user=integration_tester
 test_command=/opt/asiaq/bin/run_tests.sh
-deployment_strategy=classic # One of [classic, blue_green]
+deployment_strategy=blue_green # One of [blue_green]
 ```
 
 * test_hostclass
@@ -2326,7 +2325,7 @@ deployment_strategy=classic # One of [classic, blue_green]
 * test_command
   * The command to execute the tests on ```test_hostclass``` as the ```test_user```. Typically a shell script with some logic for handling the test argument that is passed to it. The exit code of this command determines whether or not the integration tests were successful.
 * deployment_strategy
-  * The deployment strategy to use when deploying a new AMI. Either ```classic``` or ```blue_green```. The default is currently ```classic```.
+  * The deployment strategy to use when deploying a new AMI. The default is currently ```blue_green```.
 
 These options can be specified in two places in ```disco_aws.ini```, in the ```[test]``` section or in a given hostclass' section. Below is an example of specifying defaults in the ```[test]``` section and overriding them for the mhcfoo hostclass.
 
@@ -2365,10 +2364,6 @@ sequence,hostclass,min_size,desired_size,max_size,instance_type,extra_disk,iops,
 In the above pipeline, mhcbar will be integration tested by passing ```mhcbar_integration``` as the argument to the ```test_command``` on the generic ```test_hostclass``` defined in our example ```disco_aws.ini``` above. In contrast, mhcfoo will be integration tested by passing ```mhcfoo_integration``` as the argument to the ```test_command``` on it's specially defined ```test_hostclass```. And because mhcnointegrationtests left the ```integration_test``` column empty, no integration tests will be run for it.
 
 #### Deployment Strategies
-
-##### Classic
-
-Classic deployment strategy is used by default. Instances with a new AMI are spun up in the existing ASG and automatically added to the existing nerve and ELB groups. There are a number of problems with this strategy, so it is slated for deprecation and removal soon. Let us speak no more of it.
 
 ##### Blue/Green
 
