@@ -5,6 +5,8 @@ import itertools
 import boto
 from boto.exception import BotoServerError
 
+import boto3
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +23,7 @@ class DiscoSNS(object):
         if not account_id:
             try:
                 # Attempt to look up ARN from user information.
-                arn = boto.connect_iam().get_user().arn
+                account_id = boto3.client('sts').get_caller_identity().get('Account')
             except BotoServerError:
                 # Instance Roles have no user ID, so we fetch the instance profile arn
                 logger.debug(
@@ -29,7 +31,7 @@ class DiscoSNS(object):
                     "Attempting to lookup ARN from InstanceProfile instead."
                 )
                 arn = boto.utils.get_instance_metadata(data='meta-data/iam/')['info']['InstanceProfileArn']
-            account_id = arn.split(':')[4]
+                account_id = arn.split(':')[4]
         self.account_id = account_id
 
     def topic_arn_from_name(self, name):
