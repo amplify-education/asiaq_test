@@ -100,6 +100,9 @@ MOCK_CONFIG_DEFINITON = {
     },
     "mhcbluegreennondeployable": {
         "deployment_strategy": DEPLOYMENT_STRATEGY_BLUE_GREEN
+    },
+    "socify": {
+        'socify_baseurl': 'https://socify.aws.wgen.net/soc'
     }
 }
 
@@ -1385,6 +1388,12 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.test()
         self.assertEqual(self._ci_deploy.test_ami.call_count, 1)
 
+    def test_test_with_amis_ticketid(self):
+        '''Test test with amis'''
+        self._ci_deploy.test_ami = MagicMock()
+        self._ci_deploy.test(ticket_id="AL-1102")
+        self.assertEqual(self._ci_deploy.test_ami.call_count, 1)
+
     def test_test_wo_amis(self):
         '''Test test without amis'''
         self._ci_deploy.get_test_amis = MagicMock(return_value=[])
@@ -1428,6 +1437,12 @@ class DiscoDeployTests(TestCase):
         '''Test update with amis'''
         self._ci_deploy.update_ami = MagicMock()
         self._ci_deploy.update()
+        self.assertEqual(self._ci_deploy.update_ami.call_count, 1)
+
+    def test_update_with_amis_ticketid(self):
+        '''Test update with amis'''
+        self._ci_deploy.update_ami = MagicMock()
+        self._ci_deploy.update("AL-1102")
         self.assertEqual(self._ci_deploy.update_ami.call_count, 1)
 
     def test_update_wo_amis(self):
