@@ -55,5 +55,5 @@ class SocifyHelperTest(TestCase):
     def test_send_event_invalid_url(self):
         """Test send event using an invalid URL"""
         self._soc_helper._socify_url = "https://socify.aws.wgen.com/soc/events"
-        with self.assertRaisesRegexp(RuntimeError, 'nodename nor servname provided, or not known'):
+        with self.assertRaisesRegexp(RuntimeError, 'Failure sending event to Socify:'):
             self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK, hostclass="myhostclass")
