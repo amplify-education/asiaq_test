@@ -40,3 +40,4 @@ reports
 .idea/*
 .ropeproject/
 *.iml
+tasks/lint/pylintrc_merged
