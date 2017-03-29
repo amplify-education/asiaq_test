@@ -81,4 +81,4 @@ class SocifyHelper(object):
             raise RuntimeError(json.dumps(rsp_json))
         except Exception as err:
             logger.error("Failed to send event to Socify: %s", err)
-            raise RuntimeError("Failure sending event to Socify: %s", err)
+            raise RuntimeError("Failure sending event to Socify: {0}".format(err))
