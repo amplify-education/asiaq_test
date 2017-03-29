@@ -9,7 +9,6 @@ SMOKETEST_TIMEOUT = 600
 AUTOSCALE_POLL_INTERVAL = 15  # seconds
 AUTOSCALE_TIMEOUT = 300
 DEPLOYMENT_STRATEGY_BLUE_GREEN = "blue_green"
-DEPLOYMENT_STRATEGY_CLASSIC = "classic"
 
 YES_LIST = ['true', 'yes', 't', 'y', 'aye', '1']
 NO_LIST = ['false', 'no', 'f', 'n', 'nay', '0']
