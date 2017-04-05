@@ -630,9 +630,48 @@ class DiscoDeploy(object):
                 self.test_ami(ami, dry_run, deployment_strategy)
                 status = SocifyHelper.SOC_EVENT_OK
             except RuntimeError as err:
-                socify_helper.send_event(status=SocifyHelper.SOC_EVENT_ERROR,
-                                         hostclass=DiscoBake.ami_hostclass(ami),
-                                         message=err.message)
+                socify_helper.send_event(
+                    status=SocifyHelper.SOC_EVENT_ERROR,
+                    hostclass=DiscoBake.ami_hostclass(ami),
+                    message=err.message)
+                raise
+        else:
+            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
+                else "No 'untested' AMIs found."
+            logger.error(reason)
+            status = SocifyHelper.SOC_EVENT_BAD_DATA
+
+        if not dry_run:
+            socify_helper.send_event(
+                status=status,
+                hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+                message=reason)
+
+    def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
+        '''
+        Updates a single autoscaling group with a newer AMI or AMI specified in the --ami option
+        If the ami id is specify using the option --ami then run update using the specified ami
+        independently of its stage,
+        Otherwise uses the most recent tested or un tagged ami
+        '''
+        reason = None
+
+        socify_helper = SocifyHelper(config=self._config,
+                                     ticket_id=ticket_id,
+                                     command="DeployEvent",
+                                     sub_command="update")
+
+        amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
+        ami = random.choice(amis) if len(amis) else None
+        if ami:
+            try:
+                self.update_ami(ami, dry_run, deployment_strategy)
+                status = SocifyHelper.SOC_EVENT_OK
+            except RuntimeError as err:
+                socify_helper.send_event(
+                    status=SocifyHelper.SOC_EVENT_ERROR,
+                    hostclass=DiscoBake.ami_hostclass(ami),
+                    message=err.message)
                 raise
         else:
             reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
@@ -644,39 +683,6 @@ class DiscoDeploy(object):
             socify_helper.send_event(status=status,
                                      hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
                                      message=reason)
-
-    def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
-        '''
-        Updates a single autoscaling group with a newer AMI or AMI specified in the --ami option
-        If the ami id is specify using the option --ami then run update using the specified ami
-        independently of its stage,
-        Otherwise uses the most recent tested or un tagged ami
-        '''
-        reason = None
-
-        socify_helper = SocifyHelper(config=self._config, ticket_id=ticket_id, command="DeployEvent",
-                                     sub_command="update")
-
-        amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
-        ami = random.choice(amis) if len(amis) else None
-        if ami:
-            try:
-                self.update_ami(ami, dry_run, deployment_strategy)
-                status = SocifyHelper.SOC_EVENT_OK
-            except RuntimeError as err:
-                socify_helper.send_event(status=SocifyHelper.SOC_EVENT_ERROR,
-                                         hostclass=DiscoBake.ami_hostclass(ami),
-                                         message=err.message)
-                raise
-        else:
-            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
-                else "No 'untested' AMIs found."
-            logger.error(reason)
-            status = SocifyHelper.SOC_EVENT_BAD_DATA
-
-        if not dry_run:
-            socify_helper.send_event(status=status, hostclass=(DiscoBake.ami_hostclass(ami) if ami else
-                                                               None), message=reason)
 
     def hostclass_option(self, hostclass, key):
         '''
