@@ -35,7 +35,7 @@ Options:
      --environment ENV      Environment to operate in
      --allow-any-hostclass  Do not limit command to hostclasses defined in pipeline
      --strategy STRATEGY    The deployment strategy to use. Currently supported: 'classic' or 'blue_green'.
-     --ticket TICKETID      The JIRA issue id associated to the deploy. The specified JIRA issue will be
+     --ticket TICKETID      The issue id associated to the deploy. The specified issue will be
                             updated based on the deploy status
 
      --tested               List of latest tested AMI for each hostclass
