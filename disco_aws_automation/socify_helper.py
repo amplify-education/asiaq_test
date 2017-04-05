@@ -3,6 +3,8 @@ This module has utility functions for working with the socify lambda
 """
 import json
 import logging
+from ConfigParser import NoOptionError
+
 import requests
 from .disco_config import read_config
 
@@ -32,7 +34,13 @@ class SocifyHelper(object):
         :return: The socify URL
         """
         if not self._socify_url:
-            self._socify_url = self._config.get("socify", "socify_baseurl")
+            try:
+                self._socify_url = self._config.get("socify", "socify_baseurl")
+            except NoOptionError:
+                logger.warning("The property socify_baseurl is not set in your disco_aws.ini file. The "
+                               "deploy action won't be logged in your ticket. Please make sure to add the "
+                               "definition for socify_baseurl in the [socify] section.")
+                return
         return self._socify_url + "/event"
 
     def _build_event_json(self, status, **kwargs):
@@ -66,6 +74,10 @@ class SocifyHelper(object):
             return
 
         url = self._build_event_url()
+        if not url:
+            # We were not able to build the event URL
+            return
+
         data = self._build_event_json(status, **kwargs)
         try:
             headers = {'Content-Type': 'application/json'}
@@ -74,11 +86,11 @@ class SocifyHelper(object):
             status = response.status_code
             rsp_json = response.json()
             logger.info("received response status %s data: %s", status, rsp_json)
-            return rsp_json
         except requests.HTTPError:
             rsp_json = response.json()
             logger.error("Socify event failed with the following error: %s", rsp_json)
-            raise RuntimeError(json.dumps(rsp_json))
         except Exception as err:
             logger.error("Failed to send event to Socify: %s", err)
-            raise RuntimeError("Failure sending event to Socify: {0}".format(err))
+
+        return
+
