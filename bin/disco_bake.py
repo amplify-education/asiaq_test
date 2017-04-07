@@ -111,6 +111,9 @@ def get_parser():
                              const=True, default=False,
                              help="Use instances' local ip address for operations. "
                              "Set this flag when baking from same subnet as where the baking is occuring.")
+    parser_bake.add_argument('--tag', dest='tags', required=False, action='append', type=str, default=[],
+                             help='The key:value pair used to tag the snapshot '
+                                  '(Example: --tag application:dnext)')
 
     parser_create = subparsers.add_parser(
         'create', help="Create a hostclass",
@@ -132,8 +135,9 @@ def run():
     configure_logging(args.debug)
 
     if args.mode == "bake":
+        extra_tags = dict(tag.split(':', 1) for tag in args.tags)
         bakery = DiscoBake(use_local_ip=args.use_local_ip)
-        bakery.bake_ami(args.hostclass, args.no_destroy, args.source_ami, args.stage)
+        bakery.bake_ami(args.hostclass, args.no_destroy, args.source_ami, args.stage, extra_tags=extra_tags)
     elif args.mode == "create":
         HostclassTemplating.create_hostclass(args.hostclass)
     elif args.mode == "promote":

@@ -327,7 +327,7 @@ class DiscoBake(object):
                     user
                 )
 
-    def bake_ami(self, hostclass, no_destroy, source_ami_id=None, stage=None):
+    def bake_ami(self, hostclass, no_destroy, source_ami_id=None, stage=None, extra_tags=None):
         # Pylint thinks this function has too many local variables and too many statements and branches
         # pylint: disable=R0914, R0915, R0912
         """
@@ -426,7 +426,7 @@ class DiscoBake(object):
 
             productline = self.hc_option_default(hostclass, "product_line", None)
 
-            DiscoBake._tag_ami_with_metadata(image, stage, source_ami_id, productline)
+            DiscoBake._tag_ami_with_metadata(image, stage, source_ami_id, productline, extra_tags=extra_tags)
 
             wait_for_state(image, u'available',
                            int(self.hc_option_default(hostclass, "ami_available_wait_time", "600")))
@@ -445,12 +445,12 @@ class DiscoBake(object):
         return image
 
     @staticmethod
-    def _tag_ami_with_metadata(ami, stage, source_ami_id, productline=None):
+    def _tag_ami_with_metadata(ami, stage, source_ami_id, productline=None, extra_tags=None):
         """
         Tags an AMI with the stage, source_ami, the branch/git-hash of disco_aws_automation,
         and the productline if provided
         """
-        tag_dict = OrderedDict()
+        tag_dict = extra_tags or OrderedDict()
         tag_dict['stage'] = stage
         tag_dict['source_ami'] = source_ami_id
         tag_dict['baker'] = getpass.getuser()
