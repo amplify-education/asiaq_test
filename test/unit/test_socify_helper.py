@@ -10,7 +10,7 @@ from test.helpers.patch_disco_aws import get_mock_config
 class SocifyHelperTest(TestCase):
     """Test Socify Helper"""
     def setUp(self):
-        self._soc_helper = SocifyHelper("AL-1102", "ExampleEvent", config=get_mock_config({
+        self._soc_helper = SocifyHelper("AL-1102", False, "ExampleEvent", config=get_mock_config({
             'socify': {'socify_baseurl': 'https://socify.aws.wgen.net/soc'}}))
 
     def test_build_event_url(self):

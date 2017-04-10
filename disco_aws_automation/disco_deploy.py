@@ -620,7 +620,10 @@ class DiscoDeploy(object):
         Otherwise use the most recent untested ami for the hostclass
         '''
         reason = None
-        socify_helper = SocifyHelper(config=self._config, ticket_id=ticket_id, command="DeployEvent",
+        socify_helper = SocifyHelper(config=self._config,
+                                     ticket_id=ticket_id,
+                                     dry_run=dry_run,
+                                     command="DeployEvent",
                                      sub_command="test")
 
         amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
@@ -641,11 +644,10 @@ class DiscoDeploy(object):
             logger.error(reason)
             status = SocifyHelper.SOC_EVENT_BAD_DATA
 
-        if not dry_run:
-            socify_helper.send_event(
-                status=status,
-                hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
-                message=reason)
+        socify_helper.send_event(
+            status=status,
+            hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+            message=reason)
 
     def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
         '''
@@ -658,6 +660,7 @@ class DiscoDeploy(object):
 
         socify_helper = SocifyHelper(config=self._config,
                                      ticket_id=ticket_id,
+                                     dry_run=dry_run,
                                      command="DeployEvent",
                                      sub_command="update")
 
@@ -679,10 +682,9 @@ class DiscoDeploy(object):
             logger.error(reason)
             status = SocifyHelper.SOC_EVENT_BAD_DATA
 
-        if not dry_run:
-            socify_helper.send_event(status=status,
-                                     hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
-                                     message=reason)
+        socify_helper.send_event(status=status,
+                                 hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+                                 message=reason)
 
     def hostclass_option(self, hostclass, key):
         '''

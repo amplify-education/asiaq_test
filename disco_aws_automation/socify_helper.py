@@ -1,7 +1,6 @@
 """
 This module has utility functions for working with the socify lambda
 """
-import json
 import logging
 from ConfigParser import NoOptionError
 
@@ -17,8 +16,9 @@ class SocifyHelper(object):
     SOC_EVENT_BAD_DATA = 200
     SOC_EVENT_ERROR = 300
 
-    def __init__(self, ticket_id, command, sub_command=None, config=None):
+    def __init__(self, ticket_id, dry_run, command, sub_command=None, config=None):
         self._ticket_id = ticket_id
+        self.dry_run = dry_run
         self._command = command
         self._sub_command = sub_command
 
@@ -70,7 +70,7 @@ class SocifyHelper(object):
         :param hostclass: The hostclass for which the command was executed
         :param message:An optional error message
         """
-        if not self._ticket_id:
+        if not self._ticket_id or self.dry_run:
             return
 
         url = self._build_event_url()
@@ -93,4 +93,3 @@ class SocifyHelper(object):
             logger.exception("Failed to send event to Socify")
 
         return
-
