@@ -89,8 +89,8 @@ class SocifyHelper(object):
         except requests.HTTPError:
             rsp_json = response.json()
             logger.error("Socify event failed with the following error: %s", rsp_json)
-        except Exception as err:
-            logger.error("Failed to send event to Socify: %s", err)
+        except Exception:
+            logger.exception("Failed to send event to Socify")
 
         return
 
