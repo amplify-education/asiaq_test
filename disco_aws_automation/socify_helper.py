@@ -2,7 +2,7 @@
 This module has utility functions for working with the socify lambda
 """
 import logging
-from ConfigParser import NoOptionError
+from ConfigParser import NoOptionError, NoSectionError
 
 import requests
 from .disco_config import read_config
@@ -36,7 +36,7 @@ class SocifyHelper(object):
         if not self._socify_url:
             try:
                 self._socify_url = self._config.get("socify", "socify_baseurl")
-            except NoOptionError:
+            except (NoOptionError, NoSectionError):
                 logger.warning("The property socify_baseurl is not set in your disco_aws.ini file. The "
                                "deploy action won't be logged in your ticket. Please make sure to add the "
                                "definition for socify_baseurl in the [socify] section.")
@@ -84,12 +84,13 @@ class SocifyHelper(object):
             response = requests.post(url=url, headers=headers, json=data)
             response.raise_for_status()
             status = response.status_code
-            rsp_json = response.json()
-            logger.info("received response status %s data: %s", status, rsp_json)
+            rsp_msg = response.json()['message']
+            logger.info("received response status %s data: %s", status, rsp_msg)
         except requests.HTTPError:
-            rsp_json = response.json()
-            logger.error("Socify event failed with the following error: %s", rsp_json)
+            rsp_msg = response.json()['errorMessage']
+            logger.error("Socify event failed with the following error: %s", rsp_msg)
         except Exception:
             logger.exception("Failed to send event to Socify")
+            rsp_msg = 'Failed sending the Socify event'
 
-        return
+        return rsp_msg
