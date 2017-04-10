@@ -621,9 +621,16 @@ class DiscoDeploy(object):
         '''
         reason = None
         socify_helper = SocifyHelper(config=self._config, ticket_id=ticket_id, command="DeployEvent",
-                                     sub_command="test")
+                                     dry_run=dry_run, sub_command="test")
 
-        amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
+        try:
+            amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
+        except Exception as err:
+            logger.error("Error locating AIM")
+            socify_helper.send_event(status=SocifyHelper.SOC_EVENT_ERROR,
+                                     message=err.message)
+            raise
+
         ami = random.choice(amis) if len(amis) else None
         if ami:
             try:
@@ -640,10 +647,9 @@ class DiscoDeploy(object):
             logger.error(reason)
             status = SocifyHelper.SOC_EVENT_BAD_DATA
 
-        if not dry_run:
-            socify_helper.send_event(status=status,
-                                     hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
-                                     message=reason)
+        socify_helper.send_event(status=status,
+                                 hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+                                 message=reason)
 
     def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
         '''
@@ -655,9 +661,16 @@ class DiscoDeploy(object):
         reason = None
 
         socify_helper = SocifyHelper(config=self._config, ticket_id=ticket_id, command="DeployEvent",
-                                     sub_command="update")
+                                     dry_run=dry_run, sub_command="update")
 
-        amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
+        try:
+            amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
+        except Exception as err:
+            logger.error("Error locating AIM")
+            socify_helper.send_event(status=SocifyHelper.SOC_EVENT_ERROR,
+                                     message=err.message)
+            raise
+
         ami = random.choice(amis) if len(amis) else None
         if ami:
             try:
@@ -674,9 +687,9 @@ class DiscoDeploy(object):
             logger.error(reason)
             status = SocifyHelper.SOC_EVENT_BAD_DATA
 
-        if not dry_run:
-            socify_helper.send_event(status=status, hostclass=(DiscoBake.ami_hostclass(ami) if ami else
-                                                               None), message=reason)
+        socify_helper.send_event(status=status,
+                                 hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+                                 message=reason)
 
     def hostclass_option(self, hostclass, key):
         '''

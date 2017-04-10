@@ -15,10 +15,11 @@ class SocifyHelper(object):
     SOC_EVENT_BAD_DATA = 200
     SOC_EVENT_ERROR = 300
 
-    def __init__(self, ticket_id, command, sub_command=None, config=None):
+    def __init__(self, ticket_id, command, dry_run, sub_command=None, config=None):
         self._ticket_id = ticket_id
         self._command = command
         self._sub_command = sub_command
+        self._dry_run = dry_run
 
         if config:
             self._config = config
@@ -62,7 +63,7 @@ class SocifyHelper(object):
         :param hostclass: The hostclass for which the command was executed
         :param message:An optional error message
         """
-        if not self._ticket_id:
+        if not self._ticket_id or self._dry_run:
             return
 
         url = self._build_event_url()
@@ -80,5 +81,5 @@ class SocifyHelper(object):
             logger.error("Socify event failed with the following error: %s", rsp_json)
             raise RuntimeError(json.dumps(rsp_json))
         except Exception as err:
-            logger.error("Failed to send event to Socify: %s", err)
+            logger.exception("Failed to send event to Socify")
             raise RuntimeError("Failure sending event to Socify: {0}".format(err))
