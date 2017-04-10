@@ -621,25 +621,19 @@ class DiscoDeploy(object):
         '''
         reason = None
         socify_helper = SocifyHelper(config=self._config, ticket_id=ticket_id, command="DeployEvent",
-                                     dry_run=dry_run, sub_command="test")
+                                     sub_command="test")
 
-        try:
-            amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
-        except Exception as err:
-            logger.error("Error locating AIM")
-            socify_helper.send_event(status=SocifyHelper.SOC_EVENT_ERROR,
-                                     message=err.message)
-            raise
-
+        amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
         ami = random.choice(amis) if len(amis) else None
         if ami:
             try:
                 self.test_ami(ami, dry_run, deployment_strategy)
                 status = SocifyHelper.SOC_EVENT_OK
             except RuntimeError as err:
-                socify_helper.send_event(status=SocifyHelper.SOC_EVENT_ERROR,
-                                         hostclass=DiscoBake.ami_hostclass(ami),
-                                         message=err.message)
+                socify_helper.send_event(
+                    status=SocifyHelper.SOC_EVENT_ERROR,
+                    hostclass=DiscoBake.ami_hostclass(ami),
+                    message=err.message)
                 raise
         else:
             reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
@@ -647,9 +641,11 @@ class DiscoDeploy(object):
             logger.error(reason)
             status = SocifyHelper.SOC_EVENT_BAD_DATA
 
-        socify_helper.send_event(status=status,
-                                 hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
-                                 message=reason)
+        if not dry_run:
+            socify_helper.send_event(
+                status=status,
+                hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+                message=reason)
 
     def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
         '''
@@ -660,26 +656,22 @@ class DiscoDeploy(object):
         '''
         reason = None
 
-        socify_helper = SocifyHelper(config=self._config, ticket_id=ticket_id, command="DeployEvent",
-                                     dry_run=dry_run, sub_command="update")
+        socify_helper = SocifyHelper(config=self._config,
+                                     ticket_id=ticket_id,
+                                     command="DeployEvent",
+                                     sub_command="update")
 
-        try:
-            amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
-        except Exception as err:
-            logger.error("Error locating AIM")
-            socify_helper.send_event(status=SocifyHelper.SOC_EVENT_ERROR,
-                                     message=err.message)
-            raise
-
+        amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
         ami = random.choice(amis) if len(amis) else None
         if ami:
             try:
                 self.update_ami(ami, dry_run, deployment_strategy)
                 status = SocifyHelper.SOC_EVENT_OK
             except RuntimeError as err:
-                socify_helper.send_event(status=SocifyHelper.SOC_EVENT_ERROR,
-                                         hostclass=DiscoBake.ami_hostclass(ami),
-                                         message=err.message)
+                socify_helper.send_event(
+                    status=SocifyHelper.SOC_EVENT_ERROR,
+                    hostclass=DiscoBake.ami_hostclass(ami),
+                    message=err.message)
                 raise
         else:
             reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
@@ -687,9 +679,10 @@ class DiscoDeploy(object):
             logger.error(reason)
             status = SocifyHelper.SOC_EVENT_BAD_DATA
 
-        socify_helper.send_event(status=status,
-                                 hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
-                                 message=reason)
+        if not dry_run:
+            socify_helper.send_event(status=status,
+                                     hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+                                     message=reason)
 
     def hostclass_option(self, hostclass, key):
         '''
