@@ -259,8 +259,13 @@ class DiscoElastigroupTests(TestCase):
                 "items": [mock_group]
             }
         })
-
         requests.put(SPOTINST_API + mock_group['id'], json={})
+        requests.get(SPOTINST_API + mock_group['id'] + '/status', json={
+            'response': {
+                'items': []
+            }
+        })
+        requests.put(SPOTINST_API + mock_group['id'] + '/roll', json={})
 
         self.elastigroup.update_elb(['elb-newelb'], hostclass='mhcfoo')
 

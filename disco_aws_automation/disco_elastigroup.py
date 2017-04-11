@@ -504,6 +504,35 @@ class DiscoElastigroup(BaseGroup):
 
         self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
 
+        instance_ids = {instance['instanceId']
+                        for instance in self._get_group_instances(existing_group['id'])
+                        if instance['instanceId']}
+
+        # Spotinst requires us to roll (recreate) the instances for them to pick up the new ELBs
+        # this is done in a blue/green way so doesn't cause downtime
+        self._roll_group(existing_group['id'], 100, 600)
+
+        # there isn't a roll status API so we will check progress of the operation by monitoring
+        # the instance Ids that belong to the group. Once none of the old instances are attached
+        # to the group then we know we are done
+        # give the group 10 minutes for the new instances to become healthy and the old instances to die
+        stop_time = time.time() + 600
+        while time.time() < stop_time:
+            new_instance_ids = {instance['instanceId']
+                                for instance in self._get_group_instances(existing_group['id'])
+                                if instance['instanceId']}
+
+            remaining_instances = instance_ids.intersection(new_instance_ids)
+
+            if not remaining_instances:
+                break
+
+            logger.info(
+                "Waiting for %s to roll in order to update ELB settings",
+                remaining_instances
+            )
+            time.sleep(20)
+
         return new_lbs, extras
 
     def get_launch_config(self, hostclass=None, group_name=None):
@@ -596,3 +625,14 @@ class DiscoElastigroup(BaseGroup):
         )
 
         self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
+
+    def _roll_group(self, group_id, batch_percentage, grace_period):
+        request = {
+            "batchSizePercentage": batch_percentage,
+            "gracePeriod": grace_period,
+            "strategy": {
+                "action": "REPLACE_SERVER"
+            }
+        }
+
+        self._spotinst_call(path='/%s/roll' % group_id, data=request, method='put')
