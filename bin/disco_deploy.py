@@ -5,9 +5,10 @@ Deploys newly baked hostclasses
 Usage:
     disco_deploy.py [options] test --pipeline PIPELINE
                     [--environment ENV] [--ami AMI | --hostclass HOSTCLASS] [--allow-any-hostclass]
-                    [--strategy STRATEGY]
+                    [--strategy STRATEGY] [--ticket TICKETID]
     disco_deploy.py [options] update --pipeline PIPELINE --environment ENV
                     [--ami AMI | --hostclass HOSTCLASS] [--allow-any-hostclass] [--strategy STRATEGY]
+                    [--ticket TICKETID]
     disco_deploy.py [options] list (--tested|--untested|--failed|--failures|--testable)
                     [--pipeline PIPELINE] [--environment ENV] [--ami AMI | --hostclass HOSTCLASS]
                     [--allow-any-hostclass]
@@ -34,6 +35,8 @@ Options:
      --environment ENV      Environment to operate in
      --allow-any-hostclass  Do not limit command to hostclasses defined in pipeline
      --strategy STRATEGY    The deployment strategy to use. Currently supported: 'classic' or 'blue_green'.
+     --ticket TICKETID      The issue id associated to the deploy. The specified issue will be
+                            updated based on the deploy status
 
      --tested               List of latest tested AMI for each hostclass
      --untested             List of latest untested AMI for each hostclass
@@ -98,13 +101,15 @@ def run():
 
     if args["test"]:
         try:
-            deploy.test(dry_run=args["--dry-run"], deployment_strategy=args["--strategy"])
+            deploy.test(dry_run=args["--dry-run"], deployment_strategy=args["--strategy"],
+                        ticket_id=args["--ticket"])
         except RuntimeError as err:
             logger.error(str(err))
             sys.exit(1)
     elif args["update"]:
         try:
-            deploy.update(dry_run=args["--dry-run"], deployment_strategy=args["--strategy"])
+            deploy.update(dry_run=args["--dry-run"], deployment_strategy=args["--strategy"],
+                          ticket_id=args["--ticket"])
         except RuntimeError as err:
             logger.error(str(err))
             sys.exit(1)

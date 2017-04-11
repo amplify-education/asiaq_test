@@ -7,6 +7,7 @@ import sys
 
 from ConfigParser import NoOptionError, NoSectionError
 from boto.exception import EC2ResponseError
+from disco_aws_automation.socify_helper import SocifyHelper
 
 from . import DiscoBake
 from .disco_config import read_config
@@ -611,35 +612,79 @@ class DiscoDeploy(object):
                 "Unsupported deployment strategy: {0}".format(desired_deployment_strategy)
             )
 
-    def test(self, dry_run=False, deployment_strategy=None):
+    def test(self, dry_run=False, deployment_strategy=None, ticket_id=None):
         '''
         Tests a single AMI and marks it as tested or failed.
         If the ami id is specified using the option --ami then run test on the specified ami
         independently of its stage,
         Otherwise use the most recent untested ami for the hostclass
         '''
+        reason = None
+        socify_helper = SocifyHelper(config=self._config,
+                                     ticket_id=ticket_id,
+                                     dry_run=dry_run,
+                                     command="DeployEvent",
+                                     sub_command="test")
+
         amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
-        if len(amis):
-            self.test_ami(random.choice(amis), dry_run, deployment_strategy)
+        ami = random.choice(amis) if len(amis) else None
+        if ami:
+            try:
+                self.test_ami(ami, dry_run, deployment_strategy)
+                status = SocifyHelper.SOC_EVENT_OK
+            except RuntimeError as err:
+                socify_helper.send_event(
+                    status=SocifyHelper.SOC_EVENT_ERROR,
+                    hostclass=DiscoBake.ami_hostclass(ami),
+                    message=err.message)
+                raise
         else:
             reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
                 else "No 'untested' AMIs found."
             logger.error(reason)
+            status = SocifyHelper.SOC_EVENT_BAD_DATA
 
-    def update(self, dry_run=False, deployment_strategy=None):
+        socify_helper.send_event(
+            status=status,
+            hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+            message=reason)
+
+    def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
         '''
         Updates a single autoscaling group with a newer AMI or AMI specified in the --ami option
         If the ami id is specify using the option --ami then run update using the specified ami
         independently of its stage,
         Otherwise uses the most recent tested or un tagged ami
         '''
+        reason = None
+
+        socify_helper = SocifyHelper(config=self._config,
+                                     ticket_id=ticket_id,
+                                     dry_run=dry_run,
+                                     command="DeployEvent",
+                                     sub_command="update")
+
         amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
-        if len(amis):
-            self.update_ami(random.choice(amis), dry_run, deployment_strategy)
+        ami = random.choice(amis) if len(amis) else None
+        if ami:
+            try:
+                self.update_ami(ami, dry_run, deployment_strategy)
+                status = SocifyHelper.SOC_EVENT_OK
+            except RuntimeError as err:
+                socify_helper.send_event(
+                    status=SocifyHelper.SOC_EVENT_ERROR,
+                    hostclass=DiscoBake.ami_hostclass(ami),
+                    message=err.message)
+                raise
         else:
             reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
                 else "No 'untested' AMIs found."
             logger.error(reason)
+            status = SocifyHelper.SOC_EVENT_BAD_DATA
+
+        socify_helper.send_event(status=status,
+                                 hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+                                 message=reason)
 
     def hostclass_option(self, hostclass, key):
         '''
