@@ -10,11 +10,13 @@ import requests
 import boto3
 
 from .base_group import BaseGroup
-from .exceptions import TooManyAutoscalingGroups, SpotinstException
+from .exceptions import TooManyAutoscalingGroups, SpotinstException, TimeoutError
 
 logger = logging.getLogger(__name__)
 
 SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group'
+
+GROUP_ROLL_TIMEOUT = 600
 
 
 class DiscoElastigroup(BaseGroup):
@@ -360,6 +362,11 @@ class DiscoElastigroup(BaseGroup):
                 group_config['group']['capacity']['target'] = group['desired_capacity']
 
             self._spotinst_call(path='/' + group_id, data=group_config, method='put')
+
+            # if the ELB config changed then we need to roll the group to pick up the new config
+            if set(group['load_balancers']) != set(load_balancers or []):
+                self._roll_group(group_id, wait=True)
+
             return {'name': group['name']}
         else:
             new_group = self._spotinst_call(data=group_config, method='post').json()
@@ -504,6 +511,10 @@ class DiscoElastigroup(BaseGroup):
 
         self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
 
+        # Spotinst requires us to roll (recreate) the instances for them to pick up the new ELBs
+        # this is done in a blue/green way so doesn't cause downtime
+        self._roll_group(existing_group['id'], wait=True)
+
         return new_lbs, extras
 
     def get_launch_config(self, hostclass=None, group_name=None):
@@ -596,3 +607,58 @@ class DiscoElastigroup(BaseGroup):
         )
 
         self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
+
+    def _roll_group(self, group_id, batch_percentage=100, grace_period=GROUP_ROLL_TIMEOUT, wait=False):
+        """
+        Recreate the instances in a Elastigroup
+        :param group_id (str): Elastigroup ID to roll
+        :param batch_percentage (int): Percentage of instances to roll at a time (0-100)
+        :param grace_period (int): Time in seconds to wait for new instances to become healthy
+        :param wait (boolean): True to wait for roll operation to finish
+        :raises TimeoutError if grace_period has expired
+        """
+        if wait:
+            # if we will be waiting then get the instance Ids now so we can monitor them
+            instance_ids = {instance['instanceId']
+                            for instance in self._get_group_instances(group_id)
+                            if instance['instanceId']}
+
+        request = {
+            "batchSizePercentage": batch_percentage,
+            "gracePeriod": grace_period,
+            "strategy": {
+                "action": "REPLACE_SERVER"
+            }
+        }
+
+        self._spotinst_call(path='/%s/roll' % group_id, data=request, method='put')
+
+        if wait:
+            # there isn't a roll status API so we will check progress of the operation by monitoring
+            # the instance Ids that belong to the group. Once none of the old instances are attached
+            # to the group then we know we are done
+            # give the group 10 minutes for the new instances to become healthy and the old instances to die
+            current_time = time.time()
+            stop_time = current_time + grace_period
+            while current_time < stop_time:
+                new_instance_ids = {instance['instanceId']
+                                    for instance in self._get_group_instances(group_id)
+                                    if instance['instanceId']}
+
+                remaining_instances = instance_ids.intersection(new_instance_ids)
+
+                if not remaining_instances:
+                    break
+
+                logger.info(
+                    "Waiting for %s to roll in order to update ELB settings",
+                    remaining_instances
+                )
+                time.sleep(20)
+                current_time = time.time()
+
+            if current_time >= stop_time:
+                raise TimeoutError(
+                    "Timed out after waiting %s seconds for rolling deploy of %s" %
+                    (grace_period, group_id)
+                )

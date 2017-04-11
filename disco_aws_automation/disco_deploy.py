@@ -377,6 +377,13 @@ class DiscoDeploy(object):
 
                     if uses_elb:
                         try:
+                            # get the list of instance Ids again because they might have changed after
+                            # updating the group (this happens for Spotinst but not for regular ASGs)
+                            group_instance_ids = [
+                                inst['instance_id']
+                                for inst in self._disco_group.get_instances(group_name=new_group['name'])
+                            ]
+
                             # Wait until the new ASG is registered and marked as healthy by ELB.
                             self._disco_elb.wait_for_instance_health_state(hostclass=hostclass,
                                                                            instance_ids=group_instance_ids)
