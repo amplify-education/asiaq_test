@@ -10,11 +10,13 @@ import requests
 import boto3
 
 from .base_group import BaseGroup
-from .exceptions import TooManyAutoscalingGroups, SpotinstException
+from .exceptions import TooManyAutoscalingGroups, SpotinstException, TimeoutError
 
 logger = logging.getLogger(__name__)
 
 SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group'
+
+GROUP_ROLL_TIMEOUT = 600
 
 
 class DiscoElastigroup(BaseGroup):
@@ -510,14 +512,15 @@ class DiscoElastigroup(BaseGroup):
 
         # Spotinst requires us to roll (recreate) the instances for them to pick up the new ELBs
         # this is done in a blue/green way so doesn't cause downtime
-        self._roll_group(existing_group['id'], 100, 600)
+        self._roll_group(existing_group['id'], 100, GROUP_ROLL_TIMEOUT)
 
         # there isn't a roll status API so we will check progress of the operation by monitoring
         # the instance Ids that belong to the group. Once none of the old instances are attached
         # to the group then we know we are done
         # give the group 10 minutes for the new instances to become healthy and the old instances to die
-        stop_time = time.time() + 600
-        while time.time() < stop_time:
+        current_time = time.time()
+        stop_time = current_time + GROUP_ROLL_TIMEOUT
+        while current_time < stop_time:
             new_instance_ids = {instance['instanceId']
                                 for instance in self._get_group_instances(existing_group['id'])
                                 if instance['instanceId']}
@@ -532,6 +535,13 @@ class DiscoElastigroup(BaseGroup):
                 remaining_instances
             )
             time.sleep(20)
+            current_time = time.time()
+
+        if current_time >= stop_time:
+            raise TimeoutError(
+                "Timed out after waiting %s seconds for rolling deploy of %s" %
+                (GROUP_ROLL_TIMEOUT, hostclass or group_name)
+            )
 
         return new_lbs, extras
 
