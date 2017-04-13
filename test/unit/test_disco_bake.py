@@ -5,7 +5,7 @@ import random
 from unittest import TestCase
 
 import boto.ec2.instance
-from mock import MagicMock, Mock, PropertyMock, ANY, create_autospec
+from mock import MagicMock, Mock, PropertyMock, ANY, create_autospec, patch
 
 from disco_aws_automation import DiscoBake, AMIError
 
@@ -125,3 +125,58 @@ class DiscoBakeTests(TestCase):
         self.assertTrue(self._amis_by_name["mhcbar 0000000001"].deregister.called)
         self.assertFalse(self._amis_by_name["mhcbar 0000000002"].deregister.called)
         self.assertTrue(self._amis_by_name["mhcfoo 0000000004"].deregister.called)
+
+    @patch('getpass.getuser', MagicMock(return_value="mock_user"))
+    @patch('disco_aws_automation.DiscoBake._tag_ami')
+    def test_extra_tags(self, mock_tag_ami):
+        '''Test that additional tags are applied to AMI if specified'''
+        ami = self._amis_by_name["mhcbar 0000000001"],
+
+        self._bake._tag_ami_with_metadata(
+            ami=ami,
+            source_ami_id='mock_source',
+            stage='mock_stage',
+            productline='mock_productline',
+            extra_tags={'mock': 'gecko'}
+        )
+
+        mock_tag_ami.assert_called_once_with(
+            ami,
+            {
+                "source_ami": "mock_source",
+                "stage": "mock_stage",
+                "productline": "mock_productline",
+                "baker": "mock_user",
+                "version-asiaq": DiscoBake._git_ref(),
+                "mock": "gecko"
+            }
+        )
+
+    @patch('getpass.getuser', MagicMock(return_value="mock_user"))
+    @patch('disco_aws_automation.DiscoBake._tag_ami')
+    def test_extra_tags_no_override(self, mock_tag_ami):
+        '''Test that additional tags do not override asiaq tags'''
+        ami = self._amis_by_name["mhcbar 0000000001"],
+
+        self._bake._tag_ami_with_metadata(
+            ami=ami,
+            source_ami_id='mock_source',
+            stage='mock_stage',
+            productline='mock_productline',
+            extra_tags={
+                'mock': 'gecko',
+                'baker': 'innocent_user'
+            }
+        )
+
+        mock_tag_ami.assert_called_once_with(
+            ami,
+            {
+                "source_ami": "mock_source",
+                "stage": "mock_stage",
+                "productline": "mock_productline",
+                "baker": "mock_user",
+                "version-asiaq": DiscoBake._git_ref(),
+                "mock": "gecko"
+            }
+        )
