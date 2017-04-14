@@ -6,6 +6,7 @@ Command line tool for baking AMI's and otherwise working with them.
 from __future__ import print_function
 import sys
 import argparse
+from collections import OrderedDict
 from datetime import datetime
 
 from disco_aws_automation import DiscoBake, HostclassTemplating
@@ -135,7 +136,7 @@ def run():
     configure_logging(args.debug)
 
     if args.mode == "bake":
-        extra_tags = dict(tag.split(':', 1) for tag in args.tags)
+        extra_tags = OrderedDict(tag.split(':', 1) for tag in args.tags)
         bakery = DiscoBake(use_local_ip=args.use_local_ip)
         bakery.bake_ami(args.hostclass, args.no_destroy, args.source_ami, args.stage, extra_tags=extra_tags)
     elif args.mode == "create":

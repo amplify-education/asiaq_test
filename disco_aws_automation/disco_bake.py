@@ -448,9 +448,14 @@ class DiscoBake(object):
     def _tag_ami_with_metadata(ami, stage, source_ami_id, productline=None, extra_tags=None):
         """
         Tags an AMI with the stage, source_ami, the branch/git-hash of disco_aws_automation,
-        and the productline if provided
+        and the productline if provided.
+
+        Also accepts an extra_tags parameter, which is an additional dictionary of tags that will be
+        appended to the AMI after the tags required by Asiaq.
         """
-        tag_dict = extra_tags or OrderedDict()
+        # An ordered dictionary is used because AWS has limits on the number of tags that can be applied,
+        # so we order the tags by their importance to Asiaq's ability to function. Ergo, stage is first.
+        tag_dict = OrderedDict()
         tag_dict['stage'] = stage
         tag_dict['source_ami'] = source_ami_id
         tag_dict['baker'] = getpass.getuser()
@@ -458,6 +463,11 @@ class DiscoBake(object):
 
         if productline:
             tag_dict['productline'] = productline
+
+        # Append extra tags to the existing tag dict without overriding any tags Asiaq provides.
+        for key, value in extra_tags.iteritems():
+            if key not in tag_dict:
+                tag_dict[key] = value
 
         DiscoBake._tag_ami(ami, tag_dict)
 
