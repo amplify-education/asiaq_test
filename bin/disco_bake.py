@@ -9,6 +9,7 @@ import argparse
 from collections import OrderedDict
 from datetime import datetime
 
+from bin import print_table
 from disco_aws_automation import DiscoBake, HostclassTemplating
 from disco_aws_automation.disco_aws_util import run_gracefully
 from disco_aws_automation.disco_logging import configure_logging
@@ -168,8 +169,13 @@ def run():
                                        args.state,
                                        args.hostclass), key=bakery.ami_timestamp)
         now = datetime.utcnow()
-        for ami in amis:
-            bakery.pretty_print_ami(ami, now, in_prod=args.in_prod, show_tags=args.show_tags)
+        headers, output = bakery.tabilize_amis(
+            amis=amis,
+            age_since_when=now,
+            in_prod=args.in_prod,
+            show_tags=args.show_tags
+        )
+        print_table(output, headers)
         if not amis:
             sys.exit(1)
     elif args.mode == "liststragglers":
