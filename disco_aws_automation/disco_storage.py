@@ -124,7 +124,13 @@ EBS_OPTIMIZED = [
     "m4.10xlarge",
     "r3.xlarge",
     "r3.2xlarge",
-    "r3.4xlarge"
+    "r3.4xlarge",
+    "r4.large",
+    "r4.xlarge",
+    "r4.2xlarge",
+    "r4.4xlarge",
+    "r4.8xlarge",
+    "r4.16xlarge"
 ]
 
 
