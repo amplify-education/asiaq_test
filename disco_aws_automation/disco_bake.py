@@ -83,7 +83,7 @@ class DiscoBake(object):
         time_diff = now - old_time
         return int(time_diff.total_seconds() / 60 / 60)
 
-    def pretty_print_ami(self, ami, age_since_when=None, in_prod=False):
+    def pretty_print_ami(self, ami, age_since_when=None, in_prod=False, show_tags=False):
         '''Prints an a pretty AMI description to the standard output'''
         name = ami.name
         age_since_when = age_since_when or datetime.datetime.utcnow()
@@ -101,6 +101,12 @@ class DiscoBake(object):
             ami.tags.get("productline", "-"),
             DiscoBake.time_diff_in_hours(age_since_when, creation_time),
         )
+
+        if show_tags:
+            ami_tags = [':'.join([key, value])
+                        for key, value in ami.tags.iteritems()
+                        if key not in ["stage", "productline"]]
+            output += ', '.join(ami_tags)
 
         if in_prod:
             output += "     prod" if self.is_prod_ami(ami) else " non-prod"

@@ -58,6 +58,8 @@ def get_parser():
                                  help='Only show amis for this hostclass.', type=str, default=None)
     parser_listamis.add_argument('--in-prod', dest='in_prod', action='store_const', const=True,
                                  help='Show whether AMI is executable in prod.', default=False)
+    parser_listamis.add_argument('--show-tags', dest='show_tags', action='store_const', const=True,
+                                 help='Show any additional tags on the AMI', default=False)
 
     parser_liststragglers = subparsers.add_parser(
         'liststragglers', help='List hostclasses for which AMIs have not been recently promoted')
@@ -167,7 +169,7 @@ def run():
                                        args.hostclass), key=bakery.ami_timestamp)
         now = datetime.utcnow()
         for ami in amis:
-            bakery.pretty_print_ami(ami, now, in_prod=args.in_prod)
+            bakery.pretty_print_ami(ami, now, in_prod=args.in_prod, show_tags=args.show_tags)
         if not amis:
             sys.exit(1)
     elif args.mode == "liststragglers":
