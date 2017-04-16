@@ -2,6 +2,7 @@
 Tests of disco_elastigroup
 """
 import random
+from collections import namedtuple
 
 from unittest import TestCase
 
@@ -375,3 +376,38 @@ class DiscoElastigroupTests(TestCase):
         }
 
         self.assert_request_made(requests, SPOTINST_API + mock_group['id'], 'PUT', json=expected_request)
+
+    def test_persist_ebs(self):
+        """"Verifies EBS persistence option is enabled if EBS volumes exist"""
+
+        # silly pylint, namedtutples should use class naming convention
+        # pylint: disable=C0103
+        Ebs = namedtuple('EBS', ['size', 'iops', 'snapshot_id', 'delete_on_termination', 'volume_type'])
+
+        config = self.elastigroup._create_elastigroup_config(
+            hostclass="mhcfoo",
+            availability_vs_cost="balanced",
+            desired_size=1,
+            min_size=1,
+            max_size=1,
+            instance_type="t2.micro",
+            load_balancers=[],
+            zones={},
+            security_groups=[],
+            instance_monitoring=False,
+            ebs_optimized=False,
+            image_id="ami-abcd1234",
+            key_name=None,
+            associate_public_ip_address=False,
+            user_data="",
+            tags={},
+            instance_profile_name=None,
+            block_device_mappings=[{
+                "/dev/xvdb": Ebs(
+                    size=100, iops=None, snapshot_id=None, delete_on_termination=False, volume_type='io1'
+                )
+            }],
+            group_name=""
+        )
+
+        self.assertTrue(config['group']['strategy'].get('shouldPersistBlockDevices'))
