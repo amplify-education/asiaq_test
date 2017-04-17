@@ -164,8 +164,8 @@ class DiscoAlarmConfig(object):
                 "metric_name": parts[2],
                 "threshold_type": parts[3],
             }
+        logger.warning('Skipping unparsable alarm name: %s', name)
         return {}
-        # raise AlarmConfigError("Failed to decode alarm name {0}".format(name))
 
     def __repr__(self):
         return "Alarm:{0}.{1}".format(self.name, self.threshold)
