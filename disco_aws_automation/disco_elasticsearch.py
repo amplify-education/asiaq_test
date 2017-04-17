@@ -422,7 +422,5 @@ class DiscoElasticsearch(object):
 
     def _get_nat_eips(self):
         env_option = 'envtype:{}'.format(self.environment_name)
-        if self.config_vpc.has_option(env_option, 'tunnel_nat_gateways'):
-            return self.config_vpc.get(env_option, 'tunnel_nat_gateways')
-        else:
-            return None
+        return self.config_vpc.get(env_option, 'tunnel_nat_gateways') \
+            if self.config_vpc.has_option(env_option, 'tunnel_nat_gateways') else None

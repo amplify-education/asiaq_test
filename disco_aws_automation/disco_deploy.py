@@ -75,8 +75,7 @@ class DiscoDeploy(object):
             return [ami for ami in amis if DiscoBake.ami_hostclass(ami) == self._restrict_hostclass]
         elif not self._allow_any_hostclass:
             return [ami for ami in amis if DiscoBake.ami_hostclass(ami) in self._hostclasses]
-        else:
-            return amis
+        return amis
 
     @property
     def all_stage_amis(self):
@@ -706,8 +705,7 @@ class DiscoDeploy(object):
             return self._config.get("test", key)
         elif alt_key != key and self._config.has_option("test", alt_key):
             return self._config.get("test", alt_key)
-        else:
-            return self._config.get(DEFAULT_CONFIG_SECTION, "default_{0}".format(key))
+        return self._config.get(DEFAULT_CONFIG_SECTION, "default_{0}".format(key))
 
     def hostclass_option_default(self, hostclass, key, default=None):
         """Fetch a hostclass configuration option if it exists, otherwise return value passed in as default"""

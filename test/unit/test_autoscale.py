@@ -271,8 +271,8 @@ class DiscoAutoscaleTests(TestCase):
                 shared_vars['next_token'] = None
                 return {'ScalingPolicies': [mock_policies[0]],
                         'NextToken': temp_token}
-            else:
-                return {'ScalingPolicies': [mock_policies[1]]}
+
+            return {'ScalingPolicies': [mock_policies[1]]}
 
         self._mock_boto3_connection.describe_policies.side_effect = _mock_describe_policies
 

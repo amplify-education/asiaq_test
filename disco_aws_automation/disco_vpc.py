@@ -121,8 +121,8 @@ class DiscoVPC(object):
             return self.config.get(envtype_section, option)
         elif self.config.has_option(peering_section, option):
             return self.config.get(peering_section, option)
-        else:
-            return default
+
+        return default
 
     def get_vpc_id(self):
         ''' Returns the vpc id '''

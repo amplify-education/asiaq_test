@@ -251,10 +251,8 @@ class DiscoVPCTests(unittest.TestCase):
             return {'DhcpOptions': {'DhcpOptionsId': local_dict['new_mock_dhcp_options_id']}}
 
         def _create_describe_dhcp_mock(**args):
-            if local_dict['dhcp_options_created']:
-                return {'DhcpOptions': [{'DhcpOptionsId': local_dict['new_mock_dhcp_options_id']}]}
-            else:
-                return {'DhcpOptions': []}
+            return {'DhcpOptions': [{'DhcpOptionsId': local_dict['new_mock_dhcp_options_id']}]} \
+                if local_dict['dhcp_options_created'] else {'DhcpOptions': []}
 
         def _create_gethostbyname_mock(hostname):
             return local_dict['ntp_servers_dict'][hostname]

@@ -64,16 +64,12 @@ def _get_ec2_conn_mock(test_disco_subnet):
     ret = MagicMock()
 
     def _mock_describe_route_tables(*_, **__):
-        if test_disco_subnet.route_table:
-            return {'RouteTables': [copy.deepcopy(test_disco_subnet.route_table)]}
-        else:
-            return {'RouteTables': []}
+        return {'RouteTables': [copy.deepcopy(test_disco_subnet.route_table)]} \
+            if test_disco_subnet.route_table else {'RouteTables': []}
 
     def _mock_describe_nat_gateways(*_, **__):
-        if test_disco_subnet.nat_gateway:
-            return {'NatGateways': [test_disco_subnet.nat_gateway]}
-        else:
-            return {'NatGateways': []}
+        return {'NatGateways': [test_disco_subnet.nat_gateway]} \
+            if test_disco_subnet.nat_gateway else {'NatGateways': []}
 
     def _mock_create_nat_gateway(*_, **__):
         test_disco_subnet.nat_gateway = copy.deepcopy(MOCK_NAT_GATEWAY)
@@ -84,10 +80,8 @@ def _get_ec2_conn_mock(test_disco_subnet):
         return {'NatGatewayId': MOCK_NAT_GATEWAY['NatGatewayId']}
 
     def _mock_describe_subnets(*_, **__):
-        if test_disco_subnet.existing_subnet:
-            return {'Subnets': [test_disco_subnet.existing_subnet]}
-        else:
-            return {'Subnets': []}
+        return {'Subnets': [test_disco_subnet.existing_subnet]} \
+            if test_disco_subnet.existing_subnet else {'Subnets': []}
 
     def _mock_create_subnet(*_, **__):
         if not test_disco_subnet.existing_subnet:

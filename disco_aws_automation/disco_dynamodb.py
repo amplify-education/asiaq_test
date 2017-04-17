@@ -263,8 +263,8 @@ class AsiaqDynamoDbBackupManager(object):
             create_resp = self.s3_client.create_bucket(Bucket=bucket_name)
             self.logger.debug("Created: %s", create_resp)
             return create_resp
-        else:
-            return False
+
+        return False
 
     def _find_latest_backup(self, env, table_name):
         """

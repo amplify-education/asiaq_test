@@ -164,12 +164,10 @@ def _apply_metadata(source, destination, hostclasses, dryrun=False):
 
 def _higher_priority(new_hostclass, old_hostclass, all_hostclasses):
     if new_hostclass:
-        if old_hostclass:
-            return all_hostclasses.index(new_hostclass) < all_hostclasses.index(old_hostclass)
-        else:
-            return True
-    else:
-        return False
+        return all_hostclasses.index(new_hostclass) < all_hostclasses.index(old_hostclass) if old_hostclass\
+            else True
+
+    return False
 
 
 class HostclassFileNotFound(EnvironmentError):

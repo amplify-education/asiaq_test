@@ -268,12 +268,8 @@ class DiscoGroup(BaseGroup):
             fun_name (str): Function name to call for the selected service
             default: Default value to use when calling DiscoElastigroup in case SpotInst is disabled
         """
-        if use_spotinst:
-            fun = getattr(self.elastigroup, fun_name)
-            return fun(*args, **kwargs)
-        else:
-            fun = getattr(self.autoscale, fun_name)
-            return fun(*args, **kwargs)
+        fun = getattr(self.elastigroup, fun_name) if use_spotinst else getattr(self.autoscale, fun_name)
+        return fun(*args, **kwargs)
 
     def _service_call_for_group(self, fun_name, _hostclass=None, _group_name=None, *args,
                                 **kwargs):
