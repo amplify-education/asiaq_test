@@ -114,7 +114,7 @@ def run():
             logger.error(str(err))
             sys.exit(1)
     elif args["list"]:
-        missing = "-" if len(pipeline_definition) else ""
+        missing = "-" if pipeline_definition else ""
         if args["--tested"]:
             for (_hostclass, ami) in deploy.get_latest_tested_amis().iteritems():
                 print("{} {:40} {}".format(
@@ -140,7 +140,7 @@ def run():
             for ami in failures:
                 print("{} {:40} {}".format(
                     ami.id, ami.name.split()[0], deploy.get_integration_test(ami.name.split()[0]) or missing))
-            sys.exit(1 if len(failures) else 0)
+            sys.exit(1 if failures else 0)
 
 
 if __name__ == "__main__":

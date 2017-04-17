@@ -272,7 +272,7 @@ class AsiaqDynamoDbBackupManager(object):
         """
         all_backups = self.list_backups(env, table_name)
         all_backups.sort()
-        return all_backups[-1] if len(all_backups) > 0 else None
+        return all_backups[-1] if all_backups else None
 
     def _get_table_params(self, table_name):
         "Get parameters for a pipeline activation for a specific table."

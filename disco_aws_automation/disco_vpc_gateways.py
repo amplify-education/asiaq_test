@@ -103,7 +103,7 @@ class DiscoVPCGateways(object):
         igw_filter = create_filters({'attachment.vpc-id': [self.disco_vpc.vpc['VpcId']]})
         igws = throttled_call(self.boto3_ec2.describe_internet_gateways,
                               Filters=igw_filter)['InternetGateways']
-        if len(igws) == 0:
+        if not igws:
             logger.debug("Cannot find the required Internet Gateway named for VPC %s.",
                          self.disco_vpc.vpc['VpcId'])
             return None
@@ -114,7 +114,7 @@ class DiscoVPCGateways(object):
         """Locate VPN Gateway that corresponds to this VPN"""
         vgw_filter = create_filters({'tag:Name': [self.disco_vpc.environment_name]})
         vgws = throttled_call(self.boto3_ec2.describe_vpn_gateways, Filters=vgw_filter)
-        if not len(vgws['VpnGateways']):
+        if not vgws['VpnGateways']:
             logger.debug("Cannot find the required VPN Gateway named %s.", self.disco_vpc.environment_name)
             return None
         return vgws['VpnGateways'][0]

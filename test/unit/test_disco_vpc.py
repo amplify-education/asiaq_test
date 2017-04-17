@@ -171,6 +171,8 @@ class DiscoVPCTests(unittest.TestCase):
         resource_mock.Vpc.create_tags.return_value = []
         boto3_resource_mock.return_value = resource_mock
 
+        client_mock.describe_vpn_gateways.return_value = {'VpnGateways': []}
+
         my_tags_options = [{'Value': 'astronauts', 'Key': 'productline'},
                            {'Value': 'tag_value', 'Key': 'mytag'}]
         DiscoVPC._get_vpc_cidr = MagicMock()

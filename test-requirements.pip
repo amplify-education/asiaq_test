@@ -1,5 +1,5 @@
 # Linting tools
-pylint>=1.5,<1.7.0
+pylint>=1.5,<2
 pep8>=1.0.1,<2
 configobj>=4.7.2, <5
 # Testing tools

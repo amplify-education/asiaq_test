@@ -457,7 +457,7 @@ class DiscoAWS(object):
 
         instances = [i for i in instances if i.state != u'terminated']
         instance_ids = [i.id for i in instances]
-        if len(instance_ids) > 0:
+        if instance_ids:
             if terminate:
                 for instance in instances:
                     self.vpc.delete_instance_routes(instance)

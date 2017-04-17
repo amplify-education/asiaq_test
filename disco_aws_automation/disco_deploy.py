@@ -279,7 +279,7 @@ class DiscoDeploy(object):
                     logger.warning("Unable to find old AMI %s, it was probably deleted", ami_id)
                 else:
                     raise
-        return max(images, key=self._disco_bake.get_ami_creation_time).id if len(images) else None
+        return max(images, key=self._disco_bake.get_ami_creation_time).id if images else None
 
     # This method handles blue/green from end to end, so it has a lot of logic in it. We should at some point
     # look at breaking it up a bit and/or the feasibility of that.
@@ -632,7 +632,7 @@ class DiscoDeploy(object):
                                      sub_command="test")
 
         amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
-        ami = random.choice(amis) if len(amis) else None
+        ami = random.choice(amis) if amis else None
         if ami:
             try:
                 self.test_ami(ami, dry_run, deployment_strategy)
@@ -670,7 +670,7 @@ class DiscoDeploy(object):
                                      sub_command="update")
 
         amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
-        ami = random.choice(amis) if len(amis) else None
+        ami = random.choice(amis) if amis else None
         if ami:
             try:
                 self.update_ami(ami, dry_run, deployment_strategy)
