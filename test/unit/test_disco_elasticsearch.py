@@ -105,7 +105,7 @@ class DiscoElastiSearchTests(TestCase):
         self.domain_configs = {}
 
         def _list_domain_names():
-            domain_names = [{"DomainName": domain_name} for domain_name in self.domain_configs.keys()]
+            domain_names = [{"DomainName": domain_name} for domain_name in self.domain_configs]
 
             return {"DomainNames": domain_names}
 

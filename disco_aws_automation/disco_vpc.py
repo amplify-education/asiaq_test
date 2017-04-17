@@ -220,7 +220,7 @@ class DiscoVPC(object):
             return self._networks
         self._networks = {
             network: DiscoMetaNetwork(network, self)
-            for network in NETWORKS.keys()
+            for network in NETWORKS
             if self.get_config("{0}_cidr".format(network))  # don't create networks we haven't defined
         }
         return self._networks
@@ -231,7 +231,7 @@ class DiscoVPC(object):
         # don't create networks we haven't defined
         # a map of network names to the configured cidr value or "auto"
         networks = {network: self.get_config("{0}_cidr".format(network))
-                    for network in NETWORKS.keys()
+                    for network in NETWORKS
                     if self.get_config("{0}_cidr".format(network))}
 
         if len(networks) < 1:
