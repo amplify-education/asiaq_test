@@ -176,14 +176,13 @@ class DiscoDeploy(object):
 
     def is_deployable(self, hostclass):
         """Returns true for all hostclasses which aren't tagged as non-ZDD hostclasses"""
-        return ((hostclass in self._hostclasses and
-                 is_truthy(self._hostclasses[hostclass].get("deployable"))) or
-                hostclass not in self._hostclasses)
+        return is_truthy(self._hostclasses[hostclass].get("deployable")) \
+            if hostclass in self._hostclasses else hostclass not in self._hostclasses
 
     def get_integration_test(self, hostclass):
         """Returns the integration test for this hostclass, or None if none exists"""
-        return (hostclass in self._hostclasses and
-                self._hostclasses[hostclass].get("integration_test")) or None
+        return self._hostclasses[hostclass].get("integration_test") \
+            if hostclass in self._hostclasses else None
 
     def wait_for_smoketests(self, ami_id, min_count, group_name=None, launch_time=None):
         '''
