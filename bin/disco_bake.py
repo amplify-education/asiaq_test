@@ -113,7 +113,7 @@ def get_parser():
                              help="Use instances' local ip address for operations. "
                              "Set this flag when baking from same subnet as where the baking is occuring.")
     parser_bake.add_argument('--tag', dest='tags', required=False, action='append', type=str, default=[],
-                             help='The key:value pair used to tag the snapshot '
+                             help='The key:value pair used to tag the AMI '
                                   '(Example: --tag application:dnext)')
 
     parser_create = subparsers.add_parser(
