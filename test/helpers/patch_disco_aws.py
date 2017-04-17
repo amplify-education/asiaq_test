@@ -82,23 +82,25 @@ class MockAsiaqConfig(AsiaqConfig):
         AsiaqConfig.__init__(self, environment=environment)
         self.config_dict = config_dict or get_default_config_dict()
 
-    def get(self, section, key, **_kwargs):
+    # pylint: disable=redefined-builtin
+    def get(self, section, option, raw=False, vars=None):
         if section not in self.config_dict:
             raise NoSectionError(section)
-        if key not in self.config_dict[section]:
-            raise NoOptionError(key, section)
-        return self.config_dict[section][key]
+        if option not in self.config_dict[section]:
+            raise NoOptionError(option, section)
+        return self.config_dict[section][option]
 
     def sections(self):
         return self.config_dict.keys()
 
-    def has_option(self, section, key):
-        return (section in self.config_dict) and (key in self.config_dict[section])
+    def has_option(self, section, option):
+        return (section in self.config_dict) and (option in self.config_dict[section])
 
     def has_section(self, section):
         return section in self.config_dict
 
-    def items(self, section, **_kwargs):
+    # pylint: disable=redefined-builtin
+    def items(self, section, raw=False, vars=None):
         return self.config_dict[section].iteritems() if self.config_dict.get(section) else []
 
 
