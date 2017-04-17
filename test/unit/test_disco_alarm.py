@@ -156,6 +156,10 @@ class DiscoAlarmTests(TestCase):
         self.assertEqual(
             DiscoAlarmConfig.decode_alarm_name("rocket_ci_mhcscone_HTTPCode_Backend_5xx_max"), expected)
 
+    def test_decode_bogus_alarm_name_no_raises(self):
+        """decode_alarm_name doesnt raise on bogus name"""
+        DiscoAlarmConfig.decode_alarm_name("bogus")
+
     def test_get_alarm_config(self):
         """Test DiscoAlarmsConfig get_alarms for regular metrics"""
         disco_alarms_config = DiscoAlarmsConfig(ENVIRONMENT, autoscale=self.autoscale)
