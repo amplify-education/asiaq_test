@@ -245,7 +245,9 @@ class DiscoElastigroup(BaseGroup):
             bdms = None
         else:
             # automatically take snapshots of EBS volumes so data isn't lost if the instance goes down
-            strategy['shouldPersistBlockDevices'] = True
+            strategy['persistence'] = {
+                'shouldPersistBlockDevices': True
+            }
 
         network_interfaces = [
             {"deleteOnTermination": True,

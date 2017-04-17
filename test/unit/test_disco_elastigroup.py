@@ -410,4 +410,4 @@ class DiscoElastigroupTests(TestCase):
             group_name=""
         )
 
-        self.assertTrue(config['group']['strategy'].get('shouldPersistBlockDevices'))
+        self.assertTrue(config['group']['strategy'].get('persistence', {}).get('shouldPersistBlockDevices'))
