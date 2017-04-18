@@ -414,7 +414,7 @@ class DiscoAutoscale(BaseGroup):
         for group in groups:
             launch_cfg = list(self.get_configs(names=[group['launch_config_name']]))
             grp_dict = {'name': group['name'].ljust(35 + len(self.environment_name)),
-                        'image_id': launch_cfg[0].image_id if len(launch_cfg) else '',
+                        'image_id': launch_cfg[0].image_id if launch_cfg else '',
                         'group_cnt': len([instance for instance in instances
                                           if instance['group_name'] == group['name']]),
                         'min_size': group['min_size'],

@@ -325,9 +325,9 @@ class DiscoElasticsearch(object):
             else:
                 desired_elasticsearch_names = self._get_elasticsearch_names()
 
-        for elasticsearch_name in desired_elasticsearch_names:
-            domain_name = self.get_domain_name(elasticsearch_name)
-            if elasticsearch_name not in all_elasticsearch_names:
+        for desired_elasticsearch_name in desired_elasticsearch_names:
+            domain_name = self.get_domain_name(desired_elasticsearch_name)
+            if desired_elasticsearch_name not in all_elasticsearch_names:
                 logger.info('ElasticSearch domain %s does not exist. Nothing to delete.', domain_name)
                 continue
 
@@ -337,7 +337,7 @@ class DiscoElasticsearch(object):
 
             # Destroy alarms
             self.alarms.delete_hostclass_environment_alarms(
-                self.environment_name, elasticsearch_name
+                self.environment_name, desired_elasticsearch_name
             )
 
     def _get_elasticsearch_names(self):
@@ -422,7 +422,5 @@ class DiscoElasticsearch(object):
 
     def _get_nat_eips(self):
         env_option = 'envtype:{}'.format(self.environment_name)
-        if self.config_vpc.has_option(env_option, 'tunnel_nat_gateways'):
-            return self.config_vpc.get(env_option, 'tunnel_nat_gateways')
-        else:
-            return None
+        return self.config_vpc.get(env_option, 'tunnel_nat_gateways') \
+            if self.config_vpc.has_option(env_option, 'tunnel_nat_gateways') else None

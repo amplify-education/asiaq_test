@@ -1,6 +1,7 @@
 """
 Tests Socify Helper
 """
+
 from unittest import TestCase
 import requests
 import requests_mock

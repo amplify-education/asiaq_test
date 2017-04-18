@@ -124,12 +124,12 @@ class DiscoElastiCacheTests(TestCase):
                 return {
                     'ReplicationGroups': self.replication_groups
                 }
-            else:
-                found_groups = [group for group in self.replication_groups
-                                if group['ReplicationGroupId'] == ReplicationGroupId]
-                return {
-                    'ReplicationGroups': found_groups
-                }
+
+            found_groups = [group for group in self.replication_groups
+                            if group['ReplicationGroupId'] == ReplicationGroupId]
+            return {
+                'ReplicationGroups': found_groups
+            }
 
         # pylint: disable=C0103
         def _describe_cache_subnet_groups(CacheSubnetGroupName=None):

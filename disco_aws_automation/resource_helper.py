@@ -50,10 +50,7 @@ def key_values_to_tags(dicts):
 def find_or_create(find, create):
     """Given a find and a create function, create a resource if it doesn't exist"""
     result = find()
-    if result:
-        return result
-    else:
-        return create()
+    return result if result else create()
 
 
 def keep_trying(max_time, fun, *args, **kwargs):

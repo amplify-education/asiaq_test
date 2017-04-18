@@ -217,10 +217,7 @@ class DiscoELBTests(TestCase):
         elb_client.create_load_balancer = MagicMock(wraps=elb_client.create_load_balancer)
 
         def _get_certificate_arn(name):
-            if name == 'foo.com':
-                return 'arn:aws:acm::foo:com'
-            else:
-                return TEST_CERTIFICATE_ARN_ACM
+            return 'arn:aws:acm::foo:com' if name == 'foo.com' else TEST_CERTIFICATE_ARN_ACM
 
         self.acm.get_certificate_arn.side_effect = _get_certificate_arn
 
@@ -246,10 +243,7 @@ class DiscoELBTests(TestCase):
         elb_client.create_load_balancer = MagicMock(wraps=elb_client.create_load_balancer)
 
         def _get_certificate_arn(name):
-            if name == 'foo.com':
-                return None
-            else:
-                return TEST_CERTIFICATE_ARN_ACM
+            return None if name == 'foo.com' else TEST_CERTIFICATE_ARN_ACM
 
         self.acm.get_certificate_arn.side_effect = _get_certificate_arn
         self.iam.get_certificate_arn.return_value = None

@@ -241,7 +241,7 @@ class DiscoElastigroup(BaseGroup):
                         bdm['ebs']['snapshotId'] = ebs.snapshot_id
                     bdms.append(bdm)
 
-        if len(bdms) == 0:
+        if not bdms:
             bdms = None
         else:
             # automatically take snapshots of EBS volumes so data isn't lost if the instance goes down

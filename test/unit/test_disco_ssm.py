@@ -127,10 +127,11 @@ def _get_mock_ssm():
         else:
             if wait_flags['create']:
                 wait_flags['create'] = False
-                return {'Document': {'Name': Name, 'Status': 'Creating'}}
+                res = {'Document': {'Name': Name, 'Status': 'Creating'}}
             else:
                 wait_flags['create'] = True
-                return {'Document': {'Name': Name, 'Status': 'Active'}}
+                res = {'Document': {'Name': Name, 'Status': 'Active'}}
+            return res
 
     def _mock_send_command(InstanceIds, DocumentName, Comment=None, Parameters=None, OutputS3BucketName=None):
         mock_command = _create_mock_command(
@@ -216,8 +217,8 @@ def _combine_stdout_and_stderr(stdout=None, stderr=None):
         return ''
     elif stdout is not None and stderr is None:
         return stdout
-    else:
-        return SSM_OUTPUT_ERROR_DELIMITER.join([stdout or '', stderr or ''])
+
+    return SSM_OUTPUT_ERROR_DELIMITER.join([stdout or '', stderr or ''])
 
 
 def _create_mock_command(instance_ids, document_name, comment=None, parameters=None,
