@@ -75,8 +75,7 @@ class DiscoDeploy(object):
             return [ami for ami in amis if DiscoBake.ami_hostclass(ami) == self._restrict_hostclass]
         elif not self._allow_any_hostclass:
             return [ami for ami in amis if DiscoBake.ami_hostclass(ami) in self._hostclasses]
-        else:
-            return amis
+        return amis
 
     @property
     def all_stage_amis(self):
@@ -177,14 +176,13 @@ class DiscoDeploy(object):
 
     def is_deployable(self, hostclass):
         """Returns true for all hostclasses which aren't tagged as non-ZDD hostclasses"""
-        return ((hostclass in self._hostclasses and
-                 is_truthy(self._hostclasses[hostclass].get("deployable"))) or
-                hostclass not in self._hostclasses)
+        return is_truthy(self._hostclasses[hostclass].get("deployable")) \
+            if hostclass in self._hostclasses else hostclass not in self._hostclasses
 
     def get_integration_test(self, hostclass):
         """Returns the integration test for this hostclass, or None if none exists"""
-        return (hostclass in self._hostclasses and
-                self._hostclasses[hostclass].get("integration_test")) or None
+        return self._hostclasses[hostclass].get("integration_test") \
+            if hostclass in self._hostclasses else None
 
     def wait_for_smoketests(self, ami_id, min_count, group_name=None, launch_time=None):
         '''
@@ -281,7 +279,7 @@ class DiscoDeploy(object):
                     logger.warning("Unable to find old AMI %s, it was probably deleted", ami_id)
                 else:
                     raise
-        return max(images, key=self._disco_bake.get_ami_creation_time).id if len(images) else None
+        return max(images, key=self._disco_bake.get_ami_creation_time).id if images else None
 
     # This method handles blue/green from end to end, so it has a lot of logic in it. We should at some point
     # look at breaking it up a bit and/or the feasibility of that.
@@ -634,7 +632,7 @@ class DiscoDeploy(object):
                                      sub_command="test")
 
         amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
-        ami = random.choice(amis) if len(amis) else None
+        ami = random.choice(amis) if amis else None
         if ami:
             try:
                 self.test_ami(ami, dry_run, deployment_strategy)
@@ -672,7 +670,7 @@ class DiscoDeploy(object):
                                      sub_command="update")
 
         amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
-        ami = random.choice(amis) if len(amis) else None
+        ami = random.choice(amis) if amis else None
         if ami:
             try:
                 self.update_ami(ami, dry_run, deployment_strategy)
@@ -706,8 +704,7 @@ class DiscoDeploy(object):
             return self._config.get("test", key)
         elif alt_key != key and self._config.has_option("test", alt_key):
             return self._config.get("test", alt_key)
-        else:
-            return self._config.get(DEFAULT_CONFIG_SECTION, "default_{0}".format(key))
+        return self._config.get(DEFAULT_CONFIG_SECTION, "default_{0}".format(key))
 
     def hostclass_option_default(self, hostclass, key, default=None):
         """Fetch a hostclass configuration option if it exists, otherwise return value passed in as default"""

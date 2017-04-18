@@ -21,10 +21,10 @@ class DecimalEncoder(json.JSONEncoder):
 
     # default method will not be hidden with the way we initialize the object
     # pylint: disable=E0202
-    def default(self, value):
-        if isinstance(value, decimal.Decimal) or isinstance(value, datetime.datetime):
-            return str(value)
-        return super(DecimalEncoder, self).default(value)
+    def default(self, o):
+        if isinstance(o, (decimal.Decimal, datetime.datetime)):
+            return str(o)
+        return super(DecimalEncoder, self).default(o)
 
 
 def get_parser():

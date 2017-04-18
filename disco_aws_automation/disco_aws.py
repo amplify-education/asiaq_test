@@ -146,8 +146,8 @@ class DiscoAWS(object):
             return self._config.get(section, env_option)
         if self._config.has_option(section, option):
             return self._config.get(section, option)
-        else:
-            return default
+
+        return default
 
     def config_no_default(self, option, section=DEFAULT_CONFIG_SECTION):
         """
@@ -155,9 +155,8 @@ class DiscoAWS(object):
         Raises a NoOptionError error when option not found.
         """
         env_option = "{0}@{1}".format(option, self.environment_name)
-        if self._config.has_option(section, env_option):
-            return self._config.get(section, env_option)
-        return self._config.get(section, option)
+        return self._config.get(section, env_option) \
+            if self._config.has_option(section, env_option) else self._config.get(section, option)
 
     def hostclass_option(self, hostclass, option):
         # TODO swap hostclass (default to DEFAULT_CONFIG_SECTION) and option
@@ -167,8 +166,8 @@ class DiscoAWS(object):
             return self._config.get(hostclass, env_option)
         elif self._config.has_option(hostclass, option):
             return self._config.get(hostclass, option)
-        else:
-            return self.config_no_default(section=DEFAULT_CONFIG_SECTION, option="default_{0}".format(option))
+
+        return self.config_no_default(section=DEFAULT_CONFIG_SECTION, option="default_{0}".format(option))
 
     def hostclass_option_default(self, hostclass, option, default=None):
         """Fetch a hostclass configuration option if it exists, otherwise return value passed in as default"""
@@ -458,7 +457,7 @@ class DiscoAWS(object):
 
         instances = [i for i in instances if i.state != u'terminated']
         instance_ids = [i.id for i in instances]
-        if len(instance_ids) > 0:
+        if instance_ids:
             if terminate:
                 for instance in instances:
                     self.vpc.delete_instance_routes(instance)
@@ -586,13 +585,13 @@ class DiscoAWS(object):
         instances = self.instances(filters={"image_id": ami_ids}, instance_ids=instance_ids_in_group)
         if launch_time is None:
             return instances
-        else:
-            # Filter the instance by launch_time
-            return [
-                instance
-                for instance in instances
-                if get_instance_launch_time(instance) >= launch_time
-            ]
+
+        # Filter the instance by launch_time
+        return [
+            instance
+            for instance in instances
+            if get_instance_launch_time(instance) >= launch_time
+        ]
 
     def instances_from_asgs(self, asgs):
         """Returns instances matching any of a list of autoscaling group names"""
@@ -871,8 +870,8 @@ class DiscoAWS(object):
         elif ip_address.startswith("-") or ip_address.startswith("+"):
             meta_network = self.get_meta_network(hostclass)
             return str(meta_network.ip_by_offset(ip_address))
-        else:
-            return ip_address
+
+        return ip_address
 
     def get_default_meta_network(self, default=None):
         """Get the default meta network from config or None if not in config"""

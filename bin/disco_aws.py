@@ -249,10 +249,7 @@ def get_preferred_private_ip(instance):
      * the first network interface's private ip
     """
     interfaces = instance.interfaces
-    if len(interfaces) == 1:
-        return interfaces[0].private_ip_address
-    else:
-        return interfaces[1].private_ip_address
+    return interfaces[0].private_ip_address if len(interfaces) == 1 else interfaces[1].private_ip_address
 
 
 def parse_ssm_parameters(parameters):

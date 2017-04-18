@@ -128,8 +128,8 @@ class DiscoBake(object):
             return self._config.get(hostclass, key)
         elif self._config.has_option("bake", key):
             return self.option(key)
-        else:
-            return self._config.get(DEFAULT_CONFIG_SECTION, "default_{0}".format(key))
+
+        return self._config.get(DEFAULT_CONFIG_SECTION, "default_{0}".format(key))
 
     def hc_option_default(self, hostclass, key, default=None):
         """Fetch a hostclass configuration option if it exists, otherwise return value passed in as default"""
@@ -667,10 +667,10 @@ class DiscoBake(object):
         seconds_since_epoch = DiscoBake.ami_timestamp(ami)
         if not seconds_since_epoch:
             return None
-        else:
-            timestamp = datetime.datetime.fromtimestamp(seconds_since_epoch, tz=UTC)  # our timestamp is UTC
-            timestamp_naive = timestamp.replace(tzinfo=None)  # but the rest of the code expects no tz
-            return timestamp_naive
+
+        timestamp = datetime.datetime.fromtimestamp(seconds_since_epoch, tz=UTC)  # our timestamp is UTC
+        timestamp_naive = timestamp.replace(tzinfo=None)  # but the rest of the code expects no tz
+        return timestamp_naive
 
     @staticmethod
     def ami_hostclass(ami):

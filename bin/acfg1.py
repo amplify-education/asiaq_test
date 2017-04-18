@@ -166,10 +166,8 @@ def _higher_priority(new_hostclass, old_hostclass, all_hostclasses):
     if new_hostclass:
         if old_hostclass:
             return all_hostclasses.index(new_hostclass) < all_hostclasses.index(old_hostclass)
-        else:
-            return True
-    else:
-        return False
+        return True
+    return False
 
 
 class HostclassFileNotFound(EnvironmentError):

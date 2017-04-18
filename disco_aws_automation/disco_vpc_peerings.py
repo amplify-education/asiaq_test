@@ -112,10 +112,8 @@ class DiscoVPCPeerings(object):
         )['RouteTables']
 
     def _get_peer_vpc_id(self, vpc_id, peering):
-        if peering['AccepterVpcInfo']['VpcId'] != vpc_id:
-            return peering['AccepterVpcInfo']['VpcId']
-        else:
-            return peering['RequesterVpcInfo']['VpcId']
+        accepter_vpcid = peering['AccepterVpcInfo']['VpcId']
+        return accepter_vpcid if accepter_vpcid != vpc_id else peering['RequesterVpcInfo']['VpcId']
 
     def _find_peer_vpc(self, peer_vpc_id):
         try:

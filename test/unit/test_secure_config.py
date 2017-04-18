@@ -75,10 +75,8 @@ class SecureConfig(TestCase):
         deployenator = "mhcdiscodeployenator"
 
         option = "eip@deploy"
-        if daws_config.has_section(deployenator) and daws_config.has_option(deployenator, option):
-            return [daws_config.get(deployenator, option)]
-        else:
-            return []
+        return [daws_config.get(deployenator, option)] \
+            if daws_config.has_section(deployenator) and daws_config.has_option(deployenator, option) else []
 
     def _prod_sg_rules(self):
         """
