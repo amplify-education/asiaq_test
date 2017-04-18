@@ -176,7 +176,7 @@ class DiscoAWS(object):
         except NoOptionError:
             return default
 
-    def create_userdata(self, hostclass, owner):
+    def create_userdata(self, hostclass, owner, is_spotinst=False):
         """This is autoscaling group specific user data"""
         fixed_ip_hostclass = {}
         data = {}
@@ -209,6 +209,7 @@ class DiscoAWS(object):
         smoketest_termination = is_truthy(self.hostclass_option(hostclass, "smoketest_termination"))
         data["smoketest_termination"] = "1" if smoketest_termination else "0"
         data["project_name"] = self.config("project_name")
+        data["is_spotinst"] = "1" if is_spotinst else "0"
         logger.debug("userdata: %s", data)
         return data
 
@@ -379,10 +380,12 @@ class DiscoAWS(object):
         wait_for_state(ami, u'available', 600)
         # TODO is it necessary to wait here???
 
+        is_spotinst = is_truthy(str(spotinst)) or is_truthy(self.config('spotinst', hostclass))
+
         meta_network = self.get_meta_network(hostclass)
         instance_type = instance_type if instance_type else self.get_instance_type(hostclass)
 
-        user_data = self.create_userdata(hostclass, owner)
+        user_data = self.create_userdata(hostclass, owner, is_spotinst=is_spotinst)
 
         block_device_mappings = self.get_block_device_mappings(
             hostclass, ami, extra_space, extra_disk, iops, instance_type
@@ -421,7 +424,7 @@ class DiscoAWS(object):
             create_if_exists=create_if_exists,
             termination_policies=termination_policies,
             group_name=group_name,
-            spotinst=is_truthy(str(spotinst)) or is_truthy(self.config('spotinst', hostclass))
+            spotinst=is_spotinst
         )
 
         self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group['name'])
