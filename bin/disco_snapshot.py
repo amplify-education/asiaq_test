@@ -61,7 +61,7 @@ def get_parser():
     parser_take_group.add_argument('--ami', dest='amis', default=[], action='append', type=str)
     parser_take_group.add_argument('--volume-id', dest='volume_id', type=str)
     parser_take.add_argument('--tag', dest='tags', required=False, action='append', type=str,
-                             help='The key-value pair used to tag the snapshot '
+                             help='The key:value pair used to tag the snapshot '
                                   '(Example: --tag disk_usage:300MB)')
 
     parser_update = subparsers.add_parser(
