@@ -7,7 +7,6 @@ from __future__ import print_function
 import sys
 import argparse
 from collections import OrderedDict
-from datetime import datetime
 
 from bin import print_table
 from disco_aws_automation import DiscoBake, HostclassTemplating

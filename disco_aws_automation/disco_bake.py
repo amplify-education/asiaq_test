@@ -114,6 +114,15 @@ class DiscoBake(object):
         print(output)
 
     def tabilize_amis(self, amis, age_since_when=None, in_prod=False, show_tags=False):
+        """
+        Convenience function for tabulating a list of AMIs such that they can be printed more easily by
+        the print_table function.
+        :param amis: List of AMIs to tabulate.
+        :param age_since_when: Time to compare the AMIs against. Defaults to now.
+        :param in_prod: If True, shows whether the AMIs are available in prod. Defaults to False.
+        :param show_tags: If True, shows the tags applied to the AMI. Defaults to False.
+        :return: A tuple of (headers, rows) for use with the print_table function.
+        """
         age_since_when = age_since_when or datetime.datetime.utcnow()
 
         headers = ["ID", "Created", "Name", "State", "Stage", "Product Line", "Age"]
@@ -154,7 +163,6 @@ class DiscoBake(object):
             output.append(info)
 
         return headers, output
-
 
     def option(self, key):
         '''Returns an option from the [bake] section of the disco_aws.ini config file'''
