@@ -83,7 +83,7 @@ class DiscoBake(object):
         time_diff = now - old_time
         return int(time_diff.total_seconds() / 60 / 60)
 
-    def pretty_print_ami(self, ami, age_since_when=None, in_prod=False):
+    def pretty_print_ami(self, ami, age_since_when=None, in_prod=False, show_tags=False):
         '''Prints an a pretty AMI description to the standard output'''
         name = ami.name
         age_since_when = age_since_when or datetime.datetime.utcnow()
@@ -102,10 +102,67 @@ class DiscoBake(object):
             DiscoBake.time_diff_in_hours(age_since_when, creation_time),
         )
 
+        if show_tags:
+            ami_tags = [':'.join([key, value])
+                        for key, value in ami.tags.iteritems()
+                        if key not in ["stage", "productline"]]
+            output += ', '.join(ami_tags)
+
         if in_prod:
             output += "     prod" if self.is_prod_ami(ami) else " non-prod"
 
         print(output)
+
+    def tabilize_amis(self, amis, age_since_when=None, in_prod=False, show_tags=False):
+        """
+        Convenience function for tabulating a list of AMIs such that they can be printed more easily by
+        the print_table function.
+        :param amis: List of AMIs to tabulate.
+        :param age_since_when: Time to compare the AMIs against. Defaults to now.
+        :param in_prod: If True, shows whether the AMIs are available in prod. Defaults to False.
+        :param show_tags: If True, shows the tags applied to the AMI. Defaults to False.
+        :return: A tuple of (headers, rows) for use with the print_table function.
+        """
+        age_since_when = age_since_when or datetime.datetime.utcnow()
+
+        headers = ["ID", "Created", "Name", "State", "Stage", "Product Line", "Age"]
+
+        if in_prod:
+            headers.append("Production")
+
+        if show_tags:
+            headers.append("Tags")
+
+        output = []
+
+        for ami in amis:
+            name = ami.name
+            creation_time = self.get_ami_creation_time(ami)
+
+            if ami.name and AMI_NAME_PATTERN.match(ami.name):
+                name = self.ami_hostclass(ami)
+            info = {
+                "ID": ami.id,
+                "Created": str(creation_time),
+                "Name": name,
+                "State": ami.state,
+                "Stage": ami.tags.get("stage"),
+                "Product Line": ami.tags.get("productline"),
+                "Age": DiscoBake.time_diff_in_hours(age_since_when, creation_time)
+            }
+
+            if show_tags:
+                ami_tags = [':'.join([key, value])
+                            for key, value in ami.tags.iteritems()
+                            if key not in ["stage", "productline"]]
+                info["Tags"] = ', '.join(ami_tags)
+
+            if in_prod:
+                info["Production"] = "prod" if self.is_prod_ami(ami) else "non-prod"
+
+            output.append(info)
+
+        return headers, output
 
     def option(self, key):
         '''Returns an option from the [bake] section of the disco_aws.ini config file'''
