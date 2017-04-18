@@ -166,19 +166,23 @@ def run():
         ami_ids = [args.ami] if args.ami else None
         instance_ids = [args.instance] if args.instance else None
         bakery = DiscoBake()
-        amis = sorted(bakery.list_amis(ami_ids,
-                                       instance_ids,
-                                       args.stage,
-                                       args.product_line,
-                                       args.state,
-                                       args.hostclass), key=bakery.ami_timestamp)
-        now = datetime.utcnow()
+        amis = sorted(
+            bakery.list_amis(
+                ami_ids,
+                instance_ids,
+                args.stage,
+                args.product_line,
+                args.state,
+                args.hostclass
+            ),
+            key=bakery.ami_timestamp
+        )
         headers, output = bakery.tabilize_amis(
             amis=amis,
             in_prod=args.in_prod,
             show_tags=args.show_tags
         )
-        print_table(output, headers)
+        print_table(headers=headers, rows=output)
         if not amis:
             sys.exit(1)
     elif args.mode == "liststragglers":
