@@ -61,7 +61,7 @@ module Nose
     #
     command_args = [
       test_dir == Nose::UNIT_TEST_DIR ? unit_test_vars : "",
-      "nosetests -s",
+      "nosetests",
       test_dir == Nose::UNIT_TEST_DIR ? unit_test_params : "",
       "--where=#{Dir.pwd}",
       "--where=#{ProjectPaths::PACKAGE_DIR}",
