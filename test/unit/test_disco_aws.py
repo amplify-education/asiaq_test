@@ -740,6 +740,28 @@ class DiscoAWSTests(TestCase):
         self.assertEqual(user_data["zookeepers"], "[\\\"10.0.0.1:2181\\\"]")
 
     @patch_disco_aws
+    def test_create_userdata_with_spotinst(self, **kwargs):
+        """
+        create_userdata sets 'spotinst' key
+        """
+        config_dict = get_default_config_dict()
+        aws = DiscoAWS(config=get_mock_config(config_dict), environment_name=TEST_ENV_NAME)
+
+        user_data = aws.create_userdata(hostclass="mhcunittest", owner="unittestuser", is_spotinst=True)
+        self.assertEqual(user_data["is_spotinst"], "1")
+
+    @patch_disco_aws
+    def test_create_userdata_without_spotinst(self, **kwargs):
+        """
+        create_userdata doesn't set 'spotinst' key
+        """
+        config_dict = get_default_config_dict()
+        aws = DiscoAWS(config=get_mock_config(config_dict), environment_name=TEST_ENV_NAME)
+
+        user_data = aws.create_userdata(hostclass="mhcunittest", owner="unittestuser", is_spotinst=False)
+        self.assertEqual(user_data["is_spotinst"], "0")
+
+    @patch_disco_aws
     def test_smoketest_all_good(self, mock_config, **kwargs):
         '''smoketest_once raises TimeoutError if instance is not tagged as smoketested'''
         aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME)
