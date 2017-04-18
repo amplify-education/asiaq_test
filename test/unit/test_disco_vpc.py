@@ -171,6 +171,8 @@ class DiscoVPCTests(unittest.TestCase):
         resource_mock.Vpc.create_tags.return_value = []
         boto3_resource_mock.return_value = resource_mock
 
+        client_mock.describe_vpn_gateways.return_value = {'VpnGateways': []}
+
         my_tags_options = [{'Value': 'astronauts', 'Key': 'productline'},
                            {'Value': 'tag_value', 'Key': 'mytag'}]
         DiscoVPC._get_vpc_cidr = MagicMock()
@@ -251,10 +253,8 @@ class DiscoVPCTests(unittest.TestCase):
             return {'DhcpOptions': {'DhcpOptionsId': local_dict['new_mock_dhcp_options_id']}}
 
         def _create_describe_dhcp_mock(**args):
-            if local_dict['dhcp_options_created']:
-                return {'DhcpOptions': [{'DhcpOptionsId': local_dict['new_mock_dhcp_options_id']}]}
-            else:
-                return {'DhcpOptions': []}
+            return {'DhcpOptions': [{'DhcpOptionsId': local_dict['new_mock_dhcp_options_id']}]} \
+                if local_dict['dhcp_options_created'] else {'DhcpOptions': []}
 
         def _create_gethostbyname_mock(hostname):
             return local_dict['ntp_servers_dict'][hostname]

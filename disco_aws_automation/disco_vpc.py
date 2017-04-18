@@ -121,8 +121,8 @@ class DiscoVPC(object):
             return self.config.get(envtype_section, option)
         elif self.config.has_option(peering_section, option):
             return self.config.get(peering_section, option)
-        else:
-            return default
+
+        return default
 
     def get_vpc_id(self):
         ''' Returns the vpc id '''
@@ -195,7 +195,7 @@ class DiscoVPC(object):
         else:
             raise VPCEnvironmentError("Expect vpc_id or environment_name")
 
-        if len(vpcs) == 0:
+        if not vpcs:
             return None
 
         tags = tag2dict(vpcs[0]['Tags'] if 'Tags' in vpcs[0] else None)
@@ -220,7 +220,7 @@ class DiscoVPC(object):
             return self._networks
         self._networks = {
             network: DiscoMetaNetwork(network, self)
-            for network in NETWORKS.keys()
+            for network in NETWORKS
             if self.get_config("{0}_cidr".format(network))  # don't create networks we haven't defined
         }
         return self._networks
@@ -231,7 +231,7 @@ class DiscoVPC(object):
         # don't create networks we haven't defined
         # a map of network names to the configured cidr value or "auto"
         networks = {network: self.get_config("{0}_cidr".format(network))
-                    for network in NETWORKS.keys()
+                    for network in NETWORKS
                     if self.get_config("{0}_cidr".format(network))}
 
         if len(networks) < 1:
@@ -403,7 +403,7 @@ class DiscoVPC(object):
             DhcpOptionsIds=[created_dhcp_options['DhcpOptionsId']]
         )['DhcpOptions']
 
-        if len(created_dhcp_options) == 0:
+        if not created_dhcp_options:
             raise RuntimeError("Failed to find DHCP options after creation.")
 
         throttled_call(self.boto3_ec2.associate_dhcp_options,
@@ -627,7 +627,7 @@ class DiscoVPC(object):
         routes = throttled_call(self.boto3_ec2.describe_route_tables,
                                 Filters=self.vpc_filters())['RouteTables']
         for route_table in routes:
-            if len(route_table["Associations"]) > 0 and route_table["Associations"][0]["Main"]:
+            if route_table["Associations"] and route_table["Associations"][0]["Main"]:
                 logger.info("Skipping the default main route table %s", route_table['RouteTableId'])
                 continue
             try:
@@ -650,7 +650,7 @@ class DiscoVPC(object):
         # If DHCP options didn't get created correctly during VPC creation, what we have here
         # could be the default DHCP options, which cannot be deleted. We need to check the tag
         # to make sure we are deleting the one that belongs to the VPC.
-        if len(dhcp_options) > 0 and dhcp_options[0].get('Tags'):
+        if dhcp_options and dhcp_options[0].get('Tags'):
             tags = tag2dict(dhcp_options[0]['Tags'])
             if tags.get('Name') == self.environment_name:
                 throttled_call(self.boto3_ec2.delete_dhcp_options, DhcpOptionsId=dhcp_options_id)

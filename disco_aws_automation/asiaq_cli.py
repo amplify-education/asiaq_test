@@ -120,12 +120,12 @@ class DynamoDbBackupCommand(CliCommand):
         backup_parser = subsub.add_parser("backup",
                                           help="Configure backup to S3 for a dynamodb table")
         restore_parser = subsub.add_parser("restore", help="Restore a dynamodb table from an S3 backup")
-        for parser in [backup_parser, restore_parser]:
-            parser.add_argument("table_name")
-            parser.add_argument("--force-reload", action='store_true',
-                                help="Force recreation of the pipeline content")
-            parser.add_argument("--metanetwork", metavar="NAME",
-                                help="Metanetwork in which to launch pipeline assets")
+        for backup_restore_parser in [backup_parser, restore_parser]:
+            backup_restore_parser.add_argument("table_name")
+            backup_restore_parser.add_argument("--force-reload", action='store_true',
+                                               help="Force recreation of the pipeline content")
+            backup_restore_parser.add_argument("--metanetwork", metavar="NAME",
+                                               help="Metanetwork in which to launch pipeline assets")
 
         restore_parser.add_argument("--from", dest="backup_dir",
                                     help="Previous backup to restore from (default: latest)")

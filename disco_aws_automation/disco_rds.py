@@ -180,10 +180,7 @@ class RDS(threading.Thread):
                 reverse=True
             )
 
-            if snapshots:
-                return snapshots[0]
-            else:
-                return None
+            return snapshots[0] if snapshots else None
 
         except botocore.exceptions.ClientError:
             return None

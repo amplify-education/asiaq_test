@@ -27,8 +27,8 @@ class DiscoLogMetricsTests(TestCase):
                 return {'logGroups': [{'logGroupName': 'test-env/mhcdummy/info_log'},
                                       {'logGroupName': 'test-env/mhcbanana/warning_log'}]}
 
-            else:  # getting all log metrics for hostclass
-                return {'logGroups': [{'logGroupName': 'test-env/mhcdummy/info_log'}]}
+            # getting all log metrics for hostclass
+            return {'logGroups': [{'logGroupName': 'test-env/mhcdummy/info_log'}]}
 
         # pylint: disable=C0103
         def _describe_metric_filters(logGroupName):

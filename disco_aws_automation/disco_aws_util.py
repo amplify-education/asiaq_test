@@ -125,10 +125,10 @@ def size_as_recurrence_map(size, sentinel=''):
     """
     if not size and size != 0:
         return {sentinel: None}
-    else:
-        return {sentinel: int(size)} if str(size).isdigit() else {
-            part.split('@')[1]: int(part.split('@')[0])
-            for part in str(size).split(':')}
+
+    return {sentinel: int(size)} if str(size).isdigit() else {
+        part.split('@')[1]: int(part.split('@')[0])
+        for part in str(size).split(':')}
 
 
 def size_as_minimum_int_or_none(size):
