@@ -6,8 +6,9 @@ Command line tool for baking AMI's and otherwise working with them.
 from __future__ import print_function
 import sys
 import argparse
-from datetime import datetime
+from collections import OrderedDict
 
+from bin import print_table
 from disco_aws_automation import DiscoBake, HostclassTemplating
 from disco_aws_automation.disco_aws_util import run_gracefully
 from disco_aws_automation.disco_logging import configure_logging
@@ -57,6 +58,8 @@ def get_parser():
                                  help='Only show amis for this hostclass.', type=str, default=None)
     parser_listamis.add_argument('--in-prod', dest='in_prod', action='store_const', const=True,
                                  help='Show whether AMI is executable in prod.', default=False)
+    parser_listamis.add_argument('--show-tags', dest='show_tags', action='store_const', const=True,
+                                 help='Show any additional tags on the AMI', default=False)
 
     parser_liststragglers = subparsers.add_parser(
         'liststragglers', help='List hostclasses for which AMIs have not been recently promoted')
@@ -72,6 +75,10 @@ def get_parser():
                                       help='Display the latest ami for this stage or later', type=str)
     parser_listlatestami.add_argument('--hostclass', dest='hostclass', required=True,
                                       help='Display the latest ami for this hostclass.', type=str)
+    parser_listlatestami.add_argument('--in-prod', dest='in_prod', action='store_const', const=True,
+                                      help='Show whether AMI is executable in prod.', default=False)
+    parser_listlatestami.add_argument('--show-tags', dest='show_tags', action='store_const', const=True,
+                                      help='Show any additional tags on the AMI', default=False)
 
     parser_deleteami = subparsers.add_parser('deleteami', help='Delete AMI')
     parser_deleteami.set_defaults(mode="deleteami")
@@ -111,6 +118,9 @@ def get_parser():
                              const=True, default=False,
                              help="Use instances' local ip address for operations. "
                              "Set this flag when baking from same subnet as where the baking is occuring.")
+    parser_bake.add_argument('--tag', dest='tags', required=False, action='append', type=str, default=[],
+                             help='The key:value pair used to tag the AMI '
+                                  '(Example: --tag application:dnext)')
 
     parser_create = subparsers.add_parser(
         'create', help="Create a hostclass",
@@ -132,8 +142,9 @@ def run():
     configure_logging(args.debug)
 
     if args.mode == "bake":
+        extra_tags = OrderedDict(tag.split(':', 1) for tag in args.tags)
         bakery = DiscoBake(use_local_ip=args.use_local_ip)
-        bakery.bake_ami(args.hostclass, args.no_destroy, args.source_ami, args.stage)
+        bakery.bake_ami(args.hostclass, args.no_destroy, args.source_ami, args.stage, extra_tags=extra_tags)
     elif args.mode == "create":
         HostclassTemplating.create_hostclass(args.hostclass)
     elif args.mode == "promote":
@@ -154,15 +165,23 @@ def run():
         ami_ids = [args.ami] if args.ami else None
         instance_ids = [args.instance] if args.instance else None
         bakery = DiscoBake()
-        amis = sorted(bakery.list_amis(ami_ids,
-                                       instance_ids,
-                                       args.stage,
-                                       args.product_line,
-                                       args.state,
-                                       args.hostclass), key=bakery.ami_timestamp)
-        now = datetime.utcnow()
-        for ami in amis:
-            bakery.pretty_print_ami(ami, now, in_prod=args.in_prod)
+        amis = sorted(
+            bakery.list_amis(
+                ami_ids,
+                instance_ids,
+                args.stage,
+                args.product_line,
+                args.state,
+                args.hostclass
+            ),
+            key=bakery.ami_timestamp
+        )
+        headers, output = bakery.tabilize_amis(
+            amis=amis,
+            in_prod=args.in_prod,
+            show_tags=args.show_tags
+        )
+        print_table(headers=headers, rows=output)
         if not amis:
             sys.exit(1)
     elif args.mode == "liststragglers":
@@ -173,7 +192,12 @@ def run():
         bakery = DiscoBake()
         ami = bakery.find_ami(args.stage, args.hostclass)
         if ami:
-            bakery.pretty_print_ami(ami)
+            headers, output = bakery.tabilize_amis(
+                amis=[ami],
+                in_prod=args.in_prod,
+                show_tags=args.show_tags
+            )
+            print_table(headers=headers, rows=output)
         else:
             sys.exit(1)
     elif args.mode == "deleteami":
