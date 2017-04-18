@@ -113,7 +113,7 @@ class DiscoBake(object):
 
         print(output)
 
-    def tabilize_amis(self, amis, age_since_when, in_prod=False, show_tags=False):
+    def tabilize_amis(self, amis, age_since_when=None, in_prod=False, show_tags=False):
         age_since_when = age_since_when or datetime.datetime.utcnow()
 
         headers = ["ID", "Created", "Name", "State", "Stage", "Product Line", "Age"]

@@ -76,6 +76,10 @@ def get_parser():
                                       help='Display the latest ami for this stage or later', type=str)
     parser_listlatestami.add_argument('--hostclass', dest='hostclass', required=True,
                                       help='Display the latest ami for this hostclass.', type=str)
+    parser_listlatestami.add_argument('--in-prod', dest='in_prod', action='store_const', const=True,
+                                      help='Show whether AMI is executable in prod.', default=False)
+    parser_listlatestami.add_argument('--show-tags', dest='show_tags', action='store_const', const=True,
+                                      help='Show any additional tags on the AMI', default=False)
 
     parser_deleteami = subparsers.add_parser('deleteami', help='Delete AMI')
     parser_deleteami.set_defaults(mode="deleteami")
@@ -171,7 +175,6 @@ def run():
         now = datetime.utcnow()
         headers, output = bakery.tabilize_amis(
             amis=amis,
-            age_since_when=now,
             in_prod=args.in_prod,
             show_tags=args.show_tags
         )
@@ -186,7 +189,12 @@ def run():
         bakery = DiscoBake()
         ami = bakery.find_ami(args.stage, args.hostclass)
         if ami:
-            bakery.pretty_print_ami(ami)
+            headers, output = bakery.tabilize_amis(
+                amis=[ami],
+                in_prod=args.in_prod,
+                show_tags=args.show_tags
+            )
+            print_table(headers=headers, rows=output)
         else:
             sys.exit(1)
     elif args.mode == "deleteami":
