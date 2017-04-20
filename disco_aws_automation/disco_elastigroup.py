@@ -211,10 +211,13 @@ class DiscoElastigroup(BaseGroup):
 
         if not spotinst_reserve:
             strategy['risk'] = 100
+            strategy['onDemandCount'] = None
         else:
             if str(spotinst_reserve).endswith('%'):
                 strategy['risk'] = 100 - int(spotinst_reserve.strip('%'))
+                strategy['onDemandCount'] = None
             else:
+                strategy['risk'] = None
                 strategy['onDemandCount'] = int(spotinst_reserve)
 
         _min_size = min_size or 0
