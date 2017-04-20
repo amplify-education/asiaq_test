@@ -70,8 +70,7 @@ def get_parser():
                                   help='Use spotinst for autoscaling group')
     parser_provision.add_argument('--spotinst-reserve', dest='spotinst_reserve',
                                   required=False, type=str, default=None,
-                                  help='Percentage of ondemand instances or absolute number of '
-                                       'ondemand instances to use')
+                                  help='Percentage or a fixed number of ondemand instances to use')
     parser_listhosts = subparsers.add_parser('listhosts', help='List all hosts')
     parser_listhosts.set_defaults(mode="listhosts")
     parser_listhosts.add_argument('--hostclass', dest='hostclass', required=False, type=str,

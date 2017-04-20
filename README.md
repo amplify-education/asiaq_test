@@ -817,7 +817,7 @@ There are a number of optional parameters as well, here is a selection:
     --extra-space      This will resize the root partition on boot with the specified number of extra gigabytes of disk
     --extra-disk       This will attach an extra EBS volume with the specified number of gigabytes
     --spotinst         This will make use of Spotinst to provision the hostclass
-    --spotinst_reserve When using spotinst this is the number of ondemand instances as either a percentage or absolute number
+    --spotinst_reserve When using spotinst this is the number of ondemand instances as either a percentage or a fixed number
 
 Note: "Extra space" will automatically be added to the root partition,
 but this slows down provisioning. An "extra disk" has to be formatted
