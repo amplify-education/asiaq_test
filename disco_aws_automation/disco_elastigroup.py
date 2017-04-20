@@ -328,7 +328,7 @@ class DiscoElastigroup(BaseGroup):
             raise SpotinstException('DiscoElastiGroup must be used for creating SpotInst groups')
 
         group_config = self._create_elastigroup_config(
-            availability_vs_cost="availability",
+            availability_vs_cost="availabilityOriented",
             desired_size=desired_size,
             min_size=min_size,
             max_size=max_size,
