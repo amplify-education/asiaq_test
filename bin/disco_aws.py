@@ -68,7 +68,10 @@ def get_parser():
                                   help='Temporarily disable chaos')
     parser_provision.add_argument('--spotinst', required=False, action='store_true',
                                   help='Use spotinst for autoscaling group')
-
+    parser_provision.add_argument('--spotinst-reserve', dest='spotinst_reserve',
+                                  required=False, type=str, default=None,
+                                  help='Percentage of ondemand instances or absolute number of '
+                                       'ondemand instances to use')
     parser_listhosts = subparsers.add_parser('listhosts', help='List all hosts')
     parser_listhosts.set_defaults(mode="listhosts")
     parser_listhosts.add_argument('--hostclass', dest='hostclass', required=False, type=str,
@@ -287,7 +290,8 @@ def run():
             "desired_size": args.desired_size,
             "max_size": args.max_size,
             "chaos": "no" if args.no_chaos else None,
-            "spotinst": args.spotinst
+            "spotinst": args.spotinst,
+            "spotinst_reserve": args.spotinst_reserve
         }]
         aws.spinup(hostclass_dicts, testing=args.testing)
     elif args.mode == "listhosts":

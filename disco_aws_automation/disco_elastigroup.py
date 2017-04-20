@@ -193,21 +193,29 @@ class DiscoElastigroup(BaseGroup):
                  'max_size': group['max_size'],
                  'type': group['type']} for group in groups]
 
-    def _create_elastigroup_config(self, hostclass, availability_vs_cost, desired_size, min_size, max_size,
+    def _create_elastigroup_config(self, availability_vs_cost, desired_size, min_size, max_size,
                                    instance_type, zones, load_balancers, security_groups, instance_monitoring,
                                    ebs_optimized, image_id, key_name, associate_public_ip_address, user_data,
-                                   tags, instance_profile_name, block_device_mappings, group_name):
+                                   tags, instance_profile_name, block_device_mappings, group_name,
+                                   spotinst_reserve):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
         # We need unused argument to match method in autoscale
         # pylint: disable=unused-argument
         """Create new elastigroup configuration"""
         strategy = {
-            'risk': 100,
             'availabilityVsCost': availability_vs_cost,
             'utilizeReservedInstances': True,
             'fallbackToOd': True
         }
+
+        if not spotinst_reserve:
+            strategy['risk'] = 100
+        else:
+            if str(spotinst_reserve).endswith('%'):
+                strategy['risk'] = 100 - int(spotinst_reserve.strip('%'))
+            else:
+                strategy['onDemandCount'] = int(spotinst_reserve)
 
         _min_size = min_size or 0
         _max_size = max([min_size, max_size, desired_size, 0])
@@ -241,9 +249,7 @@ class DiscoElastigroup(BaseGroup):
                         bdm['ebs']['snapshotId'] = ebs.snapshot_id
                     bdms.append(bdm)
 
-        if not bdms:
-            bdms = None
-        else:
+        if bdms:
             # automatically take snapshots of EBS volumes so data isn't lost if the instance goes down
             strategy['persistence'] = {
                 'shouldPersistBlockDevices': True
@@ -255,21 +261,16 @@ class DiscoElastigroup(BaseGroup):
              "associatePublicIpAddress": associate_public_ip_address}
         ] if associate_public_ip_address else None
 
-        if load_balancers:
-            elbs = [{"name": elb, "type": "CLASSIC"} for elb in load_balancers]
-        else:
-            elbs = None
-
         launch_specification = {
             "loadBalancersConfig": {
-                "loadBalancers": elbs
+                "loadBalancers": [{"name": elb, "type": "CLASSIC"} for elb in load_balancers or []] or None
             },
             "securityGroupIds": security_groups,
             "monitoring": instance_monitoring,
             "ebsOptimized": ebs_optimized,
             "imageId": image_id,
             "keyPair": key_name,
-            "blockDeviceMappings": bdms,
+            "blockDeviceMappings": bdms or None,
             "networkInterfaces": network_interfaces,
             "userData": b64encode(str(user_data)),
             "tags": self._create_elastigroup_tags(tags),
@@ -315,7 +316,8 @@ class DiscoElastigroup(BaseGroup):
                      load_balancers=None, subnets=None, security_groups=None, instance_monitoring=None,
                      ebs_optimized=None, image_id=None, key_name=None, associate_public_ip_address=None,
                      user_data=None, tags=None, instance_profile_name=None, block_device_mappings=None,
-                     group_name=None, create_if_exists=False, termination_policies=None, spotinst=False):
+                     group_name=None, create_if_exists=False, termination_policies=None, spotinst=False,
+                     spotinst_reserve=None):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
         # We need unused argument to match method in autoscale
@@ -326,8 +328,7 @@ class DiscoElastigroup(BaseGroup):
             raise SpotinstException('DiscoElastiGroup must be used for creating SpotInst groups')
 
         group_config = self._create_elastigroup_config(
-            hostclass=hostclass,
-            availability_vs_cost="balanced",
+            availability_vs_cost="availability",
             desired_size=desired_size,
             min_size=min_size,
             max_size=max_size,
@@ -344,7 +345,8 @@ class DiscoElastigroup(BaseGroup):
             tags=tags,
             instance_profile_name=instance_profile_name,
             block_device_mappings=block_device_mappings,
-            group_name=group_name or self._get_new_groupname(hostclass)
+            group_name=group_name or self._get_new_groupname(hostclass),
+            spotinst_reserve=spotinst_reserve
         )
         group = self.get_existing_group(hostclass, group_name)
         if group and not create_if_exists:
