@@ -102,7 +102,7 @@ MOCK_CONFIG_DEFINITON = {
         "deployment_strategy": DEPLOYMENT_STRATEGY_BLUE_GREEN
     },
     "socify": {
-        'socify_baseurl': 'https://socify.aws.wgen.net/soc'
+        'socify_baseurl': 'https://socify-ci.aws.wgen.net/soc'
     }
 }
 
