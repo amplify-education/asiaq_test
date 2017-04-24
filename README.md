@@ -761,11 +761,11 @@ command:
 
 The format of the CSV file is pretty simple. Here is a short sample:
 
-    sequence,hostclass,min_size,desired_size,max_size,instance_type,extra_disk,iops,smoke_test,ami,deployable,integration_test,spotinst
+    sequence,hostclass,min_size,desired_size,max_size,instance_type,extra_disk,iops,smoke_test,ami,deployable,integration_test,spotinst,spotinst_reserve
     1,mhcdiscologger,,1,,m3.large,200,,no,ami-12345678,no,
     1,mhcdiscoes,,2,,m3.large,200,,no,no,
-    2,mhcdiscotaskstatus,,1,,m3.large,,,no,yes,disco_profiling_task_status_service
-    2,mhcdiscoinferenceworer,1,1@45 19 * * *:3@33 19 * * *,,5,m3.large,,,no,yes,disco_inference_workflow,no
+    2,mhcdiscotaskstatus,,1,,m3.large,,,no,yes,disco_profiling_task_status_service,no,
+    2,mhcdiscoinferenceworer,1,1@45 19 * * *:3@33 19 * * *,,5,m3.large,,,no,yes,disco_inference_workflow,yes,10%
 
 ### Field Descriptions
 
@@ -811,12 +811,13 @@ command, for example:
 
 There are a number of optional parameters as well, here is a selection:
 
-    --no-smoke-test This will skip the smoke test of newly provisioned hostclass.
-    --no-destroy    This will forgo automatic destruction of a host that failed to provision
-    --ami ami-XXXX  This will use a specific AMI rather than the latest for the hostclass
-    --extra-space   This will resize the root partition on boot with the specified number of extra gigabytes of disk
-    --extra-disk    This will attach an extra EBS volume with the specified number of gigabytes
-    --spotinst      This will make use of Spotinst to provision the hostclass
+    --no-smoke-test    This will skip the smoke test of newly provisioned hostclass.
+    --no-destroy       This will forgo automatic destruction of a host that failed to provision
+    --ami ami-XXXX     This will use a specific AMI rather than the latest for the hostclass
+    --extra-space      This will resize the root partition on boot with the specified number of extra gigabytes of disk
+    --extra-disk       This will attach an extra EBS volume with the specified number of gigabytes
+    --spotinst         This will make use of Spotinst to provision the hostclass
+    --spotinst_reserve When using spotinst this is the number of ondemand instances as either a percentage or a fixed number
 
 Note: "Extra space" will automatically be added to the root partition,
 but this slows down provisioning. An "extra disk" has to be formatted

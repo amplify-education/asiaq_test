@@ -72,6 +72,14 @@ class DiscoElastigroupTests(TestCase):
 
         return mock_elastigroup
 
+    def mock_spotinst_response(self, elastigroups):
+        """Mock a response for spotinst that would be returned from /group requests"""
+        return {
+            'response': {
+                'items': elastigroups
+            }
+        }
+
     def assert_request_made(self, requests, url, method, json=None):
         """Assert that a request was made to the given url and method"""
         filtered_items = [item for item in requests.request_history
@@ -80,7 +88,34 @@ class DiscoElastigroupTests(TestCase):
 
         history_contains = len(filtered_items) > 0
 
-        self.assertTrue(history_contains, "%s request was not made to %s with data %s" % (url, method, json))
+        self.assertTrue(history_contains, "%s %s request was not made with data %s" % (method, url, json))
+
+    def is_similar_obj(self, dict1, dict2):
+        """"Deep compare 2 dictionaries and return True if all keys and values in dict1 also exist in dict2"""
+        if not isinstance(dict1, dict):
+            return dict1 == dict2
+
+        for key in dict1:
+            if key not in dict2:
+                return False
+
+            if not isinstance(dict1[key], type(dict2[key])):
+                return False
+
+            if not self.is_similar_obj(dict1[key], dict2[key]):
+                return False
+
+        return True
+
+    def assert_similar_request_made(self, requests, url, method, json):
+        """Assert that a request was made to the given url/method with 'similar' data"""
+        filtered_items = [item for item in requests.request_history
+                          if (item.url == url and item.method == method) and
+                          (not json or self.is_similar_obj(json, item.json()))]
+
+        history_contains = len(filtered_items) > 0
+
+        self.assertTrue(history_contains, "%s %s request not made with data like %s" % (method, url, json))
 
     def setUp(self):
         """Pre-test setup"""
@@ -377,37 +412,120 @@ class DiscoElastigroupTests(TestCase):
 
         self.assert_request_made(requests, SPOTINST_API + mock_group['id'], 'PUT', json=expected_request)
 
-    def test_persist_ebs(self):
+    @requests_mock.Mocker()
+    def test_persist_ebs(self, requests):
         """"Verifies EBS persistence option is enabled if EBS volumes exist"""
+
+        self.elastigroup._create_az_subnets_dict = MagicMock()
+        mock_response = {
+            'response': {
+                'items': [{
+                    'name': 'mhcfoo'
+                }]
+            }
+        }
+
+        requests.post(SPOTINST_API, json=mock_response)
+        requests.get(SPOTINST_API, json=mock_response)
 
         # silly pylint, namedtutples should use class naming convention
         # pylint: disable=C0103
         Ebs = namedtuple('EBS', ['size', 'iops', 'snapshot_id', 'delete_on_termination', 'volume_type'])
 
-        config = self.elastigroup._create_elastigroup_config(
+        self.elastigroup.update_group(
             hostclass="mhcfoo",
-            availability_vs_cost="balanced",
-            desired_size=1,
-            min_size=1,
-            max_size=1,
-            instance_type="t2.micro",
-            load_balancers=[],
-            zones={},
-            security_groups=[],
-            instance_monitoring=False,
-            ebs_optimized=False,
-            image_id="ami-abcd1234",
-            key_name=None,
-            associate_public_ip_address=False,
-            user_data="",
-            tags={},
-            instance_profile_name=None,
             block_device_mappings=[{
                 "/dev/xvdb": Ebs(
-                    size=100, iops=None, snapshot_id=None, delete_on_termination=False, volume_type='io1'
+                    size=100, iops=None, snapshot_id=None,
+                    delete_on_termination=False, volume_type='io1'
                 )
             }],
-            group_name=""
+            instance_type='m3.medium',
+            spotinst=True
         )
 
-        self.assertTrue(config['group']['strategy'].get('persistence', {}).get('shouldPersistBlockDevices'))
+        expected_request = {
+            "group": {
+                "strategy": {
+                    "persistence": {
+                        "shouldPersistBlockDevices": True
+                    }
+                }
+            }
+        }
+
+        self.assert_similar_request_made(requests, SPOTINST_API, 'POST', json=expected_request)
+
+    @requests_mock.Mocker()
+    def test_risk_as_percentage(self, requests):
+        """"Verifies spot instance percentage is handled correctly"""
+        self.elastigroup._create_az_subnets_dict = MagicMock()
+
+        requests.get(SPOTINST_API, json=self.mock_spotinst_response([]))
+        requests.post(SPOTINST_API, json=self.mock_spotinst_response([self.mock_elastigroup('mhcfoo')]))
+
+        self.elastigroup.update_group(
+            hostclass="mhcfoo",
+            instance_type='m3.medium',
+            spotinst_reserve="53%",
+            spotinst=True
+        )
+
+        expected_request = {
+            "group": {
+                "strategy": {
+                    "risk": 47
+                }
+            }
+        }
+
+        self.assert_similar_request_made(requests, SPOTINST_API, 'POST', json=expected_request)
+
+    @requests_mock.Mocker()
+    def test_risk_as_count(self, requests):
+        """"Verifies that ondemand count is handled correctly"""
+        self.elastigroup._create_az_subnets_dict = MagicMock()
+
+        requests.get(SPOTINST_API, json=self.mock_spotinst_response([]))
+        requests.post(SPOTINST_API, json=self.mock_spotinst_response([self.mock_elastigroup('mhcfoo')]))
+
+        self.elastigroup.update_group(
+            hostclass="mhcfoo",
+            instance_type='m3.medium',
+            spotinst_reserve="20",
+            spotinst=True
+        )
+
+        expected_request = {
+            "group": {
+                "strategy": {
+                    "onDemandCount": 20
+                }
+            }
+        }
+
+        self.assert_similar_request_made(requests, SPOTINST_API, 'POST', json=expected_request)
+
+    @requests_mock.Mocker()
+    def test_risk_default(self, requests):
+        """"Verifies that elastigroups default to 100% spot instances"""
+        self.elastigroup._create_az_subnets_dict = MagicMock()
+
+        requests.get(SPOTINST_API, json=self.mock_spotinst_response([]))
+        requests.post(SPOTINST_API, json=self.mock_spotinst_response([self.mock_elastigroup('mhcfoo')]))
+
+        self.elastigroup.update_group(
+            hostclass="mhcfoo",
+            instance_type='m3.medium',
+            spotinst=True
+        )
+
+        expected_request = {
+            "group": {
+                "strategy": {
+                    "risk": 100
+                }
+            }
+        }
+
+        self.assert_similar_request_made(requests, SPOTINST_API, 'POST', json=expected_request)

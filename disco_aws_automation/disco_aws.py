@@ -348,7 +348,7 @@ class DiscoAWS(object):
     def provision(self, ami, hostclass=None, owner=None, instance_type=None, monitoring_enabled=True,
                   extra_space=None, extra_disk=None, iops=None, no_destroy=False, min_size=None,
                   desired_size=None, max_size=None, testing=False, termination_policies=None, chaos=None,
-                  create_if_exists=False, group_name=None, spotinst=False):
+                  create_if_exists=False, group_name=None, spotinst=False, spotinst_reserve=None):
         # TODO move key, instance_type, monitoring enabled, extra_space, extra_disk into config file.
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
@@ -424,7 +424,8 @@ class DiscoAWS(object):
             create_if_exists=create_if_exists,
             termination_policies=termination_policies,
             group_name=group_name,
-            spotinst=is_spotinst
+            spotinst=is_spotinst,
+            spotinst_reserve=spotinst_reserve
         )
 
         self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group['name'])
@@ -645,7 +646,8 @@ class DiscoAWS(object):
               "max_size": None,
               "termination_policies": None,
               "chaos": "yes",
-              "spotinst": False
+              "spotinst": False,
+              "spotinst_reserve": "15%"
               },
             ...]
         """
@@ -693,7 +695,8 @@ class DiscoAWS(object):
                     chaos=hdict.get("chaos"),
                     create_if_exists=create_if_exists,
                     group_name=group_name,
-                    spotinst=hdict.get("spotinst")
+                    spotinst=hdict.get("spotinst"),
+                    spotinst_reserve=hdict.get('spotinst_reserve')
                 )
                 for (hostclass, termination_policies, hdict) in hostclass_iter]
 
