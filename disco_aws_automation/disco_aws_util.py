@@ -11,8 +11,9 @@ import dateutil
 from boto.exception import EC2ResponseError
 from botocore.exceptions import ClientError
 
-from .disco_constants import YES_LIST
-from .exceptions import EasyExit, EarlyExitException
+from disco_aws_automation.disco_logging import configure_logging
+from disco_aws_automation.disco_constants import YES_LIST
+from disco_aws_automation.exceptions import EasyExit, EarlyExitException
 
 logger = getLogger(__name__)
 
@@ -98,9 +99,11 @@ def run_gracefully(main_function):
     try:
         main_function()
     except EasyExit as msg:
+        configure_logging(debug=False)
         logger.error(str(msg))
         sys.exit(1)
     except EarlyExitException as non_error_msg:
+        configure_logging(debug=False)
         logger.info(str(non_error_msg))
     except KeyboardInterrupt:
         # swallow the exception unless we turned on debugging, in which case
