@@ -1,7 +1,6 @@
 """
 Integration tests for disco_iam.py
 """
-from unittest import skip
 from test.helpers.integration_helpers import IntegrationTest
 
 LISTUSERS_CMD = "disco_iam.py listusers"
