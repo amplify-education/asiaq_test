@@ -39,7 +39,6 @@ class DiscoIamTests(IntegrationTest):
         """
         self.assertTrue(self.run_cmd(LISTROLES_CMD).count("\n") >= 2)
 
-    @skip("enable this if you require identity providers")
     def test_list_providers(self):
         """
         List providers

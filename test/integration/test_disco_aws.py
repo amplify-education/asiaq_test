@@ -8,7 +8,7 @@ from re import search, MULTILINE
 from time import time, sleep
 
 from test.helpers.disco_env_helpers import DiscoEnv, DISCO_AWS_COMMAND
-from test.helpers.integration_helpers import IntegrationTest
+from test.helpers.integration_helpers import IntegrationTest, TEST_HOSTCLASS
 
 
 class TestDiscoAWS(IntegrationTest, DiscoEnv, TestCase):
@@ -32,7 +32,7 @@ class TestDiscoAWS(IntegrationTest, DiscoEnv, TestCase):
             "--env", self.env_name,
             "isready",
             "--hostclass", hostclass
-        ])
+        ], quiet=True)
         isready_regex = r"i-[0-9a-f]+ is ready$"
         return search(isready_regex, output, MULTILINE)
 
@@ -40,9 +40,9 @@ class TestDiscoAWS(IntegrationTest, DiscoEnv, TestCase):
         """
         Instance isready test
         """
-        max_wait = 300
+        max_wait = 600
         max_time = time() + max_wait
-        hostclass = "mhcbanana"
+        hostclass = "mhcadminproxy"
 
         last_status = self.isready(hostclass)
         while time() < max_time and not last_status:
@@ -102,7 +102,7 @@ class TestDiscoAWS(IntegrationTest, DiscoEnv, TestCase):
         """
         Start instance with provision and then terminate it
         """
-        hostclass = "mhcntp"
+        hostclass = TEST_HOSTCLASS
         self.provision(hostclass)
         self.assertRegexpMatches(self.instances(), hostclass)
         self.terminate(hostclass)

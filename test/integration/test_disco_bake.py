@@ -54,7 +54,7 @@ class DiscoBakeTests(IntegrationTest):
 
     @cleanup_amis
     def test_promote(self, captured_stdout):
-        '''Verify we can bake a pahse 2 AMI and promote it'''
+        '''Verify we can bake a phase 2 AMI and promote it'''
         output = self._bake(captured_stdout, "bake", "--use-local-ip", "--hostclass", TEST_HOSTCLASS)
 
         ami_id = self.get_ami_id(output)
