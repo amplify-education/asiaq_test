@@ -1,7 +1,6 @@
 """
 Integration tests for disco_iam.py
 """
-from unittest import skip
 from test.helpers.integration_helpers import IntegrationTest
 
 LISTUSERS_CMD = "disco_iam.py listusers"
@@ -39,7 +38,6 @@ class DiscoIamTests(IntegrationTest):
         """
         self.assertTrue(self.run_cmd(LISTROLES_CMD).count("\n") >= 2)
 
-    @skip("enable this if you require identity providers")
     def test_list_providers(self):
         """
         List providers
