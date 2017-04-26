@@ -4,16 +4,16 @@ Deploys newly baked hostclasses
 
 Usage:
     disco_deploy.py [options] test --pipeline PIPELINE
-                    [--environment ENV] [--ami AMI | --hostclass HOSTCLASS] [--allow-any-hostclass]
+                    [--environment ENV] [--ami AMI] [--hostclass HOSTCLASS] [--allow-any-hostclass]
                     [--strategy STRATEGY] [--ticket TICKETID]
     disco_deploy.py [options] update --pipeline PIPELINE --environment ENV
-                    [--ami AMI | --hostclass HOSTCLASS] [--allow-any-hostclass] [--strategy STRATEGY]
+                    [--ami AMI] [--hostclass HOSTCLASS] [--allow-any-hostclass] [--strategy STRATEGY]
                     [--ticket TICKETID]
     disco_deploy.py [options] list (--tested|--untested|--failed|--failures|--testable)
-                    [--pipeline PIPELINE] [--environment ENV] [--ami AMI | --hostclass HOSTCLASS]
+                    [--pipeline PIPELINE] [--environment ENV] [--ami AMI] [--hostclass HOSTCLASS]
                     [--allow-any-hostclass]
     disco_deploy.py [options] list --updatable --pipeline PIPELINE --environment ENV
-                    [--ami AMI | --hostclass HOSTCLASS] [--allow-any-hostclass]
+                    [--ami AMI] [--hostclass HOSTCLASS] [--allow-any-hostclass]
 
 Commands:
      test           For CI and Build env only! Provision, Test, and Promote one new untested AMI if one
@@ -66,7 +66,8 @@ logger = logging.getLogger(__name__)
 
 # R0912 Allow more than 12 branches so we can parse a lot of commands..
 # R0914 Allow more than 15 local variables so we can parse a lot of commands.
-# pylint: disable=R0912,R0914
+# R0915 Allow more than 50 statements
+# pylint: disable=R0912,R0914,R0915
 def run():
     """Parses command line and dispatches the commands"""
     config = read_config()
@@ -92,12 +93,19 @@ def run():
         test_aws = aws
 
     vpc = DiscoVPC.fetch_environment(environment_name=env)
+    bake = DiscoBake(config, aws.connection)
 
     deploy = DiscoDeploy(
-        aws, test_aws, DiscoBake(config, aws.connection), DiscoGroup(env), DiscoELB(vpc),
+        aws, test_aws, bake, DiscoGroup(env), DiscoELB(vpc),
         pipeline_definition=pipeline_definition,
         ami=args.get("--ami"), hostclass=args.get("--hostclass"),
         allow_any_hostclass=args["--allow-any-hostclass"])
+
+    if args["--ami"] and args["--hostclass"]:
+        image = bake.get_image(args["--ami"])
+        if args["--hostclass"] != bake.ami_hostclass(image):
+            logger.info('AMI %s does not belong to hostclass %s', args["--ami"], args["--hostclass"])
+            sys.exit(1)
 
     if args["test"]:
         try:
