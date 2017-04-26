@@ -625,15 +625,24 @@ class DiscoDeploy(object):
         Otherwise use the most recent untested ami for the hostclass
         '''
         reason = None
+        amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
+        ami = random.choice(amis) if amis else None
+
         socify_helper = SocifyHelper(config=self._config,
                                      ticket_id=ticket_id,
                                      dry_run=dry_run,
                                      command="DeployEvent",
-                                     sub_command="test")
+                                     sub_command="test",
+                                     ami=ami)
 
-        amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
-        ami = random.choice(amis) if amis else None
-        if ami:
+        if not ami:
+            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
+                else "No 'untested' AMIs found."
+            logger.error(reason)
+            status = SocifyHelper.SOC_EVENT_BAD_DATA
+        elif not socify_helper.validate():
+            raise RuntimeError("The SOC validation of the associated Ticket and AMI failed.")
+        else:
             try:
                 self.test_ami(ami, dry_run, deployment_strategy)
                 status = SocifyHelper.SOC_EVENT_OK
@@ -643,11 +652,6 @@ class DiscoDeploy(object):
                     hostclass=DiscoBake.ami_hostclass(ami),
                     message=err.message)
                 raise
-        else:
-            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
-                else "No 'untested' AMIs found."
-            logger.error(reason)
-            status = SocifyHelper.SOC_EVENT_BAD_DATA
 
         socify_helper.send_event(
             status=status,
@@ -662,16 +666,24 @@ class DiscoDeploy(object):
         Otherwise uses the most recent tested or un tagged ami
         '''
         reason = None
+        amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
+        ami = random.choice(amis) if amis else None
 
         socify_helper = SocifyHelper(config=self._config,
                                      ticket_id=ticket_id,
                                      dry_run=dry_run,
                                      command="DeployEvent",
-                                     sub_command="update")
+                                     sub_command="update",
+                                     ami=ami)
 
-        amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
-        ami = random.choice(amis) if amis else None
-        if ami:
+        if not ami:
+            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
+                else "No 'untested' AMIs found."
+            logger.error(reason)
+            status = SocifyHelper.SOC_EVENT_BAD_DATA
+        elif not socify_helper.validate():
+            raise RuntimeError("The SOC validation of the associated Ticket and AMI failed.")
+        else:
             try:
                 self.update_ami(ami, dry_run, deployment_strategy)
                 status = SocifyHelper.SOC_EVENT_OK
@@ -681,11 +693,6 @@ class DiscoDeploy(object):
                     hostclass=DiscoBake.ami_hostclass(ami),
                     message=err.message)
                 raise
-        else:
-            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
-                else "No 'untested' AMIs found."
-            logger.error(reason)
-            status = SocifyHelper.SOC_EVENT_BAD_DATA
 
         socify_helper.send_event(status=status,
                                  hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),

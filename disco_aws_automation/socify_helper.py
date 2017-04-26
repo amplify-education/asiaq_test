@@ -28,12 +28,12 @@ class SocifyHelper(object):
     SOC_EVENT_BAD_DATA = 200
     SOC_EVENT_ERROR = 300
 
-    def __init__(self, ticket_id, dry_run, command, sub_command=None, ami_id=None, config=None):
+    def __init__(self, ticket_id, dry_run, command, sub_command=None, ami=None, config=None):
         self._ticket_id = ticket_id
         self.dry_run = dry_run
         self._command = command
         self._sub_command = sub_command
-        self._ami_id = ami_id
+        self._ami_id = ami.id if ami else None
 
         if config:
             self._config = config
@@ -82,7 +82,7 @@ class SocifyHelper(object):
         """
         event_json = {"ticketId": self._ticket_id,
                       "cmd": self._command,
-                      "ami_id": self._ami_id}
+                      "amiId": self._ami_id}
 
         # Add data section if required
         if SocifyConfig[function_name]["use_data"]:
@@ -97,39 +97,18 @@ class SocifyHelper(object):
         """
         return self._ticket_id and self._socify_url and not self.dry_run
 
-    def _call_function(self, function_name, status=None, **kwargs):
+    def _invoke_socify(self, function_name, status=None, **kwargs):
         """
         helper function used to run the socify function
         :param function_name: The Socify function name which will be invoked
         :param status: The status of the executed command that we are going to log
         :param kwargs:  additional named arguments used to populate the data section of the json
         """
-        if not self._can_invoke_socify():
-            return
-
         url = self._build_url(function_name)
 
         data = self._build_json(function_name, status, **kwargs)
-        result = None
-        try:
-            headers = {'Content-Type': 'application/json'}
-            response = requests.post(url=url, headers=headers, json=data)
-            response.raise_for_status()
-            status = response.status_code
-            rsp_msg = response.json()['message']
-            result = response.json().get("result")
-            if result:
-                logger.info("received response status %s result: %s data: %s", status, result, rsp_msg)
-            else:
-                logger.info("received response status %s data: %s", status, rsp_msg)
-        except requests.HTTPError:
-            rsp_msg = response.json()['errorMessage']
-            logger.error("Socify event failed with the following error: %s", rsp_msg)
-        except Exception:
-            logger.exception("Failed to send event to Socify")
-            rsp_msg = 'Failed sending the Socify event'
-
-        return result if result else rsp_msg
+        headers = {'Content-Type': 'application/json'}
+        return requests.post(url=url, headers=headers, json=data)
 
     def send_event(self, status, **kwargs):
         """
@@ -138,7 +117,23 @@ class SocifyHelper(object):
         :param kwargs:  additional named arguments used to populate the data section of the json
         (example: hostclass, message, etc)
         """
-        return self._call_function("EVENT", status, **kwargs)
+        if not self._can_invoke_socify():
+            return
+
+        try:
+            response = self._invoke_socify("EVENT", status, **kwargs)
+            response.raise_for_status()
+            status = response.status_code
+            rsp_msg = response.json()['message']
+            logger.info("received response status %s data: %s", status, rsp_msg)
+        except requests.HTTPError:
+            rsp_msg = response.json()['errorMessage']
+            logger.error("Socify event failed with the following error: %s", rsp_msg)
+        except Exception:
+            logger.exception("Failed to send event to Socify")
+            rsp_msg = 'Failed sending the Socify event'
+
+        return rsp_msg
 
     def validate(self):
         """
@@ -146,4 +141,24 @@ class SocifyHelper(object):
         associated ticket
         :return: True if the validation was successful, False otherwise
         """
-        return self._call_function("VALIDATE")
+        if not self._can_invoke_socify():
+            return True
+
+        try:
+            response = self._invoke_socify("VALIDATE")
+            response.raise_for_status()
+            status = response.status_code
+            rsp_msg = response.json()['message']
+            result = response.json().get("result")
+            logger.info("received response status %s result: %s data: %s", status, result, rsp_msg)
+            if result['status'] == 'Failed':
+                logger.error("Socify Ticket validation failed. Reason: %s", result['err_msgs'])
+                return False
+            return True
+        except requests.HTTPError:
+            rsp_msg = response.json()['errorMessage']
+            logger.error("Socify event failed with the following error: %s", rsp_msg)
+        except Exception:
+            logger.exception("Failed to send event to Socify")
+
+        return False
