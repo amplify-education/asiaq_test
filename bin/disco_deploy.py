@@ -104,7 +104,7 @@ def run():
     if args["--ami"] and args["--hostclass"]:
         image = bake.get_image(args["--ami"])
         if args["--hostclass"] != bake.ami_hostclass(image):
-            logger.info('AMI %s does not belong to hostclass %s', args["--ami"], args["--hostclass"])
+            logger.error('AMI %s does not belong to hostclass %s', args["--ami"], args["--hostclass"])
             sys.exit(1)
 
     if args["test"]:
