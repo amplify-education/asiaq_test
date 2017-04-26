@@ -1,10 +1,10 @@
 """
 Tests Socify Helper
 """
-
 from unittest import TestCase
 import requests
 import requests_mock
+from mock import MagicMock
 
 from disco_aws_automation.socify_helper import SocifyHelper
 from test.helpers.patch_disco_aws import get_mock_config
@@ -22,7 +22,7 @@ class SocifyHelperTest(TestCase):
         self._soc_helper = SocifyHelper("AL-1102",
                                         False,
                                         "ExampleEvent",
-                                        ami_id="ami_12345",
+                                        ami=MagicMock(id="ami_12345"),
                                         config=get_mock_config(soc_config))
 
     def test_socify_helper_constr(self):
@@ -34,7 +34,7 @@ class SocifyHelperTest(TestCase):
         soc_helper = SocifyHelper("AL-1102",
                                   False,
                                   "ExampleEvent",
-                                  ami_id="ami_12345",
+                                  ami=MagicMock(id="ami_12345"),
                                   config=get_mock_config(soc_config))
         self.assertEqual("https://socify-ci.aws.wgen.net/soc", soc_helper._socify_url)
 
@@ -44,7 +44,7 @@ class SocifyHelperTest(TestCase):
             SocifyHelper("AL-1102",
                          False,
                          "ExampleEvent",
-                         ami_id="ami_12345",
+                         ami=MagicMock(id="ami_12345"),
                          config=get_mock_config({}))
 
     def test_socify_helper_constr_no_soc_baseurl(self):
@@ -57,7 +57,7 @@ class SocifyHelperTest(TestCase):
             SocifyHelper("AL-1102",
                          False,
                          "ExampleEvent",
-                         ami_id="ami_12345",
+                         ami=MagicMock(id="ami_12345"),
                          config=get_mock_config(soc_config))
 
     def test_build_url(self):
@@ -73,7 +73,7 @@ class SocifyHelperTest(TestCase):
                                             msg="test was successfull")
         res_data = {"ticketId": "AL-1102",
                     "cmd": "ExampleEvent",
-                    "ami_id": "ami_12345",
+                    "amiId": "ami_12345",
                     "data": {"status": SocifyHelper.SOC_EVENT_OK,
                              "hostclass": "myhostclass",
                              "msg": "test was successfull"}}
@@ -86,7 +86,7 @@ class SocifyHelperTest(TestCase):
                                             msg="test was successfull")
         res_data = {"ticketId": "AL-1102",
                     "cmd": "ExampleEvent",
-                    "ami_id": "ami_12345",
+                    "amiId": "ami_12345",
                     "data": {"status": SocifyHelper.SOC_EVENT_OK,
                              "sub_cmd": "mySubCommand",
                              "hostclass": "myhostclass",
@@ -119,3 +119,32 @@ class SocifyHelperTest(TestCase):
         mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_response, status_code=400)
         self.assertEqual(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK, msg="test was successfull"),
                          "SOCIFY failed executing the event request")
+
+    @requests_mock.Mocker()
+    def test_validate(self, mock_requests):
+        """Test validate with no error"""
+        mock_response = {
+            'message': 'SOCIFY has successfully processed the validate request: ExampleEvent',
+            'result': {'status': 'Passed', 'err_msgs': []}
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_response, status_code=200)
+        self.assertTrue(self._soc_helper.validate())
+
+    @requests_mock.Mocker()
+    def test_validate_failed(self, mock_requests):
+        """Test validate when returned False"""
+        mock_response = {
+            'message': 'SOCIFY has successfully processed the validate request: ExampleEvent',
+            'result': {'status': 'Failed', 'err_msgs': ["Some error message"]}
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_response, status_code=200)
+        self.assertFalse(self._soc_helper.validate())
+
+    @requests_mock.Mocker()
+    def test_validate_httperror(self, mock_requests):
+        """Test send event with error message"""
+        mock_response = {
+            'errorMessage': 'SOCIFY failed executing the validate request'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_response, status_code=400)
+        self.assertFalse(self._soc_helper.validate())
