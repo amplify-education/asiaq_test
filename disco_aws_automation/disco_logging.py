@@ -6,6 +6,7 @@ import sys
 def configure_logging(debug, silent=False):
     '''Sets the default logger and the boto logger to appropriate levels of chattiness.'''
     logger = logging.getLogger('')
+
     boto_logger = logging.getLogger('boto')
     botocore_logger = logging.getLogger('botocore')
 
