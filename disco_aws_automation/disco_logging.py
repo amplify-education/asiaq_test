@@ -7,10 +7,6 @@ def configure_logging(debug, silent=False):
     '''Sets the default logger and the boto logger to appropriate levels of chattiness.'''
     logger = logging.getLogger('')
 
-    # If handlers were already defined for the root logger, we already did this, so do nothing
-    if logger.handlers:
-        return
-
     boto_logger = logging.getLogger('boto')
     botocore_logger = logging.getLogger('botocore')
 

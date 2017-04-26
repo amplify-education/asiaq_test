@@ -96,14 +96,13 @@ def run_gracefully(main_function):
 
     If debug logging is switched on, stack traces will return.
     """
+    configure_logging(debug=False)
     try:
         main_function()
     except EasyExit as msg:
-        configure_logging(debug=False)
         logger.error(str(msg))
         sys.exit(1)
     except EarlyExitException as non_error_msg:
-        configure_logging(debug=False)
         logger.info(str(non_error_msg))
     except KeyboardInterrupt:
         # swallow the exception unless we turned on debugging, in which case
