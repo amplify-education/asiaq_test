@@ -95,17 +95,17 @@ def run():
     vpc = DiscoVPC.fetch_environment(environment_name=env)
     bake = DiscoBake(config, aws.connection)
 
-    deploy = DiscoDeploy(
-        aws, test_aws, bake, DiscoGroup(env), DiscoELB(vpc),
-        pipeline_definition=pipeline_definition,
-        ami=args.get("--ami"), hostclass=args.get("--hostclass"),
-        allow_any_hostclass=args["--allow-any-hostclass"])
-
     if args["--ami"] and args["--hostclass"]:
         image = bake.get_image(args["--ami"])
         if args["--hostclass"] != bake.ami_hostclass(image):
             logger.error('AMI %s does not belong to hostclass %s', args["--ami"], args["--hostclass"])
             sys.exit(1)
+
+    deploy = DiscoDeploy(
+        aws, test_aws, bake, DiscoGroup(env), DiscoELB(vpc),
+        pipeline_definition=pipeline_definition,
+        ami=args.get("--ami"), hostclass=args.get("--hostclass"),
+        allow_any_hostclass=args["--allow-any-hostclass"])
 
     if args["test"]:
         try:
