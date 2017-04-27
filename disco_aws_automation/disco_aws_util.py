@@ -11,8 +11,9 @@ import dateutil
 from boto.exception import EC2ResponseError
 from botocore.exceptions import ClientError
 
-from .disco_constants import YES_LIST
-from .exceptions import EasyExit, EarlyExitException
+from disco_aws_automation.disco_logging import configure_logging
+from disco_aws_automation.disco_constants import YES_LIST
+from disco_aws_automation.exceptions import EasyExit, EarlyExitException
 
 logger = getLogger(__name__)
 
@@ -95,6 +96,7 @@ def run_gracefully(main_function):
 
     If debug logging is switched on, stack traces will return.
     """
+    configure_logging(debug=False)
     try:
         main_function()
     except EasyExit as msg:
