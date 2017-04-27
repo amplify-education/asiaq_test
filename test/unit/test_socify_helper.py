@@ -40,12 +40,12 @@ class SocifyHelperTest(TestCase):
 
     def test_socify_helper_constr_no_soc_config(self):
         """Test SocifyHelper Constructor when the socify section is missing from the config"""
-        with self.assertRaisesRegexp(RuntimeError, "Socify_Helper: The property socify_baseurl is not set"):
-            SocifyHelper("AL-1102",
-                         False,
-                         "ExampleEvent",
-                         ami=MagicMock(id="ami_12345"),
-                         config=get_mock_config({}))
+        soc_helper = SocifyHelper("AL-1102",
+                                  False,
+                                  "ExampleEvent",
+                                  ami=MagicMock(id="ami_12345"),
+                                  config=get_mock_config({}))
+        self.assertFalse(hasattr(soc_helper, '_socify_url'))
 
     def test_socify_helper_constr_no_soc_baseurl(self):
         """Test SocifyHelper Constructor when the socify base_url is missing from the config"""
@@ -53,12 +53,12 @@ class SocifyHelperTest(TestCase):
             'socify':
                 {'baseurl': 'https://socify-ci.aws.wgen.net/soc'}
         }
-        with self.assertRaisesRegexp(RuntimeError, "Socify_Helper: The property socify_baseurl is not set"):
-            SocifyHelper("AL-1102",
-                         False,
-                         "ExampleEvent",
-                         ami=MagicMock(id="ami_12345"),
-                         config=get_mock_config(soc_config))
+        soc_helper = SocifyHelper("AL-1102",
+                                  False,
+                                  "ExampleEvent",
+                                  ami=MagicMock(id="ami_12345"),
+                                  config=get_mock_config(soc_config))
+        self.assertFalse(hasattr(soc_helper, '_socify_url'))
 
     def test_build_url(self):
         """Test socify build url"""
