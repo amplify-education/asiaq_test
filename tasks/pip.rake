@@ -5,7 +5,7 @@ module Pip
       error("pip failed") unless ok
     end
     # actually run the command
-    args = []
+    args = ["--upgrade"]
     if Project[:INDEX_URL] then
       args += ["--index-url", Project[:INDEX_URL]]
     end

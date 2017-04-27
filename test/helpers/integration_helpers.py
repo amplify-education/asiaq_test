@@ -12,7 +12,7 @@ from StringIO import StringIO
 import boto
 
 
-TEST_HOSTCLASS = "mhcntp"
+TEST_HOSTCLASS = "mhcbanana"
 
 CREATE_AMI_EXPR = re.compile(r"Created.*?AMI (?P<ami_id>ami-\w+)")
 
@@ -71,6 +71,7 @@ class IntegrationTest(TestCase):
                                    env=os.environ.copy())  # relay ASIAQ_CONFIG and any other env vars
 
         output = process.communicate()[0]
+
         captured_stdout.write(output)
 
         if not quiet and process.returncode:
