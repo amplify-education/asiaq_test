@@ -21,8 +21,11 @@ class DiscoAccountsTests(IntegrationTest):
     """
     _multiprocess_shared_ = True
 
+    def _gen_account_name(self, postfix):
+        return TEST_ACCOUNT_NAME + str(postfix)
+
     def _create_test_account(self, postfix):
-        account_name = TEST_ACCOUNT_NAME + str(postfix)
+        account_name = self._gen_account_name(postfix=postfix)
 
         output = self.run_cmd(
             CREATE_CMD.format(account_name=account_name).split(),
@@ -32,7 +35,7 @@ class DiscoAccountsTests(IntegrationTest):
         return output
 
     def _remove_test_account(self, postfix):
-        account_name = TEST_ACCOUNT_NAME + str(postfix)
+        account_name = self._gen_account_name(postfix=postfix)
 
         formatted_remove_cmds = [
             cmd.format(account_name=account_name)
@@ -43,7 +46,7 @@ class DiscoAccountsTests(IntegrationTest):
             self.run_cmd(cmd.split())
 
     def _get_test_account_settings(self, postfix):
-        account_name = TEST_ACCOUNT_NAME + str(postfix)
+        account_name = self._gen_account_name(postfix=postfix)
 
         output = self.run_cmd(
             EDIT_CMD.format(account_name=account_name).split(),
@@ -56,7 +59,7 @@ class DiscoAccountsTests(IntegrationTest):
         return "active = yes" in self._get_test_account_settings(postfix=postfix)
 
     def _disable_test_account(self, postfix):
-        account_name = TEST_ACCOUNT_NAME + str(postfix)
+        account_name = self._gen_account_name(postfix=postfix)
 
         self.run_cmd(DISABLE_CMD.format(account_name=account_name).split())
 
@@ -65,13 +68,14 @@ class DiscoAccountsTests(IntegrationTest):
         we can create a new unix user account
         """
         postfix = randint(10000, 99999)
+        account_name = self._gen_account_name(postfix=postfix)
         self._create_test_account(postfix=postfix)
 
         try:
             user_output = self.run_cmd("disco_accounts.py listusers".split())
             group_output = self.run_cmd("disco_accounts.py listgroups".split())
-            self.assertIn(TEST_ACCOUNT_NAME, user_output)
-            self.assertIn(TEST_ACCOUNT_NAME, group_output)
+            self.assertIn(account_name, user_output)
+            self.assertIn(account_name, group_output)
         finally:
             self._remove_test_account(postfix=postfix)
 
