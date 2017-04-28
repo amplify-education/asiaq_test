@@ -1,7 +1,6 @@
 """
 Integration tests for disco_accounts.py
 """
-import os
 from random import randint
 from test.helpers.integration_helpers import IntegrationTest
 
