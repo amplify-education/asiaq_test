@@ -19,7 +19,6 @@ class DiscoAccountsTests(IntegrationTest):
     """
     Tests bin/disco_accounts.py
     """
-    _multiprocess_shared_ = True
 
     def _gen_account_name(self, postfix):
         return TEST_ACCOUNT_NAME + str(postfix)

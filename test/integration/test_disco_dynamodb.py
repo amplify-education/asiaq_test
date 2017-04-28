@@ -15,7 +15,6 @@ LIST_CMD = "disco_dynamodb.py list"
 
 class TestDiscoDynamoDB(IntegrationTest):
     """ Test bin/disco_dynamodb.py """
-    _multiprocess_shared_ = True
 
     def setUp(self):
         """

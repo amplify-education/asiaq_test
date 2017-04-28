@@ -12,7 +12,6 @@ class TestDiscoVPCEnv(IntegrationTest, DiscoEnv, TestCase):
     """
     Test VPC creation and destruction
     """
-    _multiprocess_shared_ = True
 
     def test_create_destroy_vpc(self):
         """

@@ -37,6 +37,7 @@ def cleanup_amis(func):
 
 class IntegrationTest(TestCase):
     '''Base class for our integration tests'''
+    _multiprocess_shared_ = True
 
     @classmethod
     def setUpClass(cls):
