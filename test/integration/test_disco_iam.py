@@ -19,6 +19,7 @@ class DiscoIamTests(IntegrationTest):
     """
     Tests bin/disco_iam.py
     """
+    _multiprocess_shared_ = True
 
     def test_list_user(self):
         """

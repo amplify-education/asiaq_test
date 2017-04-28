@@ -19,6 +19,7 @@ module Nose
         "AWS_PROFILE=unit_tests "  # use invalid AWS credentials so that actual AWS API calls fail
     unit_test_vars += "ASIAQ_CONFIG=sample_configuration "  # make sure we use our config for portability
     unit_test_params = "--processes=-1 --process-timeout=300 "  # run tests in parallel
+    integration_test_params = "--processes=-1 --process-timeout=1800 "  # run tests in parallel
     #
     # Why three --where arguments?
     #
@@ -62,7 +63,7 @@ module Nose
     command_args = [
       test_dir == Nose::UNIT_TEST_DIR ? unit_test_vars : "",
       "nosetests",
-      test_dir == Nose::UNIT_TEST_DIR ? unit_test_params : "",
+      test_dir == Nose::UNIT_TEST_DIR ? unit_test_params : integration_test_params,
       "--where=#{Dir.pwd}",
       "--where=#{ProjectPaths::PACKAGE_DIR}",
       "--where=#{test_dir}",

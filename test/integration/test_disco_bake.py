@@ -12,6 +12,7 @@ class DiscoBakeTests(IntegrationTest):
     '''
     Tests bin/disco_bake.py
     '''
+    _multiprocess_shared_ = True
 
     @skip("This test currently runs for a good half hour, and if it fails it's usually due to config error")
     @cleanup_amis

@@ -55,7 +55,7 @@ class IntegrationTest(TestCase):
                     logging.exception("Received exception %s when trying to delete ami %s", err, ami_id)
 
     @staticmethod
-    def run_cmd(command, captured_stdout=None, quiet=False):
+    def run_cmd(command, captured_stdout=None, quiet=False, environ=None):
         """
         Runs a shell command. Raises on failure unless ``quiet == True``.
         Returns stdout output; stderr is redirected to stdout.
@@ -63,12 +63,17 @@ class IntegrationTest(TestCase):
         """
         captured_stdout = captured_stdout or StringIO()
         command = command.split() if isinstance(command, basestring) else command
+
+        cmd_environ = os.environ.copy()
+        if environ:
+            cmd_environ.update(environ)
+
         print ">>> {}".format(" ".join(command))
         process = subprocess.Popen(command,
                                    stdin=subprocess.PIPE,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT,
-                                   env=os.environ.copy())  # relay ASIAQ_CONFIG and any other env vars
+                                   env=cmd_environ)  # relay ASIAQ_CONFIG and any other env vars
 
         output = process.communicate()[0]
 

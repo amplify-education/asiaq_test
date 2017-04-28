@@ -15,6 +15,7 @@ class TestDiscoAWS(IntegrationTest, DiscoEnv, TestCase):
     """
     Test disco_aws.py operations
     """
+    _multiprocess_shared_ = True
 
     def setUp(self):
         """
