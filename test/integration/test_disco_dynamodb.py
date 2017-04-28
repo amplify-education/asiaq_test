@@ -29,7 +29,7 @@ class TestDiscoDynamoDB(IntegrationTest):
         try:
             create_output = self.run_cmd(CREATE_CMD.format(self.env_name).split())
 
-            table = json.loads(create_output)
+            table = json.loads(self._remove_lines_from_logs(create_output))
 
             self.assertEqual(table["TableStatus"], "ACTIVE")
             self.assertEqual(table["TableName"], "{0}_{1}".format(MOCK_TABLE_NAME, self.env_name))
@@ -52,7 +52,7 @@ class TestDiscoDynamoDB(IntegrationTest):
             self.assertIn(table_list_output, lines)
         finally:
             delete_output = self.run_cmd(DELETE_CMD.format(MOCK_TABLE_NAME, self.env_name).split())
-            delete_output = json.loads(delete_output)
+            delete_output = json.loads(self._remove_lines_from_logs(delete_output))
 
             self.assertEqual(delete_output["TableName"], "{0}_{1}".format(MOCK_TABLE_NAME, self.env_name))
             self.assertEqual(delete_output["TableStatus"], "DELETED")
@@ -60,3 +60,22 @@ class TestDiscoDynamoDB(IntegrationTest):
         list_output = self.run_cmd(LIST_CMD.format(self.env_name).split())
         lines = list_output.split('\n')
         self.assertNotIn(table_list_output, lines)
+
+    def _remove_lines_from_logs(self, input_string):
+        lines = []
+
+        for line in input_string.split("\n"):
+            words = line.split()
+
+            try:
+                # If it quacks like a logging line...
+                if words[3] in ["WARNING", "WARN", "INFO", "DEBUG", "CRITICAL", "NOTSET"]:
+                    continue
+            except IndexError:
+                pass
+
+            lines.append(line)
+
+        output_string = "\n".join(lines)
+
+        return output_string
