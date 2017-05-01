@@ -195,14 +195,6 @@ class S3AccountBackend(object):
         return [obj.name.replace("accounts/groups/", "")
                 for obj in self.bucket.list("accounts/groups/")]
 
-    def refresh_group(self, group):
-        """Refresh a single group, to assure it doesn't go to Glacier"""
-        self.add_account(group, self.get_group_config(group))
-
-    def refresh_groups(self):
-        """Refresh all group buckets"""
-        map(self.refresh_group, iter(self.list_groups()))
-
     def _next_id(self, account_type, account_class, min_id=MIN_ID):
         ids = [account.account_id
                for account in self._get_accounts(account_type, account_class)]

@@ -96,7 +96,6 @@ def run():
         kwargs = {"active": args["--active"]} if args["--active"] else {}
         user_config = s3_accounts.edit_account_config(user_config, **kwargs)
         s3_accounts.add_account(username, user_config)
-        s3_accounts.refresh_groups()
     elif args["editgroup"]:
         # there is nothing to edit for a group.. but..
         group_config = s3_accounts.get_group_config(args["--name"])
