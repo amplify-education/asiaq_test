@@ -643,19 +643,24 @@ class DiscoDeploy(object):
         elif not socify_helper.validate():
             raise RuntimeError("The SOC validation of the associated Ticket and AMI failed.")
         else:
+            hostclass = DiscoBake.ami_hostclass(ami)
+            previous_ami = self.get_latest_running_amis().get(hostclass)
+            previous_ami_id = previous_ami.id if previous_ami else None
+
             try:
                 self.test_ami(ami, dry_run, deployment_strategy)
                 status = SocifyHelper.SOC_EVENT_OK
             except RuntimeError as err:
                 socify_helper.send_event(
                     status=SocifyHelper.SOC_EVENT_ERROR,
-                    hostclass=DiscoBake.ami_hostclass(ami),
+                    hostclass=hostclass,
                     message=err.message)
                 raise
 
         socify_helper.send_event(
             status=status,
-            hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+            hostclass=(hostclass if ami else None),
+            previous_ami_id=(previous_ami_id if ami else None),
             message=reason)
 
     def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
@@ -684,6 +689,10 @@ class DiscoDeploy(object):
         elif not socify_helper.validate():
             raise RuntimeError("The SOC validation of the associated Ticket and AMI failed.")
         else:
+            hostclass = DiscoBake.ami_hostclass(ami)
+            previous_ami = self.get_latest_running_amis().get(hostclass)
+            previous_ami_id = previous_ami.id if previous_ami else None
+
             try:
                 self.update_ami(ami, dry_run, deployment_strategy)
                 status = SocifyHelper.SOC_EVENT_OK
@@ -695,7 +704,8 @@ class DiscoDeploy(object):
                 raise
 
         socify_helper.send_event(status=status,
-                                 hostclass=(DiscoBake.ami_hostclass(ami) if ami else None),
+                                 hostclass=(hostclass if ami else None),
+                                 previous_ami_id=(previous_ami_id if ami else None),
                                  message=reason)
 
     def hostclass_option(self, hostclass, key):
