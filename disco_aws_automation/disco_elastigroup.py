@@ -1,20 +1,17 @@
 """Contains DiscoElastigroup class that orchestrates AWS Spotinst Elastigroups"""
+import copy
 import logging
 import time
-import json
 import os
 
 from base64 import b64encode
+from itertools import groupby
 
-import requests
-import boto3
-
+from .spotinst_client import SpotinstClient
 from .base_group import BaseGroup
 from .exceptions import TooManyAutoscalingGroups, SpotinstException, TimeoutError
 
 logger = logging.getLogger(__name__)
-
-SPOTINST_API = 'https://api.spotinst.io/aws/ec2/group'
 
 GROUP_ROLL_TIMEOUT = 600
 
@@ -22,71 +19,20 @@ GROUP_ROLL_TIMEOUT = 600
 class DiscoElastigroup(BaseGroup):
     """Class orchestrating elastigroups"""
 
-    def __init__(self, environment_name, session=None, account_id=None):
+    def __init__(self, environment_name):
         self.environment_name = environment_name
-        self._session = session
-        self._account_id = account_id
-        self.token_warning_shown = None
-        super(DiscoElastigroup, self).__init__()
 
-    @property
-    def token(self):
-        """
-        Returns spotinst auth token from environment variable SPOTINST_TOKEN
-
-        Environment variable example:
-        SPOTINST_TOKEN=d7e6c5abb51bb04fcaa411b7b70cce414c931bf719f7db0674b296e588630515
-        """
         if os.environ.get('SPOTINST_TOKEN'):
-            return os.environ.get('SPOTINST_TOKEN')
+            self.spotinst_client = SpotinstClient(os.environ.get('SPOTINST_TOKEN'))
         else:
-            if not self.token_warning_shown:
-                logger.warn('Create environment variable "SPOTINST_TOKEN" in order to use SpotInst')
-                self.token_warning_shown = True
-            return None
-
-    @property
-    def session(self):
-        """Lazily create session object"""
-        if not self._session:
-            self._session = requests.Session()
-
-            # Insert auth token in header
-            self._session.headers.update(
-                {
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer {}".format(self.token)
-                }
-            )
-
-        return self._session
-
-    @property
-    def account_id(self):
-        """Account id of the current IAM user"""
-        if not self._account_id:
-            self._account_id = boto3.client('sts').get_caller_identity().get('Account')
-        return self._account_id
+            logger.warn('Create environment variable "SPOTINST_TOKEN" in order to use SpotInst')
+        super(DiscoElastigroup, self).__init__()
 
     def is_spotinst_enabled(self):
         """Return True if SpotInst should be used"""
 
-        # if the token is missing then don't use spotinst
-        return self.token is not None
-
-    def _spotinst_call(self, path='/', data=None, method='get'):
-        if method not in ['get', 'post', 'put', 'delete']:
-            raise Exception('Method {} is not supported'.format(method))
-        method_to_call = getattr(self.session, method)
-        try:
-            response = method_to_call(SPOTINST_API + path, data=json.dumps(data) if data else None)
-        except Exception as err:
-            raise SpotinstException('Error while communicating with SpotInst API: {}'.format(err))
-        if response.status_code == 200:
-            return response
-        else:
-            raise SpotinstException('Spotinst API error. Path: {} - Status code: {} - Reason: {} - Text {}'.
-                                    format(path, response.status_code, response.reason, response.text))
+        # if the spotinst client doesn't exist (meaning the token is missing) then don't use spotinst
+        return self.spotinst_client is not None
 
     def _get_new_groupname(self, hostclass):
         """Returns a new elastigroup name when given a hostclass"""
@@ -103,13 +49,15 @@ class DiscoElastigroup(BaseGroup):
         """Returns the hostclass when given an elastigroup name"""
         return group_name.split('_')[1]
 
-    def get_existing_groups(self, hostclass=None, group_name=None):
-        """
-        Returns all elastigroups for a given hostclass or group name, sorted by most recent creation. If no
-        elastigroup can be found, returns an empty list.
-        """
-        groups = self._spotinst_call().json()['response'].get('items', [])
+    def _get_spotinst_groups(self, hostclass=None, group_name=None):
+        groups = self.spotinst_client.get_groups()
 
+        return [group for group in groups
+                if group['name'].startswith(self.environment_name) and
+                (not group_name or group['name'] == group_name) and
+                (not hostclass or self._get_hostclass(group['name']) == hostclass)]
+
+    def get_existing_groups(self, hostclass=None, group_name=None):
         # get a dict for each group that matches the structure that would be returned by DiscoAutoscale
         # this dict needs to have at least all the fields that the interface specifies
         groups = [
@@ -135,15 +83,10 @@ class DiscoElastigroup(BaseGroup):
                 'blockDeviceMappings': (group['compute']['launchSpecification']['blockDeviceMappings'] or []),
                 'scheduling': group.get('scheduling', {'tasks': []})
             }
-            for group in groups if group['name'].startswith(self.environment_name)
+            for group in self._get_spotinst_groups(hostclass, group_name)
         ]
-
-        if group_name:
-            groups = [group for group in groups if group['name'] == group_name]
-        filtered_groups = [group for group in groups
-                           if not hostclass or self._get_hostclass(group['name']) == hostclass]
-        filtered_groups.sort(key=lambda grp: grp['name'], reverse=True)
-        return filtered_groups
+        groups.sort(key=lambda grp: grp['name'], reverse=True)
+        return groups
 
     def get_existing_group(self, hostclass=None, group_name=None, throw_on_two_groups=True):
         """
@@ -165,7 +108,7 @@ class DiscoElastigroup(BaseGroup):
 
     def _get_group_instances(self, group_id):
         """Returns list of instance ids in a group"""
-        return self._spotinst_call(path='/' + group_id + '/status').json()['response']['items']
+        return self.spotinst_client.get_group_status(group_id)
 
     def get_instances(self, hostclass=None, group_name=None):
         """Returns elastigroup instances for hostclass in the current environment"""
@@ -193,32 +136,21 @@ class DiscoElastigroup(BaseGroup):
                  'max_size': group['max_size'],
                  'type': group['type']} for group in groups]
 
-    def _create_elastigroup_config(self, availability_vs_cost, desired_size, min_size, max_size,
-                                   instance_type, zones, load_balancers, security_groups, instance_monitoring,
+    def _create_elastigroup_config(self, desired_size, min_size, max_size, instance_type,
+                                   subnets, load_balancers, security_groups, instance_monitoring,
                                    ebs_optimized, image_id, key_name, associate_public_ip_address, user_data,
                                    tags, instance_profile_name, block_device_mappings, group_name,
                                    spotinst_reserve):
-        # Pylint thinks this function has too many arguments and too many local variables
-        # pylint: disable=R0913, R0914
-        # We need unused argument to match method in autoscale
-        # pylint: disable=unused-argument
+        # Pylint thinks this function has too many arguments and too many local variables (it does)
+        # pylint: disable=too-many-arguments, too-many-locals
         """Create new elastigroup configuration"""
         strategy = {
-            'availabilityVsCost': availability_vs_cost,
+            'availabilityVsCost': "availabilityOriented",
             'utilizeReservedInstances': True,
             'fallbackToOd': True
         }
 
-        if not spotinst_reserve:
-            strategy['risk'] = 100
-            strategy['onDemandCount'] = None
-        else:
-            if str(spotinst_reserve).endswith('%'):
-                strategy['risk'] = 100 - int(spotinst_reserve.strip('%'))
-                strategy['onDemandCount'] = None
-            else:
-                strategy['risk'] = None
-                strategy['onDemandCount'] = int(spotinst_reserve)
+        strategy.update(self._get_risk_config(spotinst_reserve))
 
         _min_size = min_size or 0
         _max_size = max([min_size, max_size, desired_size, 0])
@@ -231,32 +163,25 @@ class DiscoElastigroup(BaseGroup):
             'unit': "instance"
         }
 
-        compute = {"instanceTypes": {
-            "ondemand": instance_type.split(':')[0],
-            "spot": instance_type.split(':')
-        }, "availabilityZones": [{'name': zone, 'subnetIds': [subnet_id]}
-                                 for zone, subnet_id in zones.iteritems()], "product": "Linux/UNIX"}
+        compute = {
+            "instanceTypes": self._get_instance_type_config(instance_type),
+            "product": "Linux/UNIX"
+        }
 
-        bdms = []
-        if block_device_mappings:
-            for name, ebs in block_device_mappings[0].iteritems():
-                if any([ebs.size, ebs.iops, ebs.snapshot_id]):
-                    bdm = {'deviceName': name, 'ebs': {'deleteOnTermination': ebs.delete_on_termination}}
-                    if ebs.size:
-                        bdm['ebs']['volumeSize'] = ebs.size
-                    if ebs.iops:
-                        bdm['ebs']['iops'] = ebs.iops
-                    if ebs.volume_type:
-                        bdm['ebs']['volumeType'] = ebs.volume_type
-                    if ebs.snapshot_id:
-                        bdm['ebs']['snapshotId'] = ebs.snapshot_id
-                    bdms.append(bdm)
-
-        if bdms:
-            # automatically take snapshots of EBS volumes so data isn't lost if the instance goes down
-            strategy['persistence'] = {
-                'shouldPersistBlockDevices': True
+        compute['availabilityZones'] = [
+            {
+                'name': zone,
+                'subnetIds': [subnet['SubnetId'] for subnet in zone_subnets]
             }
+            for zone, zone_subnets in groupby(subnets, key=lambda subnet: subnet['AvailabilityZone'])
+        ] if subnets else None
+
+        bdms, has_ebs = self._get_block_device_config(block_device_mappings)
+
+        # automatically take snapshots of EBS volumes so data isn't lost if the instance goes down
+        strategy['persistence'] = {
+            'shouldPersistBlockDevices': has_ebs
+        }
 
         network_interfaces = [
             {"deleteOnTermination": True,
@@ -265,9 +190,7 @@ class DiscoElastigroup(BaseGroup):
         ] if associate_public_ip_address else None
 
         launch_specification = {
-            "loadBalancersConfig": {
-                "loadBalancers": [{"name": elb, "type": "CLASSIC"} for elb in load_balancers or []] or None
-            },
+            "loadBalancersConfig": self._get_load_balancer_config(load_balancers),
             "securityGroupIds": security_groups,
             "monitoring": instance_monitoring,
             "ebsOptimized": ebs_optimized,
@@ -275,11 +198,11 @@ class DiscoElastigroup(BaseGroup):
             "keyPair": key_name,
             "blockDeviceMappings": bdms or None,
             "networkInterfaces": network_interfaces,
-            "userData": b64encode(str(user_data)),
+            "userData": b64encode(str(user_data)) if user_data else None,
             "tags": self._create_elastigroup_tags(tags),
             "iamRole": {
-                "arn": "arn:aws:iam::{}:instance-profile/{}".format(self.account_id, instance_profile_name)
-            }
+                "name": instance_profile_name
+            } if instance_profile_name else None
         }
 
         compute["launchSpecification"] = launch_specification
@@ -302,42 +225,47 @@ class DiscoElastigroup(BaseGroup):
         return [{'tagKey': key, 'tagValue': str(value)}
                 for key, value in tags.iteritems()] if tags else None
 
-    def _create_az_subnets_dict(self, subnets):
-        """ Create a dictionary with key AZ and value subnet id"""
-        zones = {}
-        for subnet in subnets:
-            zones[subnet['AvailabilityZone']] = subnet['SubnetId']
-        return zones
-
     def wait_for_instance_id(self, group_name):
         """Wait for instance id(s) of an elastigroup to become available"""
         while not all([instance['instance_id'] for instance in self.get_instances(group_name=group_name)]):
             logger.info('Waiting for instance id(s) of %s to become available', group_name)
             time.sleep(10)
 
-    def update_group(self, hostclass, desired_size=None, min_size=None, max_size=None, instance_type=None,
-                     load_balancers=None, subnets=None, security_groups=None, instance_monitoring=None,
-                     ebs_optimized=None, image_id=None, key_name=None, associate_public_ip_address=None,
-                     user_data=None, tags=None, instance_profile_name=None, block_device_mappings=None,
-                     group_name=None, create_if_exists=False, termination_policies=None, spotinst=False,
-                     spotinst_reserve=None):
+    def create_or_update_group(self, hostclass, desired_size=None, min_size=None, max_size=None,
+                               instance_type=None, load_balancers=None, subnets=None, security_groups=None,
+                               instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
+                               associate_public_ip_address=None, user_data=None, tags=None,
+                               instance_profile_name=None, block_device_mappings=None, group_name=None,
+                               create_if_exists=False, termination_policies=None, spotinst=False,
+                               spotinst_reserve=None, roll_if_needed=False):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
-        # We need unused argument to match method in autoscale
-        # pylint: disable=unused-argument
-        """Updates an existing elastigroup if it exists,
-        otherwise this creates a new elastigroup."""
+        """Updates an existing elastigroup if it exists, otherwise this creates a new elastigroup."""
         if not spotinst:
             raise SpotinstException('DiscoElastiGroup must be used for creating SpotInst groups')
 
-        group_config = self._create_elastigroup_config(
-            availability_vs_cost="availabilityOriented",
+        existing_groups = self._get_spotinst_groups(hostclass, group_name)
+        if existing_groups and not create_if_exists:
+            group = existing_groups[0]
+            roll_needed = self._modify_group(
+                group, desired_size=desired_size, min_size=min_size, max_size=max_size,
+                instance_type=instance_type, load_balancers=load_balancers, image_id=image_id, tags=tags,
+                instance_profile_name=instance_profile_name, block_device_mappings=block_device_mappings,
+                spotinst_reserve=spotinst_reserve
+            )
+
+            if roll_if_needed and roll_needed:
+                self._roll_group(group['id'], wait=True)
+
+            return {'name': group['name']}
+
+        return self._create_group(
             desired_size=desired_size,
             min_size=min_size,
             max_size=max_size,
             instance_type=instance_type,
             load_balancers=load_balancers,
-            zones=self._create_az_subnets_dict(subnets),
+            subnets=subnets,
             security_groups=security_groups,
             instance_monitoring=instance_monitoring,
             ebs_optimized=ebs_optimized,
@@ -348,46 +276,99 @@ class DiscoElastigroup(BaseGroup):
             tags=tags,
             instance_profile_name=instance_profile_name,
             block_device_mappings=block_device_mappings,
-            group_name=group_name or self._get_new_groupname(hostclass),
+            group_name=self._get_new_groupname(hostclass),
             spotinst_reserve=spotinst_reserve
         )
-        group = self.get_existing_group(hostclass, group_name)
-        if group and not create_if_exists:
-            group_id = group['id']
-            # Remove fields not allowed in update
-            del group_config['group']['capacity']['unit']
-            del group_config['group']['compute']['product']
 
-            # don't rename the group during an update.
-            # this happens when None is passed in for the group_name arg during a group update
-            # so a new name is generated in the config and then we run update using that name
-            del group_config['group']['name']
+    # pylint: disable=too-many-arguments, too-many-locals
+    def _create_group(self, desired_size=None, min_size=None, max_size=None,
+                      instance_type=None, load_balancers=None, subnets=None, security_groups=None,
+                      instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
+                      associate_public_ip_address=None, user_data=None, tags=None,
+                      instance_profile_name=None, block_device_mappings=None, group_name=None,
+                      spotinst_reserve=None):
 
-            # don't update fields that weren't changed
-            if min_size is None:
-                group_config['group']['capacity']['minimum'] = group['min_size']
-            if max_size is None:
-                group_config['group']['capacity']['maximum'] = group['min_size']
-            if desired_size is None:
-                group_config['group']['capacity']['target'] = group['desired_capacity']
+        group_config = self._create_elastigroup_config(
+            desired_size=desired_size,
+            min_size=min_size,
+            max_size=max_size,
+            instance_type=instance_type,
+            load_balancers=load_balancers,
+            subnets=subnets,
+            security_groups=security_groups,
+            instance_monitoring=instance_monitoring,
+            ebs_optimized=ebs_optimized,
+            image_id=image_id,
+            key_name=key_name,
+            associate_public_ip_address=associate_public_ip_address,
+            user_data=user_data,
+            tags=tags,
+            instance_profile_name=instance_profile_name,
+            block_device_mappings=block_device_mappings,
+            group_name=group_name,
+            spotinst_reserve=spotinst_reserve
+        )
 
-            self._spotinst_call(path='/' + group_id, data=group_config, method='put')
+        new_group = self.spotinst_client.create_group(group_config)
+        new_group_name = new_group['name']
 
-            # if the ELB config changed then we need to roll the group to pick up the new config
-            if set(group['load_balancers']) != set(load_balancers or []):
-                self._roll_group(group_id, wait=True)
+        self.wait_for_instance_id(new_group_name)
+        return {'name': new_group_name}
 
-            return {'name': group['name']}
-        else:
-            new_group = self._spotinst_call(data=group_config, method='post').json()
-            new_group_name = new_group['response']['items'][0]['name']
+    def _modify_group(self, existing_group, desired_size=None, min_size=None, max_size=None,
+                      instance_type=None, load_balancers=None, image_id=None, tags=None,
+                      instance_profile_name=None, block_device_mappings=None, spotinst_reserve=None):
+        new_config = copy.deepcopy(existing_group)
+        requires_roll = False
 
-            self.wait_for_instance_id(new_group_name)
-            return {'name': new_group_name}
+        if min_size is not None:
+            new_config['capacity']['minimum'] = min_size
+        if max_size is not None:
+            new_config['capacity']['maximum'] = max_size
+        if desired_size is not None:
+            new_config['capacity']['target'] = desired_size
+        if instance_type is not None:
+            instance_type_config = self._get_instance_type_config(instance_type)
+            new_config['compute']['instanceTypes'] = instance_type_config
+        if load_balancers:
+            launch_spec = new_config['compute']['launchSpecification']
+            launch_spec['loadBalancersConfig'] = self._get_load_balancer_config(load_balancers)
+            requires_roll = True
+        if spotinst_reserve is not None:
+            new_config['strategy'] = self._get_risk_config(spotinst_reserve)
+            requires_roll = True
+        if tags is not None:
+            new_config['compute']['launchSpecification']['tags'] = self._create_elastigroup_tags(tags)
+        if image_id is not None:
+            new_config['compute']['launchSpecification']['imageId'] = image_id
+            requires_roll = True
+        if block_device_mappings is not None:
+            bdms, has_ebs = self._get_block_device_config(block_device_mappings)
+            launch_spec = new_config['compute']['launchSpecification']
+            launch_spec['blockDeviceMappings'] = bdms
+            new_config.setdefault('strategy', {})['persistence'] = {
+                'shouldPersistBlockDevices': has_ebs
+            }
+        if instance_profile_name is not None:
+            new_config['compute']['launchSpecification']['iamRole'] = {
+                'name': instance_profile_name
+            }
+
+        # remove fields that can't be updated
+        new_config['capacity'].pop('unit', None)
+        new_config['compute'].pop('product', None)
+        new_config.pop('createdAt', None)
+        new_config.pop('updatedAt', None)
+
+        group_id = new_config.pop('id')
+
+        self.spotinst_client.update_group(group_id, {'group': new_config})
+
+        return requires_roll
 
     def _delete_group(self, group_id):
         """Delete an elastigroup by group id"""
-        self._spotinst_call(path='/' + group_id, method='delete')
+        self.spotinst_client.delete_group(group_id)
 
     def delete_groups(self, hostclass=None, group_name=None, force=False):
         """Delete all elastigroups based on hostclass"""
@@ -418,7 +399,7 @@ class DiscoElastigroup(BaseGroup):
                 }
             }
             logger.info("Scaling down group %s", group['name'])
-            self._spotinst_call(path='/' + group['id'], data=group_update, method='put')
+            self.spotinst_client.update_group(group['id'], group_update)
 
             if wait:
                 self.wait_instance_termination(group_name=group_name, group=group, noerror=noerror)
@@ -446,7 +427,7 @@ class DiscoElastigroup(BaseGroup):
                 }
             }
 
-            self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
+            self.spotinst_client.update_group(existing_group['id'], group_config)
 
     def create_recurring_group_action(self, recurrance, min_size=None, desired_capacity=None, max_size=None,
                                       hostclass=None, group_name=None):
@@ -477,7 +458,7 @@ class DiscoElastigroup(BaseGroup):
                 }
             }
 
-            self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
+            self.spotinst_client.update_group(existing_group['id'], group_config)
 
     def update_elb(self, elb_names, hostclass=None, group_name=None):
         """Updates an existing autoscaling group to use a different set of load balancers"""
@@ -502,10 +483,12 @@ class DiscoElastigroup(BaseGroup):
                 ", ".join(elb_names)
             )
 
-        elb_configs = [{
-            'name': elb,
-            'type': 'CLASSIC'
-        } for elb in elb_names]
+        elb_configs = [
+            {
+                'name': elb,
+                'type': 'CLASSIC'
+            } for elb in elb_names
+        ]
 
         group_config = {
             'group': {
@@ -519,11 +502,7 @@ class DiscoElastigroup(BaseGroup):
             }
         }
 
-        self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
-
-        # Spotinst requires us to roll (recreate) the instances for them to pick up the new ELBs
-        # this is done in a blue/green way so doesn't cause downtime
-        self._roll_group(existing_group['id'], wait=True)
+        self.spotinst_client.update_group(existing_group['id'], group_config)
 
         return new_lbs, extras
 
@@ -616,7 +595,7 @@ class DiscoElastigroup(BaseGroup):
             snapshot_id
         )
 
-        self._spotinst_call(path='/' + existing_group['id'], data=group_config, method='put')
+        self.spotinst_client.update_group(existing_group['id'], group_config)
 
     def _roll_group(self, group_id, batch_percentage=100, grace_period=GROUP_ROLL_TIMEOUT, wait=False):
         """
@@ -633,23 +612,16 @@ class DiscoElastigroup(BaseGroup):
                             for instance in self._get_group_instances(group_id)
                             if instance['instanceId']}
 
-        request = {
-            "batchSizePercentage": batch_percentage,
-            "gracePeriod": grace_period,
-            "strategy": {
-                "action": "REPLACE_SERVER"
-            }
-        }
-
-        self._spotinst_call(path='/%s/roll' % group_id, data=request, method='put')
+        self.spotinst_client.roll_group(group_id, batch_percentage, grace_period)
 
         if wait:
             # there isn't a roll status API so we will check progress of the operation by monitoring
             # the instance Ids that belong to the group. Once none of the old instances are attached
             # to the group then we know we are done
-            # give the group 10 minutes for the new instances to become healthy and the old instances to die
             current_time = time.time()
-            stop_time = current_time + grace_period
+            # instances without an ELB will wait the entire grace period before marking deploy complete
+            # so add an extra 600 to give time for deploy to finish after the grace period has expired
+            stop_time = current_time + grace_period + 600
             while current_time < stop_time:
                 new_instance_ids = {instance['instanceId']
                                     for instance in self._get_group_instances(group_id)
@@ -661,7 +633,7 @@ class DiscoElastigroup(BaseGroup):
                     break
 
                 logger.info(
-                    "Waiting for %s to roll in order to update ELB settings",
+                    "Waiting for %s to roll in order to update settings",
                     remaining_instances
                 )
                 time.sleep(20)
@@ -672,3 +644,55 @@ class DiscoElastigroup(BaseGroup):
                     "Timed out after waiting %s seconds for rolling deploy of %s" %
                     (grace_period, group_id)
                 )
+
+    def _get_instance_type_config(self, instance_types):
+        return {
+            "ondemand": instance_types.split(':')[0],
+            "spot": instance_types.split(':')
+        }
+
+    def _get_load_balancer_config(self, load_balancers):
+        return {
+            "loadBalancers": [{"name": elb, "type": "CLASSIC"} for elb in load_balancers]
+        } if load_balancers else None
+
+    def _get_risk_config(self, spotinst_reserve):
+        if not spotinst_reserve:
+            return {
+                'risk': 100,
+                'onDemandCount': None
+            }
+
+        if str(spotinst_reserve).endswith('%'):
+            return {
+                'risk': 100 - int(spotinst_reserve.strip('%')),
+                'onDemandCount': None
+            }
+        return {
+            'risk': None,
+            'onDemandCount': int(spotinst_reserve)
+        }
+
+    def _get_block_device_config(self, block_device_mappings):
+        bdms = []
+        has_ebs = False
+        for block_device_mapping in block_device_mappings or []:
+            for name, device in block_device_mapping.iteritems():
+                if device.ephemeral_name:
+                    bdms.append({
+                        'deviceName': name,
+                        'virtualName': device.ephemeral_name
+                    })
+                elif any([device.size, device.iops, device.snapshot_id]):
+                    has_ebs = True
+                    bdm = {'deviceName': name, 'ebs': {'deleteOnTermination': device.delete_on_termination}}
+                    if device.size:
+                        bdm['ebs']['volumeSize'] = device.size
+                    if device.iops:
+                        bdm['ebs']['iops'] = device.iops
+                    if device.volume_type:
+                        bdm['ebs']['volumeType'] = device.volume_type
+                    if device.snapshot_id:
+                        bdm['ebs']['snapshotId'] = device.snapshot_id
+                    bdms.append(bdm)
+        return bdms, has_ebs

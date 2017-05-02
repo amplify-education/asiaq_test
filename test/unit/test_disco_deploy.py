@@ -487,7 +487,7 @@ class DiscoDeployTests(TestCase):
              call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
                     'min_size': 2, 'desired_size': 2, 'max_size': 2,
                     'integration_test': "blue_green_service", 'smoke_test': 'no',
-                    'hostclass': 'mhcbluegreen'}], group_name=new_group.name)])
+                    'hostclass': 'mhcbluegreen'}], group_name=new_group.name, roll_if_needed=True)])
         self._disco_group.delete_groups.assert_not_called()
         self._disco_elb.delete_elb.assert_called_once_with("mhcbluegreen", testing=True)
 
@@ -536,7 +536,7 @@ class DiscoDeployTests(TestCase):
              call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
                     'min_size': 2, 'desired_size': 3, 'max_size': 4,
                     'integration_test': "blue_green_service", 'smoke_test': 'no',
-                    'hostclass': 'mhcbluegreen'}], group_name=new_group.name)])
+                    'hostclass': 'mhcbluegreen'}], group_name=new_group.name, roll_if_needed=True)])
         self._disco_group.delete_groups.assert_called_once_with(group_name=old_group.name, force=True)
         self._disco_elb.delete_elb.assert_called_once_with("mhcbluegreen", testing=True)
 
@@ -614,7 +614,7 @@ class DiscoDeployTests(TestCase):
              call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
                     'min_size': 2, 'desired_size': 3, 'max_size': 4,
                     'integration_test': "blue_green_service", 'smoke_test': 'no',
-                    'hostclass': 'mhcbluegreen'}], group_name=new_group.name)])
+                    'hostclass': 'mhcbluegreen'}], group_name=new_group.name, roll_if_needed=True)])
         self._disco_group.delete_groups.assert_called_once_with(group_name=new_group.name, force=True)
         self._disco_elb.delete_elb.assert_called_once_with("mhcbluegreen", testing=True)
 
@@ -812,7 +812,9 @@ class DiscoDeployTests(TestCase):
                     'min_size': 3, 'desired_size': 6, 'max_size': 6}], create_if_exists=True, testing=True),
              call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
                     'integration_test': None, 'smoke_test': 'no', 'hostclass': 'mhctimedautoscale',
-                    'min_size': 3, 'desired_size': 6, 'max_size': 6}], group_name=new_group.name)])
+                    'min_size': 3, 'desired_size': 6, 'max_size': 6}],
+                  group_name=new_group.name,
+                  roll_if_needed=True)])
         self._disco_aws.create_scaling_schedule.assert_called_once_with(
             min_size='3@30 16 * * 1-5:4@00 17 * * 1-5',
             desired_size='5@30 16 * * 1-5:6@00 17 * * 1-5',
@@ -845,7 +847,9 @@ class DiscoDeployTests(TestCase):
                     'min_size': 2, 'desired_size': 3, 'max_size': 4}], create_if_exists=True, testing=True),
              call([{'ami': 'ami-12345678', 'sequence': 1, 'deployable': 'yes',
                     'integration_test': None, 'smoke_test': 'no', 'hostclass': 'mhctimedautoscale',
-                    'min_size': 2, 'desired_size': 3, 'max_size': 4}], group_name=new_group.name)])
+                    'min_size': 2, 'desired_size': 3, 'max_size': 4}],
+                  group_name=new_group.name,
+                  roll_if_needed=True)])
         self._disco_aws.create_scaling_schedule.assert_called_once_with(
             min_size='3@30 16 * * 1-5:4@00 17 * * 1-5',
             desired_size='5@30 16 * * 1-5:6@00 17 * * 1-5',
