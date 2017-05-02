@@ -13,7 +13,7 @@ from .exceptions import TooManyAutoscalingGroups, SpotinstException, TimeoutErro
 
 logger = logging.getLogger(__name__)
 
-GROUP_ROLL_TIMEOUT = 600
+GROUP_ROLL_TIMEOUT = 300
 
 
 class DiscoElastigroup(BaseGroup):
