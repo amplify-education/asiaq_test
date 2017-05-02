@@ -319,6 +319,9 @@ class DiscoElastigroup(BaseGroup):
                       instance_type=None, load_balancers=None, image_id=None, tags=None,
                       instance_profile_name=None, block_device_mappings=None, spotinst_reserve=None):
         new_config = copy.deepcopy(existing_group)
+
+        # changing some config options requires a roll in order for them to take effect
+        # track if any of the updated options require a roll
         requires_roll = False
 
         if min_size is not None:
