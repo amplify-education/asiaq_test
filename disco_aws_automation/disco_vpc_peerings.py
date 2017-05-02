@@ -41,8 +41,23 @@ class DiscoVPCPeerings(object):
         desired_peerings = self._get_peerings_from_config(vpc.get_vpc_id())
         existing_peerings = self._get_existing_peerings(vpc)
 
+        def _check_peering_exists(peering_config, peerings):
+            """Check if a peering exists for a peering config"""
+            for peering in peerings:
+                peering_config_endpoints = {peering_config.source_endpoint.vpc['VpcId'],
+                                            peering_config.target_endpoint.vpc['VpcId']}
+                peering_endpoints = {peering.source_endpoint.vpc['VpcId'],
+                                     peering.target_endpoint.vpc['VpcId']}
+                return peering_config_endpoints == peering_endpoints
+
+        missing_peerings = set.copy(desired_peerings)
+        for peering in desired_peerings:
+            if _check_peering_exists(peering, existing_peerings):
+                missing_peerings.discard(peering)
+
         logger.info("Desired VPC peering connections: %s", desired_peerings)
         logger.info("Existing VPC peering connections: %s", existing_peerings)
+        logger.info("Missing VPC peering connections: %s", missing_peerings)
 
         if delete_extra_connections and existing_peerings > desired_peerings:
             raise RuntimeError("Some existing VPC peering connections are not "
@@ -51,8 +66,8 @@ class DiscoVPCPeerings(object):
                                .format(existing_peerings - desired_peerings))
 
         if not dry_run:
-            self._create_peering_connections(desired_peerings - existing_peerings)
-            self._create_peering_routes(desired_peerings)
+            self._create_peering_connections(missing_peerings)
+            self._create_peering_routes(missing_peerings)
 
     def _get_existing_peerings(self, vpc):
         """
