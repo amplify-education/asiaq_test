@@ -48,7 +48,9 @@ class DiscoVPCPeerings(object):
                                             peering_config.target_endpoint.vpc['VpcId']}
                 peering_endpoints = {peering.source_endpoint.vpc['VpcId'],
                                      peering.target_endpoint.vpc['VpcId']}
-                return peering_config_endpoints == peering_endpoints
+                if peering_config_endpoints == peering_endpoints:
+                    return True
+            return False
 
         missing_peerings = set.copy(desired_peerings)
         for peering in desired_peerings:
