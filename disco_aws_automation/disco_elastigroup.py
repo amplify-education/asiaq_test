@@ -176,12 +176,7 @@ class DiscoElastigroup(BaseGroup):
             for zone, zone_subnets in groupby(subnets, key=lambda subnet: subnet['AvailabilityZone'])
         ] if subnets else None
 
-        bdms, has_ebs = self._get_block_device_config(block_device_mappings)
-
-        # automatically take snapshots of EBS volumes so data isn't lost if the instance goes down
-        strategy['persistence'] = {
-            'shouldPersistBlockDevices': has_ebs
-        }
+        bdms = self._get_block_device_config(block_device_mappings)
 
         network_interfaces = [
             {"deleteOnTermination": True,
@@ -346,12 +341,8 @@ class DiscoElastigroup(BaseGroup):
             new_config['compute']['launchSpecification']['imageId'] = image_id
             requires_roll = True
         if block_device_mappings is not None:
-            bdms, has_ebs = self._get_block_device_config(block_device_mappings)
             launch_spec = new_config['compute']['launchSpecification']
-            launch_spec['blockDeviceMappings'] = bdms
-            new_config.setdefault('strategy', {})['persistence'] = {
-                'shouldPersistBlockDevices': has_ebs
-            }
+            launch_spec['blockDeviceMappings'] = self._get_block_device_config(block_device_mappings)
         if instance_profile_name is not None:
             new_config['compute']['launchSpecification']['iamRole'] = {
                 'name': instance_profile_name
@@ -678,7 +669,6 @@ class DiscoElastigroup(BaseGroup):
 
     def _get_block_device_config(self, block_device_mappings):
         bdms = []
-        has_ebs = False
         for block_device_mapping in block_device_mappings or []:
             for name, device in block_device_mapping.iteritems():
                 if device.ephemeral_name:
@@ -687,7 +677,6 @@ class DiscoElastigroup(BaseGroup):
                         'virtualName': device.ephemeral_name
                     })
                 elif any([device.size, device.iops, device.snapshot_id]):
-                    has_ebs = True
                     bdm = {'deviceName': name, 'ebs': {'deleteOnTermination': device.delete_on_termination}}
                     if device.size:
                         bdm['ebs']['volumeSize'] = device.size
@@ -698,4 +687,4 @@ class DiscoElastigroup(BaseGroup):
                     if device.snapshot_id:
                         bdm['ebs']['snapshotId'] = device.snapshot_id
                     bdms.append(bdm)
-        return bdms, has_ebs
+        return bdms

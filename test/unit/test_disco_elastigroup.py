@@ -2,7 +2,6 @@
 Tests of disco_elastigroup
 """
 import random
-from collections import namedtuple
 
 from unittest import TestCase
 
@@ -198,10 +197,7 @@ class DiscoElastigroupTests(TestCase):
                     'availabilityVsCost': 'availabilityOriented',
                     'fallbackToOd': True,
                     'risk': 100,
-                    'utilizeReservedInstances': True,
-                    "persistence": {
-                        "shouldPersistBlockDevices": False
-                    }
+                    'utilizeReservedInstances': True
                 },
                 'capacity': {
                     'minimum': 1,
@@ -444,66 +440,6 @@ class DiscoElastigroupTests(TestCase):
         self.elastigroup.spotinst_client.update_group.assert_called_once_with(group['id'], expected_request)
 
     @parameterized.expand([
-        (True, False, True),
-        (True, True, True),
-        (False, False, False),
-        (False, True, False)
-    ])
-    def test_persist_ebs(self, has_ebs, has_ephemeral, persist_devices):
-        """"Verifies EBS persistance is handled correctly"""
-        # silly pylint, namedtutples should use class naming convention
-        # pylint: disable=C0103
-        Ebs = namedtuple('EBS', ['size', 'iops', 'snapshot_id', 'delete_on_termination',
-                                 'volume_type', 'ephemeral_name'])
-
-        block_device_mappings = []
-        if has_ebs:
-            block_device_mappings.append({
-                "/dev/xvdb": Ebs(
-                    size=100, iops=None, snapshot_id=None,
-                    delete_on_termination=False, volume_type='io1',
-                    ephemeral_name=None
-                )
-            })
-
-        if has_ephemeral:
-            block_device_mappings.append({
-                "/dev/xvdc": Ebs(
-                    size=None, iops=None, snapshot_id=None,
-                    delete_on_termination=True, volume_type=None,
-                    ephemeral_name='eph1'
-                )
-            })
-
-        self.elastigroup.create_or_update_group(
-            hostclass="mhcfoo",
-            block_device_mappings=block_device_mappings or None,
-            instance_type='m3.medium',
-            spotinst=True
-        )
-
-        expected_request = {
-            "group": {
-                "compute": ANY,
-                "capacity": ANY,
-                'name': ANY,
-                'description': ANY,
-                "strategy": {
-                    "utilizeReservedInstances": ANY,
-                    "availabilityVsCost": ANY,
-                    "risk": ANY,
-                    "onDemandCount": ANY,
-                    "fallbackToOd": ANY,
-                    "persistence": {
-                        "shouldPersistBlockDevices": persist_devices
-                    }
-                }
-            }
-        }
-
-        self.elastigroup.spotinst_client.create_group.assert_called_once_with(expected_request)
-
-    @parameterized.expand([
         ("53%", 47, None),
         ("20", None, 20),
         (None, 100, None)
@@ -527,10 +463,7 @@ class DiscoElastigroupTests(TestCase):
                     "availabilityVsCost": ANY,
                     "risk": risk,
                     "onDemandCount": on_demand_count,
-                    "fallbackToOd": ANY,
-                    "persistence": {
-                        "shouldPersistBlockDevices": False
-                    }
+                    "fallbackToOd": ANY
                 }
             }
         }
