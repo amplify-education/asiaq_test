@@ -67,7 +67,7 @@ class DiscoVPCPeerings(object):
                                "not implemented yet."
                                .format(existing_peerings - desired_peerings))
 
-        if not dry_run:
+        if not dry_run and missing_peerings:
             self._create_peering_connections(missing_peerings)
             self._create_peering_routes(missing_peerings)
 
