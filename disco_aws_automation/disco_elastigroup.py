@@ -25,6 +25,7 @@ class DiscoElastigroup(BaseGroup):
         if os.environ.get('SPOTINST_TOKEN'):
             self.spotinst_client = SpotinstClient(os.environ.get('SPOTINST_TOKEN'))
         else:
+            self.spotinst_client = None
             logger.warn('Create environment variable "SPOTINST_TOKEN" in order to use SpotInst')
         super(DiscoElastigroup, self).__init__()
 
