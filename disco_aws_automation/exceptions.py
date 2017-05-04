@@ -185,3 +185,7 @@ class SpotinstException(Exception):
 class UnknownDeploymentStrategyException(Exception):
     """Error trying to use an unknown deployment strategy"""
     pass
+
+
+class SpotinstApiException(Exception):
+    """Raised if Spotinst API problem encountered"""
