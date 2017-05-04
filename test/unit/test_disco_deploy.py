@@ -3,10 +3,14 @@ Tests of disco_bake
 """
 from __future__ import print_function
 import random
+
 from unittest import TestCase
 
 from datetime import datetime
 from datetime import timedelta
+
+import requests_mock
+import requests
 
 import boto.ec2.instance
 from mock import MagicMock, create_autospec, call
@@ -102,9 +106,11 @@ MOCK_CONFIG_DEFINITON = {
         "deployment_strategy": DEPLOYMENT_STRATEGY_BLUE_GREEN
     },
     "socify": {
-        'socify_baseurl': 'https://socify.aws.wgen.net/soc'
+        'socify_baseurl': 'https://socify-ci.aws.wgen.net/soc'
     }
 }
+
+SOCIFY_API_BASE = 'https://socify-ci.aws.wgen.net/soc'
 
 
 # Too many tests is probably not a bad thing
@@ -1040,14 +1046,101 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.test()
         self.assertEqual(self._ci_deploy.test_ami.call_count, 1)
 
-    def test_test_with_amis_ticketid(self):
-        '''Test test with amis'''
+    @requests_mock.Mocker()
+    def test_test_with_amis_ticketid(self, mock_requests):
+        '''Test test with amis and calls to socify'''
         self._ci_deploy.test_ami = MagicMock()
+        mock_validate_response = {
+            'message': 'SOCIFY-Mock has successfully processed the validate request:: DeployEvent',
+            'result': {'status': 'Passed', 'err_msgs': []}
+        }
+        mock_event_response = {
+            'message': 'SOCIFY-Mock has successfully processed the event: DeployEvent'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_validate_response, status_code=200)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_event_response)
+
         self._ci_deploy.test(ticket_id="AL-1102")
         self.assertEqual(self._ci_deploy.test_ami.call_count, 1)
+        self.assertEqual(mock_requests.call_count, 2)
+
+    @requests_mock.Mocker()
+    def test_test_with_amis_ticketid_error(self, mock_requests):
+        '''Test test with amis and calls to socify'''
+        self._ci_deploy.test_ami = MagicMock(side_effect=RuntimeError())
+        mock_validate_response = {
+            'message': 'SOCIFY-Mock has successfully processed the validate request:: DeployEvent',
+            'result': {'status': 'Passed', 'err_msgs': []}
+        }
+        mock_event_response = {
+            'message': 'SOCIFY-Mock has successfully processed the event: DeployEvent'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_validate_response, status_code=200)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_event_response)
+
+        with self.assertRaises(RuntimeError):
+            self._ci_deploy.test(ticket_id="AL-1102")
+
+    @requests_mock.Mocker()
+    def test_test_with_amis_validate_failed(self, mock_requests):
+        '''Test test with amis and failed socify validate'''
+        self._ci_deploy.test_ami = MagicMock()
+
+        mock_validate_response = {
+            'message': 'SOCIFY-Mock has successfully processed the validate request:: DeployEvent',
+            'result': {'status': 'Failed', 'err_msgs': ["Some error message"]}
+        }
+        mock_event_response = {
+            'message': 'SOCIFY-Mock has successfully processed the event: DeployEvent'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_validate_response, status_code=200)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_event_response)
+
+        with self.assertRaisesRegexp(RuntimeError,
+                                     "The SOC validation of the associated Ticket and AMI failed."):
+            self._ci_deploy.test(ticket_id="AL-1102")
+
+        self.assertEqual(self._ci_deploy.test_ami.call_count, 0)
+        self.assertEqual(mock_requests.call_count, 1)
+
+    @requests_mock.Mocker()
+    def test_test_with_amis_validate_error(self, mock_requests):
+        '''Test test with amis and error returned by socify validate'''
+        self._ci_deploy.test_ami = MagicMock()
+
+        mock_event_response = {
+            'message': 'SOCIFY-Mock has successfully processed the event: DeployEvent'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", exc=requests.exceptions.ConnectTimeout)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_event_response)
+
+        with self.assertRaisesRegexp(RuntimeError,
+                                     "The SOC validation of the associated Ticket and AMI failed."):
+            self._ci_deploy.test(ticket_id="AL-1102")
+
+        self.assertEqual(self._ci_deploy.test_ami.call_count, 0)
+        self.assertEqual(mock_requests.call_count, 1)
+
+    @requests_mock.Mocker()
+    def test_test_with_amis_soc_event_error(self, mock_requests):
+        '''Test test with amis and failed socify event'''
+        self._ci_deploy.test_ami = MagicMock()
+        mock_validate_response = {
+            'message': 'SOCIFY-Mock has successfully processed the validate request:: DeployEvent',
+            'result': {'status': 'Passed', 'err_msgs': []}
+        }
+        mock_response = {
+            'errorMessage': 'SOCIFY failed executing the event request'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_validate_response, status_code=200)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_response, status_code=400)
+
+        self._ci_deploy.test(ticket_id="AL-1102")
+        self.assertEqual(self._ci_deploy.test_ami.call_count, 1)
+        self.assertEqual(mock_requests.call_count, 2)
 
     def test_test_wo_amis(self):
-        '''Test test without amis'''
+        '''Test test without amis '''
         self._ci_deploy.get_test_amis = MagicMock(return_value=[])
         self._ci_deploy.test_ami = MagicMock()
         self._ci_deploy.test()
@@ -1091,11 +1184,98 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.update()
         self.assertEqual(self._ci_deploy.update_ami.call_count, 1)
 
-    def test_update_with_amis_ticketid(self):
-        '''Test update with amis'''
+    @requests_mock.Mocker()
+    def test_update_with_amis_ticketid(self, mock_requests):
+        '''Test update with amis and calls to socify'''
         self._ci_deploy.update_ami = MagicMock()
-        self._ci_deploy.update("AL-1102")
+        mock_validate_response = {
+            'message': 'SOCIFY-Mock has successfully processed the validate request:: DeployEvent',
+            'result': {'status': 'Passed', 'err_msgs': []}
+        }
+        mock_event_response = {
+            'message': 'SOCIFY-Mock has successfully processed the event: DeployEvent'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_validate_response, status_code=200)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_event_response)
+
+        self._ci_deploy.update(ticket_id="AL-1102")
         self.assertEqual(self._ci_deploy.update_ami.call_count, 1)
+        self.assertEqual(mock_requests.call_count, 2)
+
+    @requests_mock.Mocker()
+    def test_update_with_amis_ticketid_error(self, mock_requests):
+        '''Test update with amis and calls to socify'''
+        self._ci_deploy.update_ami = MagicMock(side_effect=RuntimeError())
+        mock_validate_response = {
+            'message': 'SOCIFY has successfully processed the validate request: DeployEvent',
+            'result': {'status': 'Passed', 'err_msgs': []}
+        }
+        mock_event_response = {
+            'message': 'SOCIFY-Mock has successfully processed the event: DeployEvent'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_validate_response, status_code=200)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_event_response)
+
+        with self.assertRaises(RuntimeError):
+            self._ci_deploy.update(ticket_id="AL-1102")
+
+    @requests_mock.Mocker()
+    def test_update_with_amis_validate_failed(self, mock_requests):
+        '''Test update with amis and failed socify validate'''
+        self._ci_deploy.update_ami = MagicMock()
+
+        mock_validate_response = {
+            'message': 'SOCIFY-Mock has successfully processed the validate request:: DeployEvent',
+            'result': {'status': 'Failed', 'err_msgs': ["Some error message"]}
+        }
+        mock_event_response = {
+            'message': 'SOCIFY-Mock has successfully processed the event: DeployEvent'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_validate_response, status_code=200)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_event_response)
+
+        with self.assertRaisesRegexp(RuntimeError,
+                                     "The SOC validation of the associated Ticket and AMI failed."):
+            self._ci_deploy.update(ticket_id="AL-1102")
+
+        self.assertEqual(self._ci_deploy.update_ami.call_count, 0)
+        self.assertEqual(mock_requests.call_count, 1)
+
+    @requests_mock.Mocker()
+    def test_update_with_amis_validate_error(self, mock_requests):
+        '''Test test with amis and error returned from validate'''
+        self._ci_deploy.update_ami = MagicMock()
+
+        mock_event_response = {
+            'message': 'SOCIFY-Mock has successfully processed the event: DeployEvent'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", exc=requests.exceptions.ConnectTimeout)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_event_response)
+
+        with self.assertRaisesRegexp(RuntimeError,
+                                     "The SOC validation of the associated Ticket and AMI failed."):
+            self._ci_deploy.update(ticket_id="AL-1102")
+
+        self.assertEqual(self._ci_deploy.update_ami.call_count, 0)
+        self.assertEqual(mock_requests.call_count, 1)
+
+    @requests_mock.Mocker()
+    def test_update_with_amis_soc_event_error(self, mock_requests):
+        '''Test test with amis and error during Socify event'''
+        self._ci_deploy.update_ami = MagicMock()
+        mock_validate_response = {
+            'message': 'SOCIFY-Mock has successfully processed the validate request:: DeployEvent',
+            'result': {'status': 'Passed', 'err_msgs': []}
+        }
+        mock_response = {
+            'errorMessage': 'SOCIFY failed executing the event request'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_validate_response, status_code=200)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_response, status_code=400)
+
+        self._ci_deploy.update(ticket_id="AL-1102")
+        self.assertEqual(self._ci_deploy.update_ami.call_count, 1)
+        self.assertEqual(mock_requests.call_count, 2)
 
     def test_update_wo_amis(self):
         '''Test update without amis'''
