@@ -6,7 +6,7 @@ import random
 from unittest import TestCase
 
 from parameterized import parameterized
-from mock import MagicMock, ANY
+from mock import MagicMock, ANY, patch
 from disco_aws_automation import DiscoElastigroup
 
 ENVIRONMENT_NAME = "moon"
@@ -469,3 +469,10 @@ class DiscoElastigroupTests(TestCase):
         }
 
         self.elastigroup.spotinst_client.create_group.assert_called_once_with(expected_request)
+
+    @patch('os.environ.get', MagicMock(return_value=None))
+    def test_is_spotinst_not_enabled(self):
+        """Verify that if no spotinst token is set, spotinst is not enabled"""
+        self.elastigroup = DiscoElastigroup(ENVIRONMENT_NAME)
+
+        self.assertFalse(self.elastigroup.is_spotinst_enabled())
