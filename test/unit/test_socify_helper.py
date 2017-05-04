@@ -69,12 +69,12 @@ class SocifyHelperTest(TestCase):
 
     def test_build_json(self):
         """Test socify build event json data"""
-        data = self._soc_helper._build_json("EVENT", SocifyHelper.SOC_EVENT_OK, hostclass="myhostclass",
+        data = self._soc_helper._build_json(SocifyHelper.SOC_EVENT_OK, hostclass="myhostclass",
                                             msg="test was successfull")
         res_data = {"ticketId": "AL-1102",
                     "cmd": "ExampleEvent",
-                    "amiId": "ami_12345",
                     "data": {"status": SocifyHelper.SOC_EVENT_OK,
+                             "amiId": "ami_12345",
                              "hostclass": "myhostclass",
                              "msg": "test was successfull"}}
         self.assertEqual(data, res_data)
@@ -82,12 +82,12 @@ class SocifyHelperTest(TestCase):
     def test_build_json_with_sub_command(self):
         """Test socify build event json data"""
         self._soc_helper._sub_command = 'mySubCommand'
-        data = self._soc_helper._build_json("EVENT", SocifyHelper.SOC_EVENT_OK, hostclass="myhostclass",
+        data = self._soc_helper._build_json(SocifyHelper.SOC_EVENT_OK, hostclass="myhostclass",
                                             msg="test was successfull")
         res_data = {"ticketId": "AL-1102",
                     "cmd": "ExampleEvent",
-                    "amiId": "ami_12345",
                     "data": {"status": SocifyHelper.SOC_EVENT_OK,
+                             "amiId": "ami_12345",
                              "sub_cmd": "mySubCommand",
                              "hostclass": "myhostclass",
                              "msg": "test was successfull"}}
