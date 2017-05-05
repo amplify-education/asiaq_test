@@ -125,8 +125,8 @@ class DiscoVPCPeeringsTests(unittest.TestCase):
 
         self.disco_vpc_peerings.update_peering_connections(MagicMock())
 
-        self.disco_vpc_peerings._create_peering_connections.assert_called_once_with(set())
-        self.disco_vpc_peerings._create_peering_routes.assert_called_once_with(set())
+        self.disco_vpc_peerings._create_peering_connections.assert_not_called()
+        self.disco_vpc_peerings._create_peering_routes.assert_not_called()
 
     def test_not_update_existing_peerings_2(self):
         """Test existing peering is not udpated (configured peering source & target opposite of existing)"""
@@ -141,5 +141,5 @@ class DiscoVPCPeeringsTests(unittest.TestCase):
 
         self.disco_vpc_peerings.update_peering_connections(MagicMock())
 
-        self.disco_vpc_peerings._create_peering_connections.assert_called_once_with(set())
-        self.disco_vpc_peerings._create_peering_routes.assert_called_once_with(set())
+        self.disco_vpc_peerings._create_peering_connections.assert_not_called()
+        self.disco_vpc_peerings._create_peering_routes.assert_not_called()
