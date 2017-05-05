@@ -688,4 +688,4 @@ class DiscoElastigroup(BaseGroup):
                     if device.snapshot_id:
                         bdm['ebs']['snapshotId'] = device.snapshot_id
                     bdms.append(bdm)
-        return bdms
+        return bdms or None
