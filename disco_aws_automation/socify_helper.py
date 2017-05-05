@@ -12,12 +12,10 @@ logger = logging.getLogger(__name__)
 
 SocifyConfig = {
     "EVENT": {
-        "basePath": "/event",
-        "use_data": True
+        "basePath": "/event"
     },
     "VALIDATE": {
-        "basePath": "/validate",
-        "use_data": False
+        "basePath": "/validate"
     }
 }
 
@@ -65,13 +63,17 @@ class SocifyHelper(object):
         :param kwargs:  additional named arguments used to populate the data section of the json
         :return: a dictionary containing the socify event data
         """
-        event_info = {'status': status}
+        event_info = {'amiId': self._ami_id}
+        if status:
+            event_info['status'] = status
+
         if self._sub_command:
             event_info['sub_cmd'] = self._sub_command
+
         event_info.update(kwargs)
         return event_info
 
-    def _build_json(self, function_name, status=None, **kwargs):
+    def _build_json(self, status=None, **kwargs):
         """
         Build the event JSON for the Socify Event associated to the executed command
         :param function_name: The Socify function name which will be invoked
@@ -79,13 +81,11 @@ class SocifyHelper(object):
         :param kwargs:  additional named arguments used to populate the data section of the json
         :return: The Event JSON for the associated Event
         """
-        event_json = {"ticketId": self._ticket_id,
-                      "cmd": self._command,
-                      "amiId": self._ami_id}
+        event_json = {'ticketId': self._ticket_id,
+                      'cmd': self._command}
 
-        # Add data section if required
-        if SocifyConfig[function_name]["use_data"]:
-            event_json["data"] = self._build_json_data(status, **kwargs)
+        # Add data section
+        event_json['data'] = self._build_json_data(status, **kwargs)
 
         return event_json
 
@@ -105,7 +105,7 @@ class SocifyHelper(object):
         """
         url = self._build_url(function_name)
 
-        data = self._build_json(function_name, status, **kwargs)
+        data = self._build_json(status, **kwargs)
         headers = {'Content-Type': 'application/json'}
         return requests.post(url=url, headers=headers, json=data)
 

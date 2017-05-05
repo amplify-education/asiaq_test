@@ -161,6 +161,16 @@ class DiscoDeployTests(TestCase):
         self._amis_by_name[ami.name] = ami
         return ami
 
+    def init_latest_running_amis(self):
+        '''Create the mock result for DiscoDeploy.get_latest_running_amis'''
+        amis = {
+            "mhcintegrated": self._amis_by_name['mhcintegrated 2'],
+            "mhcfoo": self._amis_by_name['mhcfoo 4'],
+            "mhcbluegreen": self._amis_by_name['mhcbluegreen 1'],
+            "mhcbluegreennondeployable": self._amis_by_name['mhcbluegreennondeployable 1']
+        }
+        self._ci_deploy.get_latest_running_amis = MagicMock(return_value=amis)
+
     def setUp(self):
         self._environment_name = "foo"
         self._disco_group = create_autospec(DiscoGroup, instance=True)
@@ -200,6 +210,7 @@ class DiscoDeployTests(TestCase):
         self.add_ami('mhcbluegreennondeployable 2', 'untested')
         self.add_ami('mhctimedautoscale 1', 'untested')
         self._ci_deploy._disco_bake.list_amis = MagicMock(return_value=self._amis)
+        self.init_latest_running_amis()
 
     def test_filter_with_ami_restriction(self):
         '''Tests that filter on ami works when ami is set'''
