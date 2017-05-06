@@ -22,9 +22,9 @@ SocifyConfig = {
 
 class SocifyHelper(object):
     """Socify helper provides the function to invoke the Socify lambda functions"""
-    SOC_EVENT_OK = 100
-    SOC_EVENT_BAD_DATA = 200
-    SOC_EVENT_ERROR = 300
+    SOC_EVENT_OK = '100'
+    SOC_EVENT_BAD_DATA = '200'
+    SOC_EVENT_ERROR = '300'
 
     def __init__(self, ticket_id, dry_run, command, sub_command=None, ami=None, config=None):
         self._ticket_id = ticket_id
@@ -63,7 +63,7 @@ class SocifyHelper(object):
         :param kwargs:  additional named arguments used to populate the data section of the json
         :return: a dictionary containing the socify event data
         """
-        event_info = {'amiId': self._ami_id}
+        event_info = {'amiId': self._ami_id if self._ami_id else ''}
         if status:
             event_info['status'] = status
 
@@ -106,6 +106,7 @@ class SocifyHelper(object):
         url = self._build_url(function_name)
 
         data = self._build_json(status, **kwargs)
+        logger.debug("calling Socify with data : %s", data)
         headers = {'Content-Type': 'application/json'}
         return requests.post(url=url, headers=headers, json=data)
 
@@ -126,6 +127,7 @@ class SocifyHelper(object):
             rsp_msg = response.json()['message']
             logger.info("received response status %s data: %s", status, rsp_msg)
         except requests.HTTPError:
+            logger.exception("Socify returns HTTPError")
             rsp_msg = response.json()['errorMessage']
             logger.error("Socify event failed with the following error: %s", rsp_msg)
         except Exception:
