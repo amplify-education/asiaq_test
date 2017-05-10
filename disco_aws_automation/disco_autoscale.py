@@ -66,9 +66,12 @@ class DiscoAutoscale(BaseGroup):
             if item.group_name.startswith("{0}_".format(self.environment_name))
         ]
 
-    def get_hostclass(self, groupname):
+    def _get_hostclass(self, groupname):
         """Returns the hostclass when given an autoscaling group name"""
-        return groupname.split('_')[1]
+        # group names follow a <env>_hostclass_<id> pattern. hostclass names could have underscores
+        # so we need to be careful about how we split out the hostclass name
+        parts = groupname.split('_')[1:-1]
+        return '_'.join(parts)
 
     def _get_group_generator(self, group_names=None):
         """Yields groups in current environment"""
@@ -101,7 +104,7 @@ class DiscoAutoscale(BaseGroup):
                 self.connection.get_all_autoscaling_instances, next_token=next_token)
             for instance in self._filter_instance_by_environment(instances):
                 filters = [
-                    not hostclass or self.get_hostclass(instance.group_name) == hostclass,
+                    not hostclass or self._get_hostclass(instance.group_name) == hostclass,
                     not group_name or instance.group_name == group_name]
                 if all(filters):
                     yield {
@@ -386,7 +389,7 @@ class DiscoAutoscale(BaseGroup):
         """
         groups = list(self._get_group_generator(group_names=[group_name]))
         filtered_groups = [group for group in groups
-                           if not hostclass or self.get_hostclass(group['name']) == hostclass]
+                           if not hostclass or self._get_hostclass(group['name']) == hostclass]
         filtered_groups.sort(key=lambda grp: grp['name'], reverse=True)
         return filtered_groups
 

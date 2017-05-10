@@ -48,7 +48,10 @@ class DiscoElastigroup(BaseGroup):
 
     def _get_hostclass(self, group_name):
         """Returns the hostclass when given an elastigroup name"""
-        return group_name.split('_')[1]
+        # group names follow a <env>_hostclass_<id> pattern. hostclass names could have underscores
+        # so we need to be careful about how we split out the hostclass name
+        parts = group_name.split('_')[1:-1]
+        return '_'.join(parts)
 
     def _get_spotinst_groups(self, hostclass=None, group_name=None):
         groups = self.spotinst_client.get_groups()
