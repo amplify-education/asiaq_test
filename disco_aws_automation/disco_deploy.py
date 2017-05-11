@@ -625,6 +625,9 @@ class DiscoDeploy(object):
         Otherwise use the most recent untested ami for the hostclass
         '''
         reason = None
+        hostclass = None
+        previous_ami_id = None
+
         amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
         ami = random.choice(amis) if amis else None
 
@@ -653,15 +656,15 @@ class DiscoDeploy(object):
             except RuntimeError as err:
                 socify_helper.send_event(
                     status=SocifyHelper.SOC_EVENT_ERROR,
-                    hostclass=hostclass if hostclass else "",
+                    hostclass=hostclass or "",
                     message=err.message)
                 raise
 
         socify_helper.send_event(
             status=status,
-            hostclass=(hostclass if ami else ""),
-            previous_ami_id=(previous_ami_id if ami else ""),
-            message=reason if reason else "")
+            hostclass=hostclass or "",
+            previous_ami_id=previous_ami_id or "",
+            message=reason or "")
 
     def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
         '''
@@ -671,6 +674,9 @@ class DiscoDeploy(object):
         Otherwise uses the most recent tested or un tagged ami
         '''
         reason = None
+        hostclass = None
+        previous_ami_id = None
+
         amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
         ami = random.choice(amis) if amis else None
 
@@ -699,14 +705,14 @@ class DiscoDeploy(object):
             except RuntimeError as err:
                 socify_helper.send_event(
                     status=SocifyHelper.SOC_EVENT_ERROR,
-                    hostclass=hostclass if hostclass else "",
+                    hostclass=hostclass or "",
                     message=err.message)
                 raise
 
         socify_helper.send_event(status=status,
-                                 hostclass=(hostclass if ami else ""),
-                                 previous_ami_id=(previous_ami_id if ami else ""),
-                                 message=reason if reason else "")
+                                 hostclass=hostclass or "",
+                                 previous_ami_id=previous_ami_id or "",
+                                 message=reason or "")
 
     def hostclass_option(self, hostclass, key):
         '''
