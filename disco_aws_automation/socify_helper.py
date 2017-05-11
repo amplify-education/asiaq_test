@@ -120,19 +120,20 @@ class SocifyHelper(object):
         if not self._can_invoke_socify():
             return
 
+        response = None
         try:
-            response = self._invoke_socify("EVENT", status, **kwargs)
+            response = self._invoke_socify('EVENT', status, **kwargs)
             response.raise_for_status()
             status = response.status_code
             rsp_msg = response.json()['message']
-            logger.info("received response status %s data: %s", status, rsp_msg)
-        except requests.HTTPError:
-            logger.exception("Socify returns HTTPError")
-            rsp_msg = response.json()['errorMessage']
-            logger.error("Socify event failed with the following error: %s", rsp_msg)
-        except Exception:
-            logger.exception("Failed to send event to Socify")
-            rsp_msg = 'Failed sending the Socify event'
+            logger.info('received response status %s data: %s', status, rsp_msg)
+        except Exception as err:
+            if isinstance(err, requests.HTTPError):
+                rsp_msg = 'Socify event failed with the following error: {0}'\
+                    .format(response.json()['errorMessage'])
+            else:
+                rsp_msg = 'Failed sending the Socify event'
+            logger.exception(rsp_msg)
 
         return rsp_msg
 

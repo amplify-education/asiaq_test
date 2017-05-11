@@ -114,11 +114,12 @@ class SocifyHelperTest(TestCase):
     def test_send_event_httperror(self, mock_requests):
         """Test send event with error message"""
         mock_response = {
-            'errorMessage': 'SOCIFY failed executing the event request'
+            'errorMessage': 'SOCIFY Invalid Ticket'
         }
+        return_error = 'Socify event failed with the following error: SOCIFY Invalid Ticket'
         mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_response, status_code=400)
         self.assertEqual(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK, msg="test was successfull"),
-                         "SOCIFY failed executing the event request")
+                         return_error)
 
     @requests_mock.Mocker()
     def test_validate(self, mock_requests):
