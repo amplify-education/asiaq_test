@@ -45,8 +45,8 @@ class SocifyHelper(object):
             self._socify_url = self._config.get("socify", "socify_baseurl")
         except (NoOptionError, NoSectionError):
             logger.warning("The property socify_baseurl is not set in your disco_aws.ini file. The "
-                             "deploy action won't be logged in your ticket. Please make sure to add the "
-                             "definition for socify_baseurl in the [socify] section.")
+                           "deploy action won't be logged in your ticket. Please make sure to add the "
+                           "definition for socify_baseurl in the [socify] section.")
 
     def _build_url(self, function_name):
         """
