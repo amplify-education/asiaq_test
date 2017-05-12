@@ -44,7 +44,7 @@ class SocifyHelper(object):
         try:
             self._socify_url = self._config.get("socify", "socify_baseurl")
         except (NoOptionError, NoSectionError):
-            logger.exception("The property socify_baseurl is not set in your disco_aws.ini file. The "
+            logger.warning("The property socify_baseurl is not set in your disco_aws.ini file. The "
                              "deploy action won't be logged in your ticket. Please make sure to add the "
                              "definition for socify_baseurl in the [socify] section.")
 
@@ -133,7 +133,7 @@ class SocifyHelper(object):
                     .format(response.json()['errorMessage'])
             else:
                 rsp_msg = 'Failed sending the Socify event'
-            logger.exception(rsp_msg)
+            logger.warning(rsp_msg)
 
         return rsp_msg
 
@@ -161,6 +161,6 @@ class SocifyHelper(object):
             rsp_msg = response.json()['errorMessage']
             logger.error("Socify event failed with the following error: %s", rsp_msg)
         except Exception:
-            logger.exception("Failed to send event to Socify")
+            logger.warning("Failed to send event to Socify")
 
         return False
