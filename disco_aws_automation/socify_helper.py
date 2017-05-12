@@ -26,12 +26,13 @@ class SocifyHelper(object):
     SOC_EVENT_BAD_DATA = '200'
     SOC_EVENT_ERROR = '300'
 
-    def __init__(self, ticket_id, dry_run, command, sub_command=None, ami=None, config=None):
+    def __init__(self, ticket_id, dry_run, command, sub_command=None, ami=None, env=None, config=None):
         self._ticket_id = ticket_id
         self.dry_run = dry_run
         self._command = command
         self._sub_command = sub_command
         self._ami_id = ami.id if ami else None
+        self._environment = env
 
         if config:
             self._config = config
@@ -63,7 +64,8 @@ class SocifyHelper(object):
         :param kwargs:  additional named arguments used to populate the data section of the json
         :return: a dictionary containing the socify event data
         """
-        event_info = {'amiId': self._ami_id if self._ami_id else ''}
+        event_info = {'amiId': self._ami_id if self._ami_id else '',
+                      'environment': self._environment}
         if status:
             event_info['status'] = status
 
