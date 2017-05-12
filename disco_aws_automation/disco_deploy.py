@@ -625,6 +625,9 @@ class DiscoDeploy(object):
         Otherwise use the most recent untested ami for the hostclass
         '''
         reason = None
+        hostclass = None
+        previous_ami_id = None
+
         amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
         ami = random.choice(amis) if amis else None
 
@@ -637,7 +640,7 @@ class DiscoDeploy(object):
 
         if not ami:
             reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
-                else "No 'untested' AMIs found."
+                else "No untested AMIs found."
             logger.error(reason)
             status = SocifyHelper.SOC_EVENT_BAD_DATA
         elif not socify_helper.validate():
@@ -653,15 +656,15 @@ class DiscoDeploy(object):
             except RuntimeError as err:
                 socify_helper.send_event(
                     status=SocifyHelper.SOC_EVENT_ERROR,
-                    hostclass=hostclass,
+                    hostclass=hostclass or "",
                     message=err.message)
                 raise
 
         socify_helper.send_event(
             status=status,
-            hostclass=(hostclass if ami else None),
-            previous_ami_id=(previous_ami_id if ami else None),
-            message=reason)
+            hostclass=hostclass or "",
+            previous_ami_id=previous_ami_id or "",
+            message=reason or "")
 
     def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
         '''
@@ -671,6 +674,9 @@ class DiscoDeploy(object):
         Otherwise uses the most recent tested or un tagged ami
         '''
         reason = None
+        hostclass = None
+        previous_ami_id = None
+
         amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
         ami = random.choice(amis) if amis else None
 
@@ -683,7 +689,7 @@ class DiscoDeploy(object):
 
         if not ami:
             reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
-                else "No 'untested' AMIs found."
+                else "No untested AMIs found."
             logger.error(reason)
             status = SocifyHelper.SOC_EVENT_BAD_DATA
         elif not socify_helper.validate():
@@ -699,14 +705,14 @@ class DiscoDeploy(object):
             except RuntimeError as err:
                 socify_helper.send_event(
                     status=SocifyHelper.SOC_EVENT_ERROR,
-                    hostclass=DiscoBake.ami_hostclass(ami),
+                    hostclass=hostclass or "",
                     message=err.message)
                 raise
 
         socify_helper.send_event(status=status,
-                                 hostclass=(hostclass if ami else None),
-                                 previous_ami_id=(previous_ami_id if ami else None),
-                                 message=reason)
+                                 hostclass=hostclass or "",
+                                 previous_ami_id=previous_ami_id or "",
+                                 message=reason or "")
 
     def hostclass_option(self, hostclass, key):
         '''

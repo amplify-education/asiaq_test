@@ -22,9 +22,9 @@ SocifyConfig = {
 
 class SocifyHelper(object):
     """Socify helper provides the function to invoke the Socify lambda functions"""
-    SOC_EVENT_OK = 100
-    SOC_EVENT_BAD_DATA = 200
-    SOC_EVENT_ERROR = 300
+    SOC_EVENT_OK = '100'
+    SOC_EVENT_BAD_DATA = '200'
+    SOC_EVENT_ERROR = '300'
 
     def __init__(self, ticket_id, dry_run, command, sub_command=None, ami=None, config=None):
         self._ticket_id = ticket_id
@@ -44,9 +44,9 @@ class SocifyHelper(object):
         try:
             self._socify_url = self._config.get("socify", "socify_baseurl")
         except (NoOptionError, NoSectionError):
-            logger.exception("The property socify_baseurl is not set in your disco_aws.ini file. The "
-                             "deploy action won't be logged in your ticket. Please make sure to add the "
-                             "definition for socify_baseurl in the [socify] section.")
+            logger.warning("The property socify_baseurl is not set in your disco_aws.ini file. The "
+                           "deploy action won't be logged in your ticket. Please make sure to add the "
+                           "definition for socify_baseurl in the [socify] section.")
 
     def _build_url(self, function_name):
         """
@@ -63,7 +63,7 @@ class SocifyHelper(object):
         :param kwargs:  additional named arguments used to populate the data section of the json
         :return: a dictionary containing the socify event data
         """
-        event_info = {'amiId': self._ami_id}
+        event_info = {'amiId': self._ami_id if self._ami_id else ''}
         if status:
             event_info['status'] = status
 
@@ -106,6 +106,7 @@ class SocifyHelper(object):
         url = self._build_url(function_name)
 
         data = self._build_json(status, **kwargs)
+        logger.debug("calling Socify with data : %s", data)
         headers = {'Content-Type': 'application/json'}
         return requests.post(url=url, headers=headers, json=data)
 
@@ -119,18 +120,20 @@ class SocifyHelper(object):
         if not self._can_invoke_socify():
             return
 
+        response = None
         try:
-            response = self._invoke_socify("EVENT", status, **kwargs)
+            response = self._invoke_socify('EVENT', status, **kwargs)
             response.raise_for_status()
             status = response.status_code
             rsp_msg = response.json()['message']
-            logger.info("received response status %s data: %s", status, rsp_msg)
-        except requests.HTTPError:
-            rsp_msg = response.json()['errorMessage']
-            logger.error("Socify event failed with the following error: %s", rsp_msg)
-        except Exception:
-            logger.exception("Failed to send event to Socify")
-            rsp_msg = 'Failed sending the Socify event'
+            logger.debug('received response status %s data: %s', status, rsp_msg)
+        except Exception as err:
+            if isinstance(err, requests.HTTPError):
+                rsp_msg = 'Socify event failed with the following error: {0}'\
+                    .format(response.json()['errorMessage'])
+            else:
+                rsp_msg = 'Failed sending the Socify event'
+            logger.warning(rsp_msg)
 
         return rsp_msg
 
@@ -149,7 +152,7 @@ class SocifyHelper(object):
             status = response.status_code
             rsp_msg = response.json()['message']
             result = response.json().get("result")
-            logger.info("received response status %s result: %s data: %s", status, result, rsp_msg)
+            logger.debug("received response status %s result: %s data: %s", status, result, rsp_msg)
             if result['status'] == 'Failed':
                 logger.error("Socify Ticket validation failed. Reason: %s", result['err_msgs'])
                 return False
@@ -158,6 +161,6 @@ class SocifyHelper(object):
             rsp_msg = response.json()['errorMessage']
             logger.error("Socify event failed with the following error: %s", rsp_msg)
         except Exception:
-            logger.exception("Failed to send event to Socify")
+            logger.warning("Failed to send event to Socify")
 
         return False
