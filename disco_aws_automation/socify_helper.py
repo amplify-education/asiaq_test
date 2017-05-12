@@ -126,7 +126,7 @@ class SocifyHelper(object):
             response.raise_for_status()
             status = response.status_code
             rsp_msg = response.json()['message']
-            logger.info('received response status %s data: %s', status, rsp_msg)
+            logger.debug('received response status %s data: %s', status, rsp_msg)
         except Exception as err:
             if isinstance(err, requests.HTTPError):
                 rsp_msg = 'Socify event failed with the following error: {0}'\
@@ -152,7 +152,7 @@ class SocifyHelper(object):
             status = response.status_code
             rsp_msg = response.json()['message']
             result = response.json().get("result")
-            logger.info("received response status %s result: %s data: %s", status, result, rsp_msg)
+            logger.debug("received response status %s result: %s data: %s", status, result, rsp_msg)
             if result['status'] == 'Failed':
                 logger.error("Socify Ticket validation failed. Reason: %s", result['err_msgs'])
                 return False
