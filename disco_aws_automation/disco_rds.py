@@ -499,7 +499,7 @@ class DiscoRDS(object):
         subnet_ids = []
         for subnet in subnets:
             tags = tag2dict(subnet['Tags'])
-            if tags['meta_network'] == 'intranet':
+            if tags.get('meta_network') == 'intranet':
                 subnet_ids.append(str(subnet['SubnetId']))
         return subnet_ids
 
