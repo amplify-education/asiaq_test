@@ -176,6 +176,7 @@ class DiscoDeployTests(TestCase):
         self._disco_group = create_autospec(DiscoGroup, instance=True)
         self._disco_elb = create_autospec(DiscoELB, instance=True)
         self._disco_aws = create_autospec(DiscoAWS, instance=True)
+        self._disco_aws.environment_name = "test_env"
         self._test_aws = self._disco_aws
         self._existing_group = self.mock_group("mhcfoo")
         self._disco_group.get_existing_group.return_value = self._existing_group.__dict__
