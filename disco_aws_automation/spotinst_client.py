@@ -124,7 +124,7 @@ class SpotinstClient(object):
 
     def _throttle_spotinst_call(self, fun, *args, **kwargs):
         max_time = 5 * 60
-        jitter = Jitter(min_wait=60) # wait atleast 60 seconds because our rate limit resets then
+        jitter = Jitter(min_wait=60)  # wait atleast 60 seconds because our rate limit resets then
         time_passed = 0
 
         while True:
