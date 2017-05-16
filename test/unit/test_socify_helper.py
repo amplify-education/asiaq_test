@@ -23,7 +23,7 @@ class SocifyHelperTest(TestCase):
                                         "ExampleEvent",
                                         env="test_env",
                                         config=get_mock_config(soc_config))
-        self._soc_helper._ami_id = "ami_12345"
+        self._soc_helper.ami_id = "ami_12345"
 
     def test_socify_helper_constr(self):
         """Test SocifyHelper Constructor with valid data"""

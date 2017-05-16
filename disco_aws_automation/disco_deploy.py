@@ -53,7 +53,7 @@ class DiscoDeploy(object):
         :param allow_any_hostclass do not restrict to hostclasses in the pipeline definition
         :param config: Configuration object to use.
         '''
-        self._config = config or read_config()
+        self._config = config
 
         self._restrict_amis = [ami] if ami else None
         self._restrict_hostclass = hostclass
@@ -65,6 +65,16 @@ class DiscoDeploy(object):
         self._all_stage_amis = None
         self._hostclasses = self._get_hostclasses_from_pipeline_definition(pipeline_definition)
         self._allow_any_hostclass = allow_any_hostclass
+
+    @property
+    def config(self):
+        """
+        Getter function for_config
+        :return:
+        """
+        if not self._config:
+            self._config = read_config()
+        return self._config
 
     def _get_hostclasses_from_pipeline_definition(self, pipeline_definition):
         ''' Return hostclasses from pipeline definitions, validating numeric input '''
@@ -627,7 +637,7 @@ class DiscoDeploy(object):
         Otherwise use the most recent untested ami for the hostclass
         '''
         disco_deploy_helper = DiscoDeployTestHelper(self)
-        disco_deploy_helper._run_deploy(dry_run, deployment_strategy, ticket_id)
+        disco_deploy_helper.run_deploy(dry_run, deployment_strategy, ticket_id)
 
     def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
         '''
@@ -637,7 +647,7 @@ class DiscoDeploy(object):
         Otherwise uses the most recent tested or un tagged ami
         '''
         disco_deploy_helper = DiscoDeployUpdateHelper(self)
-        disco_deploy_helper._run_deploy(dry_run, deployment_strategy, ticket_id)
+        disco_deploy_helper.run_deploy(dry_run, deployment_strategy, ticket_id)
 
     def hostclass_option(self, hostclass, key):
         '''
@@ -692,7 +702,7 @@ class DiscoDeployHelperBase(object):
         """
         return
 
-    def _run_deploy(self, dry_run=False, deployment_strategy=None, ticket_id=None):
+    def run_deploy(self, dry_run=False, deployment_strategy=None, ticket_id=None):
         '''
         deploy test or update a single AMI and marks it as tested or failed.
         '''
@@ -701,7 +711,7 @@ class DiscoDeployHelperBase(object):
         previous_ami_id = None
         status = None
 
-        socify_helper = SocifyHelper(config=self._disco_deploy._config,
+        socify_helper = SocifyHelper(config=self._disco_deploy.config,
                                      ticket_id=ticket_id,
                                      dry_run=dry_run,
                                      command="DeployEvent",
