@@ -76,6 +76,13 @@ class DiscoDeploy(object):
             self._config = read_config()
         return self._config
 
+    @property
+    def environment_name(self):
+        """
+        Get the environment name used for the deploy command
+        """
+        return self._disco_aws.environment_name
+
     def _get_hostclasses_from_pipeline_definition(self, pipeline_definition):
         ''' Return hostclasses from pipeline definitions, validating numeric input '''
         return {entry["hostclass"]: entry for entry in pipeline_definition}
@@ -716,7 +723,7 @@ class DiscoDeployHelperBase(object):
                                      dry_run=dry_run,
                                      command="DeployEvent",
                                      sub_command="test",
-                                     env=self._disco_deploy._disco_aws.environment_name)
+                                     env=self._disco_deploy.environment_name)
 
         try:
             ami = self._get_ami_to_deploy()
