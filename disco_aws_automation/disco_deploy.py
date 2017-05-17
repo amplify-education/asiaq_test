@@ -689,6 +689,13 @@ class DiscoDeployHelperBase(object):
         self._disco_deploy = disco_deploy
 
     @abstractmethod
+    def sub_command(self):
+        """
+        The subcommand to use for the event
+        """
+        return
+
+    @abstractmethod
     def _get_ami_to_deploy(self):
         """
         If the ami id is specified using the option --ami then return on the specified ami
@@ -722,7 +729,7 @@ class DiscoDeployHelperBase(object):
                                      ticket_id=ticket_id,
                                      dry_run=dry_run,
                                      command="DeployEvent",
-                                     sub_command="test",
+                                     sub_command=self.sub_command(),
                                      env=self._disco_deploy.environment_name)
 
         try:
@@ -764,6 +771,9 @@ class DiscoDeployTestHelper(DiscoDeployHelperBase):
     """
     Disco DeployTestHelper Class implements the logic to associated to the Deploy Test command
     """
+    def sub_command(self):
+        return 'test'
+
     def _get_ami_to_deploy(self):
         """
         If the ami id is specified using the option --ami then run test on the specified ami
@@ -782,6 +792,9 @@ class DiscoDeployUpdateHelper(DiscoDeployHelperBase):
     """
     Disco DeployTestHelper Class implements the logic to associated to the Deploy Test command
     """
+    def sub_command(self):
+        return 'update'
+
     def _get_ami_to_deploy(self):
         """
         If the ami id is specify using the option --ami then run update using the specified ami
