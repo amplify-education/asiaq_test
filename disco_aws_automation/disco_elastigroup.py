@@ -248,7 +248,7 @@ class DiscoElastigroup(BaseGroup):
             group = existing_groups[0]
             roll_needed = self._modify_group(
                 group, desired_size=desired_size, min_size=min_size, max_size=max_size,
-                instance_type=instance_type, load_balancers=load_balancers, image_id=image_id, tags=tags,
+                load_balancers=load_balancers, image_id=image_id, tags=tags,
                 instance_profile_name=instance_profile_name, block_device_mappings=block_device_mappings,
                 spotinst_reserve=spotinst_reserve
             )
@@ -315,7 +315,7 @@ class DiscoElastigroup(BaseGroup):
         return {'name': new_group_name}
 
     def _modify_group(self, existing_group, desired_size=None, min_size=None, max_size=None,
-                      instance_type=None, load_balancers=None, image_id=None, tags=None,
+                      load_balancers=None, image_id=None, tags=None,
                       instance_profile_name=None, block_device_mappings=None, spotinst_reserve=None):
         new_config = copy.deepcopy(existing_group)
 
@@ -329,9 +329,6 @@ class DiscoElastigroup(BaseGroup):
             new_config['capacity']['maximum'] = max_size
         if desired_size is not None:
             new_config['capacity']['target'] = desired_size
-        if instance_type is not None:
-            instance_type_config = self._get_instance_type_config(instance_type)
-            new_config['compute']['instanceTypes'] = instance_type_config
         if load_balancers:
             launch_spec = new_config['compute']['launchSpecification']
             launch_spec['loadBalancersConfig'] = self._get_load_balancer_config(load_balancers)

@@ -1,11 +1,13 @@
 """Contains SpotinstClient class for taking to the Spotinst REST API"""
+import logging
 import requests
-from requests import ReadTimeout
+from requests.exceptions import ReadTimeout
 
 from disco_aws_automation.exceptions import SpotinstApiException, SpotinstRateExceededException
 from disco_aws_automation.resource_helper import Jitter
 
 SPOTINST_API_HOST = 'https://api.spotinst.io'
+logger = logging.getLogger(__name__)
 
 
 class SpotinstClient(object):
@@ -131,6 +133,10 @@ class SpotinstClient(object):
             try:
                 return fun(*args, **kwargs)
             except SpotinstRateExceededException:
+                if logging.getLogger().level == logging.DEBUG:
+                    logger.exception("Failed to run %s.", fun)
+
                 if time_passed > max_time:
                     raise
+
                 time_passed = jitter.backoff()
