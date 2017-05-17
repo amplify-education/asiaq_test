@@ -1,7 +1,7 @@
 """Contains SpotinstClient class for taking to the Spotinst REST API"""
 import logging
 import requests
-from requests import ReadTimeout
+from requests.exceptions import ReadTimeout
 
 from disco_aws_automation.exceptions import SpotinstApiException, SpotinstRateExceededException
 from disco_aws_automation.resource_helper import Jitter
