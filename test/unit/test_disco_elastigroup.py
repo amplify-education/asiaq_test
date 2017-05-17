@@ -211,35 +211,6 @@ class DiscoElastigroupTests(TestCase):
         })
         self.assertEqual(group['name'], 'mhcfoo')
 
-    def test_update_instance_type(self):
-        """Verifies changing instance type an existing group"""
-        group = self.mock_elastigroup(hostclass='mhcfoo')
-        self.elastigroup.spotinst_client.get_groups.return_value = [group]
-
-        self.elastigroup.create_or_update_group(
-            hostclass="mhcfoo",
-            spotinst=True,
-            instance_type="m3.medium:m4.large"
-        )
-
-        expected_request = {
-            'group': {
-                'name': ANY,
-                'capacity': ANY,
-                'compute': {
-                    'instanceTypes': {
-                        'spot': ['m3.medium', 'm4.large'],
-                        'ondemand': 'm3.medium'
-                    },
-                    'availabilityZones': ANY,
-                    'launchSpecification': ANY
-                },
-                'scheduling': ANY
-            }
-        }
-
-        self.elastigroup.spotinst_client.update_group.assert_called_once_with(group['id'], expected_request)
-
     def test_update_image_id(self):
         """Verifies updating AMI of an existing group"""
         group = self.mock_elastigroup(hostclass='mhcfoo')

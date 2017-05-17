@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import requests_mock
 from mock import patch
-from requests import ReadTimeout
+from requests.exceptions import ReadTimeout
 
 from disco_aws_automation.exceptions import SpotinstRateExceededException
 from disco_aws_automation.spotinst_client import SpotinstClient
