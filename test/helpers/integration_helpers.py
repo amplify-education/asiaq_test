@@ -11,7 +11,6 @@ from StringIO import StringIO
 
 import boto
 
-from disco_aws_automation.resource_helper import throttled_call
 
 TEST_HOSTCLASS = "mhcbanana"
 
@@ -71,11 +70,11 @@ class IntegrationTest(TestCase):
             cmd_environ.update(environ)
 
         print ">>> {}".format(" ".join(command))
-        process = throttled_call(subprocess.Popen, command,
-                                 stdin=subprocess.PIPE,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.STDOUT,
-                                 env=cmd_environ)  # relay ASIAQ_CONFIG and any other env vars
+        process = subprocess.Popen(command,
+                                   stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT,
+                                   env=cmd_environ)  # relay ASIAQ_CONFIG and any other env vars
 
         output = process.communicate()[0]
 
