@@ -23,6 +23,7 @@ class SocifyHelperTest(TestCase):
                                         False,
                                         "ExampleEvent",
                                         ami=MagicMock(id="ami_12345"),
+                                        env="test_env",
                                         config=get_mock_config(soc_config))
 
     def test_socify_helper_constr(self):
@@ -35,6 +36,7 @@ class SocifyHelperTest(TestCase):
                                   False,
                                   "ExampleEvent",
                                   ami=MagicMock(id="ami_12345"),
+                                  env="test_env",
                                   config=get_mock_config(soc_config))
         self.assertEqual("https://socify-ci.aws.wgen.net/soc", soc_helper._socify_url)
 
@@ -44,6 +46,7 @@ class SocifyHelperTest(TestCase):
                                   False,
                                   "ExampleEvent",
                                   ami=MagicMock(id="ami_12345"),
+                                  env="test_env",
                                   config=get_mock_config({}))
         self.assertFalse(hasattr(soc_helper, '_socify_url'))
 
@@ -57,6 +60,7 @@ class SocifyHelperTest(TestCase):
                                   False,
                                   "ExampleEvent",
                                   ami=MagicMock(id="ami_12345"),
+                                  env="test_env",
                                   config=get_mock_config(soc_config))
         self.assertFalse(hasattr(soc_helper, '_socify_url'))
 
@@ -76,6 +80,7 @@ class SocifyHelperTest(TestCase):
                     "data": {"status": SocifyHelper.SOC_EVENT_OK,
                              "amiId": "ami_12345",
                              "hostclass": "myhostclass",
+                             "environment": "test_env",
                              "msg": "test was successfull"}}
         self.assertEqual(data, res_data)
 
@@ -90,6 +95,7 @@ class SocifyHelperTest(TestCase):
                              "amiId": "ami_12345",
                              "sub_cmd": "mySubCommand",
                              "hostclass": "myhostclass",
+                             "environment": "test_env",
                              "msg": "test was successfull"}}
         self.assertEqual(data, res_data)
 

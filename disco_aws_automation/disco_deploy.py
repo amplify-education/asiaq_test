@@ -636,7 +636,8 @@ class DiscoDeploy(object):
                                      dry_run=dry_run,
                                      command="DeployEvent",
                                      sub_command="test",
-                                     ami=ami)
+                                     ami=ami,
+                                     env=self._disco_aws.environment_name)
 
         if not ami:
             reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
@@ -685,7 +686,8 @@ class DiscoDeploy(object):
                                      dry_run=dry_run,
                                      command="DeployEvent",
                                      sub_command="update",
-                                     ami=ami)
+                                     ami=ami,
+                                     env=self._disco_aws.environment_name)
 
         if not ami:
             reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
