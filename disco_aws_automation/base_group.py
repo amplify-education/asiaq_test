@@ -129,6 +129,11 @@ class BaseGroup(object):
         """Deletes an autoscaling policy"""
         pass
 
+    @abstractmethod
+    def update_snapshot(self, snapshot_id, snapshot_size, hostclass=None, group_name=None):
+        """Updates all of a hostclasses existing autoscaling groups to use a different snapshot"""
+        pass
+
     @property
     def boto3_ec(self):
         """Lazily create boto3 ec2 connection"""
@@ -138,7 +143,6 @@ class BaseGroup(object):
 
     def wait_instance_termination(self, group_name=None, group=None, noerror=False):
         """Wait for instance to be terminated during scaledown"""
-        waiter = throttled_call(self.boto3_ec.get_waiter, 'instance_terminated')
         instance_ids = [inst['instance_id'] for inst in self.get_instances(group_name=group_name)]
 
         # don't wait if there are no instances to wait for
@@ -147,7 +151,7 @@ class BaseGroup(object):
 
         try:
             logger.info("Waiting for scaledown of group %s, instances %s", group['name'], instance_ids)
-            waiter.wait(InstanceIds=instance_ids)
+            throttled_call(self.boto3_ec.get_waiter('instance_terminated').wait, InstanceIds=instance_ids)
         except WaiterError:
             if noerror:
                 logger.exception("Unable to wait for scaling down of %s", group_name)
@@ -156,8 +160,3 @@ class BaseGroup(object):
                 raise
 
         return True
-
-    @abstractmethod
-    def update_snapshot(self, snapshot_id, snapshot_size, hostclass=None, group_name=None):
-        """Updates all of a hostclasses existing autoscaling groups to use a different snapshot"""
-        pass
