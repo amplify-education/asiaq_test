@@ -114,7 +114,7 @@ class SocifyHelperTest(TestCase):
         """Test send event with timeout error"""
         mock_requests.post(SOCIFY_API_BASE + "/event", exc=requests.exceptions.ConnectTimeout)
         self.assertEqual(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK, msg="test was successfull"),
-                         "Failed sending the Socify event")
+                         "Failed sending the Socify event: ")
 
     @requests_mock.Mocker()
     def test_send_event_httperror(self, mock_requests):
