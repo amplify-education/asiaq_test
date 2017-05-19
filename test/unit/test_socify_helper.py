@@ -4,7 +4,6 @@ Tests Socify Helper
 from unittest import TestCase
 import requests
 import requests_mock
-from mock import MagicMock
 
 from disco_aws_automation.socify_helper import SocifyHelper
 from test.helpers.patch_disco_aws import get_mock_config
