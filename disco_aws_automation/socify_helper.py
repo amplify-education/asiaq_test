@@ -149,11 +149,15 @@ class SocifyHelper(object):
             rsp_msg = response.json()['message']
             logger.debug('received response status %s data: %s', status, rsp_msg)
         except Exception as err:
-            if isinstance(err, requests.HTTPError):
-                rsp_msg = 'Socify event failed with the following error: {0}'\
-                    .format(response.json()['errorMessage'])
+            if isinstance(err, requests.HTTPError) and response is not None:
+                try:
+                    soc_rsp = response.json()
+                    rsp_msg = 'Socify event failed with the following error: {0}'\
+                        .format(soc_rsp.get('errorMessage') or 'Unknown')
+                except Exception:
+                    rsp_msg = 'Socify event failed with the following error: {0}'.format(err.message)
             else:
-                rsp_msg = 'Failed sending the Socify event'
+                rsp_msg = 'Failed sending the Socify event: {0}'.format(err.message)
             logger.warning(rsp_msg)
 
         return rsp_msg

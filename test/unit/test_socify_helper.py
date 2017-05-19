@@ -4,6 +4,7 @@ Tests Socify Helper
 from unittest import TestCase
 import requests
 import requests_mock
+from mock import MagicMock
 
 from disco_aws_automation.socify_helper import SocifyHelper
 from test.helpers.patch_disco_aws import get_mock_config
@@ -114,7 +115,7 @@ class SocifyHelperTest(TestCase):
         self.assertEqual(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK,
                                                      ami_id="ami_12345",
                                                      msg="test was successfull"),
-                         "Failed sending the Socify event")
+                         "Failed sending the Socify event: ")
 
     @requests_mock.Mocker()
     def test_send_event_httperror(self, mock_requests):
