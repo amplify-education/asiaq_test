@@ -476,8 +476,7 @@ class DiscoVPC(object):
 
         # Create the new VPC
         self.vpc = throttled_call(self.boto3_ec2.create_vpc, CidrBlock=str(vpc_cidr))['Vpc']
-        waiter = self.boto3_ec2.get_waiter('vpc_available')
-        waiter.wait(VpcIds=[self.vpc['VpcId']])
+        throttled_call(self.boto3_ec2.get_waiter('vpc_available').wait, VpcIds=[self.vpc['VpcId']])
 
         # Add tags to VPC
         self._add_vpc_tags()
@@ -501,7 +500,7 @@ class DiscoVPC(object):
             # Add the extra tags to the list of default tags
             tag_list.extend(self._vpc_tags)
 
-        tags = vpc.create_tags(Tags=tag_list)
+        tags = throttled_call(vpc.create_tags, Tags=tag_list)
         logger.debug("vpc tags: %s", tags)
 
     def configure_notifications(self, dry_run=False):
@@ -591,9 +590,8 @@ class DiscoVPC(object):
 
         throttled_call(self.boto3_ec2.terminate_instances, InstanceIds=instances)
 
-        waiter = self.boto3_ec2.get_waiter('instance_terminated')
-        waiter.wait(InstanceIds=instances,
-                    Filters=create_filters({'instance-state-name': ['terminated']}))
+        throttled_call(self.boto3_ec2.get_waiter('instance_terminated').wait, InstanceIds=instances,
+                       Filters=create_filters({'instance-state-name': ['terminated']}))
         discogroup.clean_configs()
 
         logger.debug("waiting for instance shutdown scripts")

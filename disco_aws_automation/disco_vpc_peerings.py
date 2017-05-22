@@ -153,11 +153,9 @@ class DiscoVPCPeerings(object):
         peering_conn_ids = [peering_conn['VpcPeeringConnectionId'] for peering_conn in peering_conns]
 
         # wait for the peering connection to be ready
-        waiter = self.client.get_waiter('vpc_peering_connection_exists')
-        waiter.wait(
-            VpcPeeringConnectionIds=peering_conn_ids,
-            Filters=[{'Name': 'status-code', 'Values': LIVE_PEERING_STATES}]
-        )
+        throttled_call(self.client.get_waiter('vpc_peering_connection_exists').wait,
+                       VpcPeeringConnectionIds=peering_conn_ids,
+                       Filters=[{'Name': 'status-code', 'Values': LIVE_PEERING_STATES}])
 
         for peering_conn in peering_conns:
             throttled_call(
