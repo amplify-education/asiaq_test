@@ -373,8 +373,8 @@ class DiscoSubnet(object):
             logger.info("Creating NAT gateway with EIP allocation ID: %s", self.nat_eip_allocation_id)
             nat_gateway = throttled_call(self.boto3_ec2.create_nat_gateway, **params)['NatGateway']
 
-            waiter = throttled_call(self.boto3_ec2.get_waiter, 'nat_gateway_available')
-            waiter.wait(NatGatewayIds=[nat_gateway['NatGatewayId']])
+            throttled_call(self.boto3_ec2.get_waiter('nat_gateway_available').wait,
+                           NatGatewayIds=[nat_gateway['NatGatewayId']])
 
             return self._find_nat_gateway()
 
