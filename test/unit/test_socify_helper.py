@@ -74,7 +74,7 @@ class SocifyHelperTest(TestCase):
         res_data = {"ticketId": "AL-1102",
                     "cmd": "ExampleEvent",
                     "data": {"status": SocifyHelper.SOC_EVENT_OK,
-                             "amiId": "ami_12345",
+                             "amiId": "",
                              "hostclass": "myhostclass",
                              "environment": "test_env",
                              "msg": "test was successfull"}}
@@ -88,7 +88,7 @@ class SocifyHelperTest(TestCase):
         res_data = {"ticketId": "AL-1102",
                     "cmd": "ExampleEvent",
                     "data": {"status": SocifyHelper.SOC_EVENT_OK,
-                             "amiId": "ami_12345",
+                             "amiId": "",
                              "sub_cmd": "mySubCommand",
                              "hostclass": "myhostclass",
                              "environment": "test_env",

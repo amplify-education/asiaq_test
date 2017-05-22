@@ -41,23 +41,6 @@ class SocifyHelper(object):
         # Init the socify base url
         self._set_socify_base_url()
 
-    @property
-    def ami_id(self):
-        """
-        Getter function for ami_id
-        :return:
-        """
-        return self._ami_id
-
-    @ami_id.setter
-    def ami_id(self, value):
-        """
-        Setter function for ami_id
-        :param value: The ami_id value
-        :return:
-        """
-        self._ami_id = value
-
     def _set_socify_base_url(self):
         try:
             self._socify_url = self._config.get("socify", "socify_baseurl")
@@ -81,7 +64,7 @@ class SocifyHelper(object):
         :param kwargs:  additional named arguments used to populate the data section of the json
         :return: a dictionary containing the socify event data
         """
-        event_info = {'amiId': self.ami_id or '',
+        event_info = {'amiId': self._ami_id or '',
                       'environment': self._environment}
         if status:
             event_info['status'] = status
@@ -136,7 +119,7 @@ class SocifyHelper(object):
         :param kwargs:  additional named arguments used to populate the data section of the json
         (example: hostclass, message, etc)
         """
-        self.ami_id = ami_id
+        self._ami_id = ami_id
 
         if not self._can_invoke_socify():
             return
