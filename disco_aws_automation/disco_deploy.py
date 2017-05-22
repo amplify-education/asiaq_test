@@ -790,7 +790,7 @@ class DiscoDeployTestHelper(DiscoDeployHelperBase):
 
 class DiscoDeployUpdateHelper(DiscoDeployHelperBase):
     """
-    Disco DeployTestHelper Class implements the logic to associated to the Deploy Test command
+    Disco DeployUpdateHelper Class implements the logic to associated to the Deploy Update command
     """
     def sub_command(self):
         return 'update'
