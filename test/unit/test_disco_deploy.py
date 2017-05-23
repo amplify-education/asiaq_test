@@ -106,11 +106,11 @@ MOCK_CONFIG_DEFINITON = {
         "deployment_strategy": DEPLOYMENT_STRATEGY_BLUE_GREEN
     },
     "socify": {
-        'socify_baseurl': 'https://socify-ci.aws.wgen.net/soc'
+        'socify_baseurl': 'https://socify-ci.aws.wgen.net'
     }
 }
 
-SOCIFY_API_BASE = 'https://socify-ci.aws.wgen.net/soc'
+SOCIFY_API_BASE = 'https://socify-ci.aws.wgen.net'
 
 
 # Too many tests is probably not a bad thing
@@ -1117,7 +1117,7 @@ class DiscoDeployTests(TestCase):
             self._ci_deploy.test(ticket_id="AL-1102")
 
         self.assertEqual(self._ci_deploy.test_ami.call_count, 0)
-        self.assertEqual(mock_requests.call_count, 1)
+        self.assertEqual(mock_requests.call_count, 2)
 
     @requests_mock.Mocker()
     def test_test_with_amis_validate_error(self, mock_requests):
@@ -1135,7 +1135,7 @@ class DiscoDeployTests(TestCase):
             self._ci_deploy.test(ticket_id="AL-1102")
 
         self.assertEqual(self._ci_deploy.test_ami.call_count, 0)
-        self.assertEqual(mock_requests.call_count, 1)
+        self.assertEqual(mock_requests.call_count, 2)
 
     @requests_mock.Mocker()
     def test_test_with_amis_soc_event_error(self, mock_requests):
@@ -1255,7 +1255,7 @@ class DiscoDeployTests(TestCase):
             self._ci_deploy.update(ticket_id="AL-1102")
 
         self.assertEqual(self._ci_deploy.update_ami.call_count, 0)
-        self.assertEqual(mock_requests.call_count, 1)
+        self.assertEqual(mock_requests.call_count, 2)
 
     @requests_mock.Mocker()
     def test_update_with_amis_validate_error(self, mock_requests):
@@ -1273,7 +1273,7 @@ class DiscoDeployTests(TestCase):
             self._ci_deploy.update(ticket_id="AL-1102")
 
         self.assertEqual(self._ci_deploy.update_ami.call_count, 0)
-        self.assertEqual(mock_requests.call_count, 1)
+        self.assertEqual(mock_requests.call_count, 2)
 
     @requests_mock.Mocker()
     def test_update_with_amis_soc_event_error(self, mock_requests):

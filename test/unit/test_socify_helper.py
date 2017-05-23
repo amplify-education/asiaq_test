@@ -4,7 +4,6 @@ Tests Socify Helper
 from unittest import TestCase
 import requests
 import requests_mock
-from mock import MagicMock
 
 from disco_aws_automation.socify_helper import SocifyHelper
 from test.helpers.patch_disco_aws import get_mock_config
@@ -22,9 +21,9 @@ class SocifyHelperTest(TestCase):
         self._soc_helper = SocifyHelper("AL-1102",
                                         False,
                                         "ExampleEvent",
-                                        ami=MagicMock(id="ami_12345"),
                                         env="test_env",
                                         config=get_mock_config(soc_config))
+        self._soc_helper.ami_id = "ami_12345"
 
     def test_socify_helper_constr(self):
         """Test SocifyHelper Constructor with valid data"""
@@ -35,7 +34,6 @@ class SocifyHelperTest(TestCase):
         soc_helper = SocifyHelper("AL-1102",
                                   False,
                                   "ExampleEvent",
-                                  ami=MagicMock(id="ami_12345"),
                                   env="test_env",
                                   config=get_mock_config(soc_config))
         self.assertEqual("https://socify-ci.aws.wgen.net/soc", soc_helper._socify_url)
@@ -45,7 +43,6 @@ class SocifyHelperTest(TestCase):
         soc_helper = SocifyHelper("AL-1102",
                                   False,
                                   "ExampleEvent",
-                                  ami=MagicMock(id="ami_12345"),
                                   env="test_env",
                                   config=get_mock_config({}))
         self.assertFalse(hasattr(soc_helper, '_socify_url'))
@@ -59,7 +56,6 @@ class SocifyHelperTest(TestCase):
         soc_helper = SocifyHelper("AL-1102",
                                   False,
                                   "ExampleEvent",
-                                  ami=MagicMock(id="ami_12345"),
                                   env="test_env",
                                   config=get_mock_config(soc_config))
         self.assertFalse(hasattr(soc_helper, '_socify_url'))
@@ -78,7 +74,7 @@ class SocifyHelperTest(TestCase):
         res_data = {"ticketId": "AL-1102",
                     "cmd": "ExampleEvent",
                     "data": {"status": SocifyHelper.SOC_EVENT_OK,
-                             "amiId": "ami_12345",
+                             "amiId": "",
                              "hostclass": "myhostclass",
                              "environment": "test_env",
                              "msg": "test was successfull"}}
@@ -92,7 +88,7 @@ class SocifyHelperTest(TestCase):
         res_data = {"ticketId": "AL-1102",
                     "cmd": "ExampleEvent",
                     "data": {"status": SocifyHelper.SOC_EVENT_OK,
-                             "amiId": "ami_12345",
+                             "amiId": "",
                              "sub_cmd": "mySubCommand",
                              "hostclass": "myhostclass",
                              "environment": "test_env",
@@ -106,14 +102,18 @@ class SocifyHelperTest(TestCase):
             'message': 'SOCIFY has successfully processed the event: ExampleEvent'
         }
         mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_response)
-        self.assertEqual(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK, msg="test was successfull"),
+        self.assertEqual(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK,
+                                                     ami_id="ami_12345",
+                                                     msg="test was successfull"),
                          "SOCIFY has successfully processed the event: ExampleEvent")
 
     @requests_mock.Mocker()
     def test_send_event_timeout(self, mock_requests):
         """Test send event with timeout error"""
         mock_requests.post(SOCIFY_API_BASE + "/event", exc=requests.exceptions.ConnectTimeout)
-        self.assertEqual(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK, msg="test was successfull"),
+        self.assertEqual(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK,
+                                                     ami_id="ami_12345",
+                                                     msg="test was successfull"),
                          "Failed sending the Socify event: ")
 
     @requests_mock.Mocker()
@@ -124,7 +124,9 @@ class SocifyHelperTest(TestCase):
         }
         return_error = 'Socify event failed with the following error: SOCIFY Invalid Ticket'
         mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_response, status_code=400)
-        self.assertEqual(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK, msg="test was successfull"),
+        self.assertEqual(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK,
+                                                     ami_id="ami_12345",
+                                                     msg="test was successfull"),
                          return_error)
 
     @requests_mock.Mocker()

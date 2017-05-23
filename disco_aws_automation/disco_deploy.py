@@ -6,6 +6,8 @@ import random
 import sys
 
 from ConfigParser import NoOptionError, NoSectionError
+from abc import ABCMeta, abstractmethod
+
 from boto.exception import EC2ResponseError
 from disco_aws_automation.socify_helper import SocifyHelper
 
@@ -51,7 +53,7 @@ class DiscoDeploy(object):
         :param allow_any_hostclass do not restrict to hostclasses in the pipeline definition
         :param config: Configuration object to use.
         '''
-        self._config = config or read_config()
+        self._config = config
 
         self._restrict_amis = [ami] if ami else None
         self._restrict_hostclass = hostclass
@@ -63,6 +65,23 @@ class DiscoDeploy(object):
         self._all_stage_amis = None
         self._hostclasses = self._get_hostclasses_from_pipeline_definition(pipeline_definition)
         self._allow_any_hostclass = allow_any_hostclass
+
+    @property
+    def config(self):
+        """
+        Getter function for_config
+        :return:
+        """
+        if not self._config:
+            self._config = read_config()
+        return self._config
+
+    @property
+    def environment_name(self):
+        """
+        Get the environment name used for the deploy command
+        """
+        return self._disco_aws.environment_name
 
     def _get_hostclasses_from_pipeline_definition(self, pipeline_definition):
         ''' Return hostclasses from pipeline definitions, validating numeric input '''
@@ -624,48 +643,8 @@ class DiscoDeploy(object):
         independently of its stage,
         Otherwise use the most recent untested ami for the hostclass
         '''
-        reason = None
-        hostclass = None
-        previous_ami_id = None
-
-        amis = self.all_stage_amis if self._restrict_amis else self.get_test_amis()
-        ami = random.choice(amis) if amis else None
-
-        socify_helper = SocifyHelper(config=self._config,
-                                     ticket_id=ticket_id,
-                                     dry_run=dry_run,
-                                     command="DeployEvent",
-                                     sub_command="test",
-                                     ami=ami,
-                                     env=self._disco_aws.environment_name)
-
-        if not ami:
-            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
-                else "No untested AMIs found."
-            logger.error(reason)
-            status = SocifyHelper.SOC_EVENT_BAD_DATA
-        elif not socify_helper.validate():
-            raise RuntimeError("The SOC validation of the associated Ticket and AMI failed.")
-        else:
-            hostclass = DiscoBake.ami_hostclass(ami)
-            previous_ami = self.get_latest_running_amis().get(hostclass)
-            previous_ami_id = previous_ami.id if previous_ami else None
-
-            try:
-                self.test_ami(ami, dry_run, deployment_strategy)
-                status = SocifyHelper.SOC_EVENT_OK
-            except RuntimeError as err:
-                socify_helper.send_event(
-                    status=SocifyHelper.SOC_EVENT_ERROR,
-                    hostclass=hostclass or "",
-                    message=err.message)
-                raise
-
-        socify_helper.send_event(
-            status=status,
-            hostclass=hostclass or "",
-            previous_ami_id=previous_ami_id or "",
-            message=reason or "")
+        disco_deploy_helper = DiscoDeployTestHelper(self)
+        disco_deploy_helper.run_deploy(dry_run, deployment_strategy, ticket_id)
 
     def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
         '''
@@ -674,47 +653,8 @@ class DiscoDeploy(object):
         independently of its stage,
         Otherwise uses the most recent tested or un tagged ami
         '''
-        reason = None
-        hostclass = None
-        previous_ami_id = None
-
-        amis = self.all_stage_amis if self._restrict_amis else self.get_update_amis()
-        ami = random.choice(amis) if amis else None
-
-        socify_helper = SocifyHelper(config=self._config,
-                                     ticket_id=ticket_id,
-                                     dry_run=dry_run,
-                                     command="DeployEvent",
-                                     sub_command="update",
-                                     ami=ami,
-                                     env=self._disco_aws.environment_name)
-
-        if not ami:
-            reason = "Specified AMI not found:" + str(self._restrict_amis) if self._restrict_amis \
-                else "No untested AMIs found."
-            logger.error(reason)
-            status = SocifyHelper.SOC_EVENT_BAD_DATA
-        elif not socify_helper.validate():
-            raise RuntimeError("The SOC validation of the associated Ticket and AMI failed.")
-        else:
-            hostclass = DiscoBake.ami_hostclass(ami)
-            previous_ami = self.get_latest_running_amis().get(hostclass)
-            previous_ami_id = previous_ami.id if previous_ami else None
-
-            try:
-                self.update_ami(ami, dry_run, deployment_strategy)
-                status = SocifyHelper.SOC_EVENT_OK
-            except RuntimeError as err:
-                socify_helper.send_event(
-                    status=SocifyHelper.SOC_EVENT_ERROR,
-                    hostclass=hostclass or "",
-                    message=err.message)
-                raise
-
-        socify_helper.send_event(status=status,
-                                 hostclass=hostclass or "",
-                                 previous_ami_id=previous_ami_id or "",
-                                 message=reason or "")
+        disco_deploy_helper = DiscoDeployUpdateHelper(self)
+        disco_deploy_helper.run_deploy(dry_run, deployment_strategy, ticket_id)
 
     def hostclass_option(self, hostclass, key):
         '''
@@ -737,3 +677,134 @@ class DiscoDeploy(object):
             return self.hostclass_option(hostclass, key)
         except (NoSectionError, NoOptionError):
             return default
+
+
+class DiscoDeployHelperBase(object):
+    """
+    Disco Deploy Helper Base class handling the deploy behavior common to test and update
+    """
+    __metaclass__ = ABCMeta
+
+    def __init__(self, disco_deploy):
+        self._disco_deploy = disco_deploy
+
+    @abstractmethod
+    def get_command_name(self):
+        """
+        The subcommand to use for the event
+        """
+        return
+
+    @abstractmethod
+    def _get_ami_to_deploy(self):
+        """
+        If the ami id is specified using the option --ami then return on the specified ami
+        independently of its stage,
+        Otherwise uses the most recent tested or un tagged ami
+        :return: Returns the ami to use for the deploy
+        """
+        return
+
+    @abstractmethod
+    def _deploy_ami(self, ami, dry_run, deployment_strategy):
+        """
+        Process the deploy command of a given ami.
+       :param ami:
+        :param dry_run:
+       :param deployment_strategy:
+        :return:
+        """
+        return
+
+    def run_deploy(self, dry_run=False, deployment_strategy=None, ticket_id=None):
+        '''
+        deploy test or update a single AMI and marks it as tested or failed.
+        '''
+        reason = None
+        hostclass = None
+        previous_ami_id = None
+        status = None
+
+        socify_helper = SocifyHelper(config=self._disco_deploy.config,
+                                     ticket_id=ticket_id,
+                                     dry_run=dry_run,
+                                     command="DeployEvent",
+                                     sub_command=self.get_command_name(),
+                                     env=self._disco_deploy.environment_name)
+
+        try:
+            ami = self._get_ami_to_deploy()
+
+            if not ami:
+                if self._disco_deploy._restrict_amis:
+                    reason = "Specified AMI not found:" + str(self._disco_deploy._restrict_amis)
+                else:
+                    reason = "No untested AMIs found."
+                logger.error(reason)
+                status = SocifyHelper.SOC_EVENT_BAD_DATA
+            elif not socify_helper.validate():
+                status = SocifyHelper.SOC_EVENT_BAD_DATA
+                raise RuntimeError("The SOC validation of the associated Ticket and AMI failed.")
+            else:
+                hostclass = DiscoBake.ami_hostclass(ami)
+                previous_ami = self._disco_deploy.get_latest_running_amis().get(hostclass)
+                previous_ami_id = previous_ami.id if previous_ami else ""
+
+                self._deploy_ami(ami, dry_run, deployment_strategy)
+                status = SocifyHelper.SOC_EVENT_OK
+        except Exception as err:
+            socify_helper.send_event(
+                status=status or SocifyHelper.SOC_EVENT_ERROR,
+                ami_id=ami.id if ami else "",
+                hostclass=hostclass or "",
+                message=err.message)
+            raise
+
+        socify_helper.send_event(
+            status=status,
+            ami_id=ami.id if ami else "",
+            hostclass=hostclass or "",
+            previous_ami_id=previous_ami_id or "",
+            message=reason or "")
+
+
+class DiscoDeployTestHelper(DiscoDeployHelperBase):
+    """
+    Disco DeployTestHelper Class implements the logic to associated to the Deploy Test command
+    """
+    def get_command_name(self):
+        return 'test'
+
+    def _get_ami_to_deploy(self):
+        """
+        If the ami id is specified using the option --ami then run test on the specified ami
+        independently of its stage,
+        Otherwise use the most recent untested ami for the hostclass
+        """
+        amis = self._disco_deploy.all_stage_amis if self._disco_deploy._restrict_amis else \
+            self._disco_deploy.get_test_amis()
+        return random.choice(amis) if amis else None
+
+    def _deploy_ami(self, ami, dry_run, deployment_strategy):
+        self._disco_deploy.test_ami(ami, dry_run, deployment_strategy)
+
+
+class DiscoDeployUpdateHelper(DiscoDeployHelperBase):
+    """
+    Disco DeployUpdateHelper Class implements the logic to associated to the Deploy Update command
+    """
+    def get_command_name(self):
+        return 'update'
+
+    def _get_ami_to_deploy(self):
+        """
+        If the ami id is specify using the option --ami then run update using the specified ami
+        independently of its stage,
+        Otherwise uses the most recent tested or un tagged ami
+        """
+        amis = self._disco_deploy.all_stage_amis if self._disco_deploy._restrict_amis else \
+            self._disco_deploy.get_update_amis()
+        return random.choice(amis) if amis else None
+
+    def _deploy_ami(self, ami, dry_run, deployment_strategy):
+        self._disco_deploy.update_ami(ami, dry_run, deployment_strategy)
