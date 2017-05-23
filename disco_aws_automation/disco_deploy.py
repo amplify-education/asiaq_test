@@ -689,7 +689,7 @@ class DiscoDeployHelperBase(object):
         self._disco_deploy = disco_deploy
 
     @abstractmethod
-    def sub_command(self):
+    def get_command_name(self):
         """
         The subcommand to use for the event
         """
@@ -729,7 +729,7 @@ class DiscoDeployHelperBase(object):
                                      ticket_id=ticket_id,
                                      dry_run=dry_run,
                                      command="DeployEvent",
-                                     sub_command=self.sub_command(),
+                                     sub_command=self.get_command_name(),
                                      env=self._disco_deploy.environment_name)
 
         try:
@@ -771,7 +771,7 @@ class DiscoDeployTestHelper(DiscoDeployHelperBase):
     """
     Disco DeployTestHelper Class implements the logic to associated to the Deploy Test command
     """
-    def sub_command(self):
+    def get_command_name(self):
         return 'test'
 
     def _get_ami_to_deploy(self):
@@ -792,7 +792,7 @@ class DiscoDeployUpdateHelper(DiscoDeployHelperBase):
     """
     Disco DeployUpdateHelper Class implements the logic to associated to the Deploy Update command
     """
-    def sub_command(self):
+    def get_command_name(self):
         return 'update'
 
     def _get_ami_to_deploy(self):
