@@ -736,9 +736,10 @@ class DiscoDeployHelperBase(object):
             ami = self._get_ami_to_deploy()
 
             if not ami:
-                reason = "Specified AMI not found:" + str(self._disco_deploy._restrict_amis) if \
-                    self._disco_deploy._restrict_amis \
-                    else "No untested AMIs found."
+                if self._disco_deploy._restrict_amis:
+                    reason = "Specified AMI not found:" + str(self._disco_deploy._restrict_amis)
+                else:
+                    reason = "No untested AMIs found."
                 logger.error(reason)
                 status = SocifyHelper.SOC_EVENT_BAD_DATA
             elif not socify_helper.validate():
