@@ -476,6 +476,7 @@ class DiscoVPC(object):
 
         # Create the new VPC
         self.vpc = throttled_call(self.boto3_ec2.create_vpc, CidrBlock=str(vpc_cidr))['Vpc']
+        throttled_call(self.boto3_ec2.get_waiter('vpc_exists').wait, VpcIds=[self.vpc['VpcId']])
         throttled_call(self.boto3_ec2.get_waiter('vpc_available').wait, VpcIds=[self.vpc['VpcId']])
 
         # Add tags to VPC
