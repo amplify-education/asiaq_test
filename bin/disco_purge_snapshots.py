@@ -58,8 +58,8 @@ def run():
     # If no options are set, we assume user wants all of 'em.
     arg_options = ["--stray-ami", "--no-metadata",
                    "--keep-days", OLD_IMAGE_DAYS,
-                   "--keep-num", DEFAULT_KEEP_LAST,
-                   "--max-per-day", None]
+                   "--max-per-day", None,
+                   "--keep-num", DEFAULT_KEEP_LAST]
     if not any([args[option] for option in arg_options if option in args]):
         args = docopt(__doc__, argv=arg_options)
 
