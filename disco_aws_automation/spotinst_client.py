@@ -59,21 +59,46 @@ class SpotinstClient(object):
         """
         self._make_throttled_request(path='aws/ec2/group/%s' % group_id, method='delete')
 
-    def roll_group(self, group_id, batch_percentage, grace_period):
+    def roll_group(self, group_id, batch_percentage, grace_period, health_check_type):
         """
         Spin up a new set of instances and then shutdown the old instances
         :param str group_id: Id of Elastigroup to perform roll operation on
         :param int batch_percentage: Percentage of the group to roll at a time
         :param int grace_period: Amount of time in seconds to wait for instances to pass health checks
+        :param str health_check_type: Type of health check to use. Available options are ELB, TARGET_GROUP,
+                                      MLB, HCS, EC2, NONE
         """
         request = {
             "batchSizePercentage": batch_percentage,
             "gracePeriod": grace_period,
             "strategy": {
-                "action": "REPLACE_SERVER"
+                "action": "REPLACE_SERVER",
+                "healthCheckType": health_check_type
             }
         }
         self._make_throttled_request(path='aws/ec2/group/%s/roll' % group_id, data=request, method='put')
+
+    def get_deployments(self, group_id):
+        """
+        Get list of current and past deployements for a Elastigroup
+        :param str group_id:
+        :return list[dict]:
+        """
+        response = self._make_throttled_request(path='aws/ec2/group/%s/roll' % group_id, method='get')
+        return response['response']['items']
+
+    def get_roll_status(self, group_id, deploy_id):
+        """
+        Get info about a specific deployment for a group
+        :param str group_id:
+        :param str deploy_id:
+        :return dict:
+        """
+        response = self._make_throttled_request(
+            path='aws/ec2/group/%s/roll/%s' % (group_id, deploy_id),
+            method='get'
+        )
+        return response['response']['items'][0]
 
     def _make_throttled_request(self, method, path, params=None, data=None):
         return self._throttle_spotinst_call(self._make_request, method, path, params, data)

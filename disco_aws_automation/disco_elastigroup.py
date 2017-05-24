@@ -498,6 +498,9 @@ class DiscoElastigroup(BaseGroup):
 
         self.spotinst_client.update_group(existing_group['id'], group_config)
 
+        if new_lbs or extras:
+            self._roll_group(existing_group['id'], wait=True)
+
         return new_lbs, extras
 
     def get_launch_config(self, hostclass=None, group_name=None):
@@ -591,7 +594,8 @@ class DiscoElastigroup(BaseGroup):
 
         self.spotinst_client.update_group(existing_group['id'], group_config)
 
-    def _roll_group(self, group_id, batch_percentage=100, grace_period=GROUP_ROLL_TIMEOUT, wait=False):
+    def _roll_group(self, group_id, batch_percentage=100, grace_period=GROUP_ROLL_TIMEOUT,
+                    health_check_type='EC2', wait=False):
         """
         Recreate the instances in a Elastigroup
         :param group_id (str): Elastigroup ID to roll
@@ -600,36 +604,23 @@ class DiscoElastigroup(BaseGroup):
         :param wait (boolean): True to wait for roll operation to finish
         :raises TimeoutError if grace_period has expired
         """
-        if wait:
-            # if we will be waiting then get the instance Ids now so we can monitor them
-            instance_ids = {instance['instanceId']
-                            for instance in self._get_group_instances(group_id)
-                            if instance['instanceId']}
-
-        self.spotinst_client.roll_group(group_id, batch_percentage, grace_period)
+        self.spotinst_client.roll_group(group_id, batch_percentage, grace_period, health_check_type)
 
         if wait:
-            # there isn't a roll status API so we will check progress of the operation by monitoring
-            # the instance Ids that belong to the group. Once none of the old instances are attached
-            # to the group then we know we are done
+            deployments = self.spotinst_client.get_deployments(group_id)
+            deploy_id = deployments[-1]['id']
+
             current_time = time.time()
-            # instances without an ELB will wait the entire grace period before marking deploy complete
-            # so add an extra 600 to give time for deploy to finish after the grace period has expired
+
+            # wait an extra amount of time after grace_period has ended to give time for roll to finish
             stop_time = current_time + grace_period + 600
+
             while current_time < stop_time:
-                new_instance_ids = {instance['instanceId']
-                                    for instance in self._get_group_instances(group_id)
-                                    if instance['instanceId']}
-
-                remaining_instances = instance_ids.intersection(new_instance_ids)
-
-                if not remaining_instances:
+                roll_status = self.spotinst_client.get_roll_status(group_id, deploy_id)
+                if roll_status['status'] != 'in_progress':
                     break
 
-                logger.info(
-                    "Waiting for %s to roll in order to update settings",
-                    remaining_instances
-                )
+                logger.info("Waiting for %s group to roll in order to update settings", group_id)
                 time.sleep(20)
                 current_time = time.time()
 
