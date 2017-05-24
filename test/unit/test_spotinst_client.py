@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import requests_mock
 from mock import patch
-from requests.exceptions import ReadTimeout
+from requests.exceptions import ReadTimeout, ConnectTimeout, ConnectionError
 
 from disco_aws_automation.exceptions import SpotinstRateExceededException
 from disco_aws_automation.spotinst_client import SpotinstClient
@@ -177,8 +177,8 @@ class DiscoSpotinstClientTests(TestCase):
             {'status_code': 429},
             {'exc': ReadTimeout},
             {'status_code': 429},
-            {'status_code': 429},
-            {'exc': ReadTimeout},
+            {'exc': ConnectTimeout},
+            {'exc': ConnectionError},
             {'json': {
                 'response': {
                     'items': [{

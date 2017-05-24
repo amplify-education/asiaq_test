@@ -181,7 +181,7 @@ class DiscoElastigroupTests(TestCase):
                     'launchSpecification': {
                         "iamRole": None,
                         'userData': None,
-                        'tags': None,
+                        'tags': [{'tagKey': 'spotinst', 'tagValue': 'True'}],
                         'blockDeviceMappings': None,
                         'imageId': None,
                         'networkInterfaces': None,

@@ -221,8 +221,12 @@ class DiscoElastigroup(BaseGroup):
 
     def _create_elastigroup_tags(self, tags):
         """Given a python dictionary, it returns a list of elastigroup tags"""
-        return [{'tagKey': key, 'tagValue': str(value)}
-                for key, value in tags.iteritems()] if tags else None
+        spotinst_tags = [{'tagKey': key, 'tagValue': str(value)}
+                         for key, value in tags.iteritems()] if tags else []
+
+        spotinst_tags.append({'tagKey': 'spotinst', 'tagValue': 'True'})
+
+        return spotinst_tags
 
     def wait_for_instance_id(self, group_name):
         """Wait for instance id(s) of an elastigroup to become available"""
@@ -248,9 +252,8 @@ class DiscoElastigroup(BaseGroup):
             group = existing_groups[0]
             roll_needed = self._modify_group(
                 group, desired_size=desired_size, min_size=min_size, max_size=max_size,
-                load_balancers=load_balancers, image_id=image_id, tags=tags,
-                instance_profile_name=instance_profile_name, block_device_mappings=block_device_mappings,
-                spotinst_reserve=spotinst_reserve
+                image_id=image_id, tags=tags, instance_profile_name=instance_profile_name,
+                block_device_mappings=block_device_mappings, spotinst_reserve=spotinst_reserve
             )
 
             if roll_if_needed and roll_needed:
@@ -315,8 +318,8 @@ class DiscoElastigroup(BaseGroup):
         return {'name': new_group_name}
 
     def _modify_group(self, existing_group, desired_size=None, min_size=None, max_size=None,
-                      load_balancers=None, image_id=None, tags=None,
-                      instance_profile_name=None, block_device_mappings=None, spotinst_reserve=None):
+                      image_id=None, tags=None, instance_profile_name=None, block_device_mappings=None,
+                      spotinst_reserve=None):
         new_config = copy.deepcopy(existing_group)
 
         # changing some config options requires a roll in order for them to take effect
@@ -329,10 +332,6 @@ class DiscoElastigroup(BaseGroup):
             new_config['capacity']['maximum'] = max_size
         if desired_size is not None:
             new_config['capacity']['target'] = desired_size
-        if load_balancers:
-            launch_spec = new_config['compute']['launchSpecification']
-            launch_spec['loadBalancersConfig'] = self._get_load_balancer_config(load_balancers)
-            requires_roll = True
         if spotinst_reserve is not None:
             new_config['strategy'] = self._get_risk_config(spotinst_reserve)
             requires_roll = True

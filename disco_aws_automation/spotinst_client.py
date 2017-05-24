@@ -1,7 +1,7 @@
 """Contains SpotinstClient class for taking to the Spotinst REST API"""
 import logging
 import requests
-from requests.exceptions import ReadTimeout
+from requests.exceptions import Timeout, ConnectionError
 
 from disco_aws_automation.exceptions import SpotinstApiException, SpotinstRateExceededException
 from disco_aws_automation.resource_helper import Jitter
@@ -101,7 +101,7 @@ class SpotinstClient(object):
                 },
                 timeout=60
             )
-        except ReadTimeout:
+        except (ConnectionError, Timeout):
             raise SpotinstRateExceededException("Rate exceeded while calling {0} {1}".format(method, path))
 
         if response.status_code == 401:
