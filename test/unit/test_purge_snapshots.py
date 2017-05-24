@@ -20,6 +20,10 @@ class DiscoPurgeSnapshotsTest(TestCase):
             self._create_mock_snap('2016-01-01T00:00:00.000Z', hostclass='mhcfoo', env='ci'),
             self._create_mock_snap('2016-01-02T00:00:00.000Z', hostclass='mhcfoo', env='ci'),
             self._create_mock_snap('2016-01-03T00:00:00.000Z', hostclass='mhcfoo', env='ci'),
+            self._create_mock_snap('2016-01-03T04:00:00.000Z', hostclass='mhcfoo', env='ci'),
+            self._create_mock_snap('2016-01-14T04:00:00.000Z', hostclass='mhcbar', env='ci'),
+            self._create_mock_snap('2016-01-14T00:00:00.000Z', hostclass='mhcfoo', env='ci'),
+            self._create_mock_snap('2016-01-14T04:00:00.000Z', hostclass='mhcfoo', env='ci'),
             self._create_mock_snap('2016-01-14T00:00:00.000Z',
                                    description='Created by CreateImage(i-8364e044) for ami-12345678'),
             self._create_mock_snap('2016-01-01T00:00:00.000Z',
@@ -61,11 +65,15 @@ class DiscoPurgeSnapshotsTest(TestCase):
         with patch('boto.connect_ec2', return_value=self._get_mock_ec2_conn()):
             sys.argv = ['disco_purge_snapshots.py', '--old', '--keep-days', '11']
             run()
-            self.assertEquals(1, self.snapshots[0].delete.call_count)
-            self.assertEquals(1, self.snapshots[1].delete.call_count)
-            self.assertEquals(0, self.snapshots[2].delete.call_count)
-            self.assertEquals(0, self.snapshots[3].delete.call_count)
-            self.assertEquals(0, self.snapshots[4].delete.call_count)
+            self.assertEqual(1, self.snapshots[0].delete.call_count)
+            self.assertEqual(1, self.snapshots[1].delete.call_count)
+            self.assertEqual(0, self.snapshots[2].delete.call_count)
+            self.assertEqual(0, self.snapshots[3].delete.call_count)
+            self.assertEqual(0, self.snapshots[4].delete.call_count)
+            self.assertEqual(0, self.snapshots[5].delete.call_count)
+            self.assertEqual(0, self.snapshots[6].delete.call_count)
+            self.assertEqual(0, self.snapshots[7].delete.call_count)
+            self.assertEqual(0, self.snapshots[8].delete.call_count)
 
     @patch('bin.disco_purge_snapshots.NOW', NOW_MOCK)
     def test_purge_with_keep_days(self):
@@ -73,11 +81,15 @@ class DiscoPurgeSnapshotsTest(TestCase):
         with patch('boto.connect_ec2', return_value=self._get_mock_ec2_conn()):
             sys.argv = ['disco_purge_snapshots.py', '--keep-days', '11']
             run()
-            self.assertEquals(1, self.snapshots[0].delete.call_count)
-            self.assertEquals(1, self.snapshots[1].delete.call_count)
-            self.assertEquals(0, self.snapshots[2].delete.call_count)
-            self.assertEquals(0, self.snapshots[3].delete.call_count)
-            self.assertEquals(0, self.snapshots[4].delete.call_count)
+            self.assertEqual(1, self.snapshots[0].delete.call_count)
+            self.assertEqual(1, self.snapshots[1].delete.call_count)
+            self.assertEqual(0, self.snapshots[2].delete.call_count)
+            self.assertEqual(0, self.snapshots[3].delete.call_count)
+            self.assertEqual(0, self.snapshots[4].delete.call_count)
+            self.assertEqual(0, self.snapshots[5].delete.call_count)
+            self.assertEqual(0, self.snapshots[6].delete.call_count)
+            self.assertEqual(0, self.snapshots[7].delete.call_count)
+            self.assertEqual(0, self.snapshots[8].delete.call_count)
 
     @patch('bin.disco_purge_snapshots.NOW', NOW_MOCK)
     def test_purge_with_keep_num(self):
@@ -85,19 +97,59 @@ class DiscoPurgeSnapshotsTest(TestCase):
         with patch('boto.connect_ec2', return_value=self._get_mock_ec2_conn()):
             sys.argv = ['disco_purge_snapshots.py', '--keep-days', '11', '--keep-num', '2']
             run()
-            self.assertEquals(1, self.snapshots[0].delete.call_count)
-            self.assertEquals(0, self.snapshots[1].delete.call_count)
-            self.assertEquals(0, self.snapshots[2].delete.call_count)
-            self.assertEquals(0, self.snapshots[3].delete.call_count)
-            self.assertEquals(0, self.snapshots[4].delete.call_count)
+            self.assertEqual(1, self.snapshots[0].delete.call_count)
+            self.assertEqual(1, self.snapshots[1].delete.call_count)
+            self.assertEqual(0, self.snapshots[2].delete.call_count)
+            self.assertEqual(0, self.snapshots[3].delete.call_count)
+            self.assertEqual(0, self.snapshots[4].delete.call_count)
+            self.assertEqual(0, self.snapshots[5].delete.call_count)
+            self.assertEqual(0, self.snapshots[6].delete.call_count)
+            self.assertEqual(0, self.snapshots[7].delete.call_count)
+            self.assertEqual(0, self.snapshots[8].delete.call_count)
 
     def test_purge_stray_ami(self):
         """Test purging stray ami snapshots"""
         with patch('boto.connect_ec2', return_value=self._get_mock_ec2_conn()):
             sys.argv = ['disco_purge_snapshots.py', '--stray-ami']
             run()
-            self.assertEquals(0, self.snapshots[0].delete.call_count)
-            self.assertEquals(0, self.snapshots[1].delete.call_count)
-            self.assertEquals(0, self.snapshots[2].delete.call_count)
-            self.assertEquals(1, self.snapshots[3].delete.call_count)
-            self.assertEquals(0, self.snapshots[4].delete.call_count)
+            self.assertEqual(0, self.snapshots[0].delete.call_count)
+            self.assertEqual(0, self.snapshots[1].delete.call_count)
+            self.assertEqual(0, self.snapshots[2].delete.call_count)
+            self.assertEqual(0, self.snapshots[3].delete.call_count)
+            self.assertEqual(0, self.snapshots[4].delete.call_count)
+            self.assertEqual(0, self.snapshots[5].delete.call_count)
+            self.assertEqual(0, self.snapshots[6].delete.call_count)
+            self.assertEqual(1, self.snapshots[7].delete.call_count)
+            self.assertEqual(0, self.snapshots[8].delete.call_count)
+
+    @patch('bin.disco_purge_snapshots.NOW', NOW_MOCK)
+    def test_purge_extra_daily_snapshots(self):
+        """Test purging snapshots because more than one exists for a day"""
+        with patch('boto.connect_ec2', return_value=self._get_mock_ec2_conn()):
+            sys.argv = ['disco_purge_snapshots.py', '--max-per-day', '1']
+            run()
+            self.assertEqual(0, self.snapshots[0].delete.call_count)
+            self.assertEqual(0, self.snapshots[1].delete.call_count)
+            self.assertEqual(1, self.snapshots[2].delete.call_count)
+            self.assertEqual(0, self.snapshots[3].delete.call_count)
+            self.assertEqual(0, self.snapshots[4].delete.call_count)
+            self.assertEqual(0, self.snapshots[5].delete.call_count)
+            self.assertEqual(0, self.snapshots[6].delete.call_count)
+            self.assertEqual(0, self.snapshots[7].delete.call_count)
+            self.assertEqual(0, self.snapshots[8].delete.call_count)
+
+    @patch('bin.disco_purge_snapshots.NOW', NOW_MOCK)
+    def test_keep_num_with_max_per_day(self):
+        """Test keep-num is respected when using max-per-day"""
+        with patch('boto.connect_ec2', return_value=self._get_mock_ec2_conn()):
+            sys.argv = ['disco_purge_snapshots.py', '--max-per-day', '1', '--keep-num', '4']
+            run()
+            self.assertEqual(0, self.snapshots[0].delete.call_count)
+            self.assertEqual(0, self.snapshots[1].delete.call_count)
+            self.assertEqual(0, self.snapshots[2].delete.call_count)
+            self.assertEqual(0, self.snapshots[3].delete.call_count)
+            self.assertEqual(0, self.snapshots[4].delete.call_count)
+            self.assertEqual(0, self.snapshots[5].delete.call_count)
+            self.assertEqual(0, self.snapshots[6].delete.call_count)
+            self.assertEqual(0, self.snapshots[7].delete.call_count)
+            self.assertEqual(0, self.snapshots[8].delete.call_count)
