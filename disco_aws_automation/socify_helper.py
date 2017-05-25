@@ -154,6 +154,7 @@ class SocifyHelper(object):
         if not self._can_invoke_socify():
             return True
 
+        response = None
         try:
             response = self._invoke_socify("VALIDATE")
             response.raise_for_status()
@@ -165,10 +166,16 @@ class SocifyHelper(object):
                 logger.error("Socify Ticket validation failed. Reason: %s", result['err_msgs'])
                 return False
             return True
-        except requests.HTTPError:
-            rsp_msg = response.json()['errorMessage']
-            logger.error("Socify event failed with the following error: %s", rsp_msg)
-        except Exception:
-            logger.warning("Failed to send event to Socify")
+        except Exception as err:
+            if isinstance(err, requests.HTTPError) and response is not None:
+                try:
+                    soc_rsp = response.json()
+                    rsp_msg = 'Socify validate failed with the following error: {0}' \
+                        .format(soc_rsp.get('errorMessage') or 'Unknown')
+                except Exception:
+                    rsp_msg = 'Socify validate failed with the following error: {0}'.format(err.message)
+            else:
+                rsp_msg = 'Failed sending the Socify validate: {0}'.format(err.message)
+            logger.warning(rsp_msg)
 
         return False
