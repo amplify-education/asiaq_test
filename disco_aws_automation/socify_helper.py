@@ -166,16 +166,16 @@ class SocifyHelper(object):
                 logger.error("Socify Ticket validation failed. Reason: %s", result['err_msgs'])
                 return False
             return True
-        except requests.HTTPError as httpErr:
+        except requests.HTTPError as http_err:
             if response is not None:
                 try:
                     soc_rsp = response.json()
                     rsp_msg = 'Socify validate failed with the following error: {0}' \
                         .format(soc_rsp.get('errorMessage') or 'Unknown')
                 except Exception:
-                    rsp_msg = 'Socify validate failed with the following error: {0}'.format(httpErr.message)
+                    rsp_msg = 'Socify validate failed with the following error: {0}'.format(http_err.message)
             else:
-                rsp_msg = 'Failed sending the Socify validate: {0}'.format(httpErr.message)
+                rsp_msg = 'Failed sending the Socify validate: {0}'.format(http_err.message)
         except Exception as err:
             rsp_msg = 'Failed sending the Socify validate: {0}'.format(err.message)
 
