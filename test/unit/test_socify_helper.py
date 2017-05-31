@@ -130,6 +130,18 @@ class SocifyHelperTest(TestCase):
                          return_error)
 
     @requests_mock.Mocker()
+    def test_event_httperror_no_json(self, mock_requests):
+        """Test send event with error message"""
+        mock_response = 'SOCIFY Invalid Ticket'
+
+        return_error = 'Socify event failed with the following error: *'
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_response, status_code=400)
+        self.assertRegexpMatches(self._soc_helper.send_event(SocifyHelper.SOC_EVENT_OK,
+                                                             ami_id="ami_12345",
+                                                             msg="test was successfull"),
+                                 return_error)
+
+    @requests_mock.Mocker()
     def test_validate(self, mock_requests):
         """Test validate with no error"""
         mock_response = {
@@ -155,5 +167,12 @@ class SocifyHelperTest(TestCase):
         mock_response = {
             'errorMessage': 'SOCIFY failed executing the validate request'
         }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_response, status_code=400)
+        self.assertFalse(self._soc_helper.validate())
+
+    @requests_mock.Mocker()
+    def test_validate_httperror_no_json(self, mock_requests):
+        """Test send event with error message"""
+        mock_response = 'SOCIFY failed executing the validate request'
         mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_response, status_code=400)
         self.assertFalse(self._soc_helper.validate())
