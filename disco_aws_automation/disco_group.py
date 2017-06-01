@@ -160,7 +160,7 @@ class DiscoGroup(BaseGroup):
                                associate_public_ip_address=None, user_data=None, tags=None,
                                instance_profile_name=None, block_device_mappings=None, group_name=None,
                                create_if_exists=False, termination_policies=None, spotinst=False,
-                               spotinst_reserve=None, roll_if_needed=False):
+                               spotinst_reserve=None):
         """
         Create a new autoscaling group or update an existing one
         """
@@ -200,8 +200,7 @@ class DiscoGroup(BaseGroup):
             create_if_exists=create_if_exists,
             termination_policies=termination_policies,
             spotinst=spotinst,
-            spotinst_reserve=spotinst_reserve,
-            roll_if_needed=roll_if_needed
+            spotinst_reserve=spotinst_reserve
         )
 
     def clean_configs(self):

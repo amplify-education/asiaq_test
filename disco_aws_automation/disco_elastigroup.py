@@ -7,6 +7,9 @@ import os
 from base64 import b64encode
 from itertools import groupby
 
+import boto3
+
+from disco_aws_automation.resource_helper import throttled_call, tag2dict
 from .spotinst_client import SpotinstClient
 from .base_group import BaseGroup
 from .exceptions import TooManyAutoscalingGroups, SpotinstException, TimeoutError
@@ -21,6 +24,7 @@ class DiscoElastigroup(BaseGroup):
 
     def __init__(self, environment_name):
         self.environment_name = environment_name
+        self.boto3_autoscale = boto3.client('ec2')
 
         if os.environ.get('SPOTINST_TOKEN'):
             self.spotinst_client = SpotinstClient(os.environ.get('SPOTINST_TOKEN'))
@@ -116,17 +120,49 @@ class DiscoElastigroup(BaseGroup):
 
     def get_instances(self, hostclass=None, group_name=None):
         """Returns elastigroup instances for hostclass in the current environment"""
-        all_groups = self.get_existing_groups(hostclass=hostclass, group_name=group_name)
-        groups_id_name = {
-            group['id']: group['name'] for group in all_groups
-        }
+        next_token = None
         instances = []
-        for group_id in groups_id_name:
-            group_instances = self._get_group_instances(group_id)
-            for instance in group_instances:
-                instance.update({'instance_id': instance['instanceId'],
-                                 'group_name': groups_id_name[group_id]})
-            instances += group_instances
+
+        filters = [{
+            'Name': 'tag:spotinst',
+            'Values': ['True']
+        }, {
+            'Name': 'tag:environment',
+            'Values': [self.environment_name]
+        }, {
+            'Name': 'instance-state-name',
+            'Values': ['pending', 'running', 'shutting-down', 'stopping', 'stopped']
+        }]
+
+        if hostclass:
+            filters.append({
+                'Name': 'tag:hostclass',
+                'Values': [hostclass]
+            })
+
+        if group_name:
+            filters.append({
+                'Name': 'tag:group_name',
+                'Values': [group_name]
+            })
+
+        while True:
+            args = {'Filters': filters}
+            if next_token:
+                args['NextToken'] = next_token
+            response = throttled_call(self.boto3_ec.describe_instances, **args)
+            for reservation in response.get('Reservations'):
+                for instance in reservation.get('Instances'):
+                    instances.append({
+                        'instance_id': instance['InstanceId'],
+                        'group_name': tag2dict(instance['Tags']).get('group_name')
+                    })
+
+            next_token = response.get('NextToken')
+
+            if not next_token:
+                break
+
         return instances
 
     def list_groups(self):
@@ -198,11 +234,14 @@ class DiscoElastigroup(BaseGroup):
             "blockDeviceMappings": bdms or None,
             "networkInterfaces": network_interfaces,
             "userData": b64encode(str(user_data)) if user_data else None,
-            "tags": self._create_elastigroup_tags(tags),
             "iamRole": {
                 "name": instance_profile_name
             } if instance_profile_name else None
         }
+
+        tags = tags or {}
+        tags['group_name'] = group_name
+        launch_specification['tags'] = self._create_elastigroup_tags(tags)
 
         compute["launchSpecification"] = launch_specification
 
@@ -228,19 +267,13 @@ class DiscoElastigroup(BaseGroup):
 
         return spotinst_tags
 
-    def wait_for_instance_id(self, group_name):
-        """Wait for instance id(s) of an elastigroup to become available"""
-        while not all([instance['instance_id'] for instance in self.get_instances(group_name=group_name)]):
-            logger.info('Waiting for instance id(s) of %s to become available', group_name)
-            time.sleep(10)
-
     def create_or_update_group(self, hostclass, desired_size=None, min_size=None, max_size=None,
                                instance_type=None, load_balancers=None, subnets=None, security_groups=None,
                                instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
                                associate_public_ip_address=None, user_data=None, tags=None,
                                instance_profile_name=None, block_device_mappings=None, group_name=None,
                                create_if_exists=False, termination_policies=None, spotinst=False,
-                               spotinst_reserve=None, roll_if_needed=False):
+                               spotinst_reserve=None):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
         """Updates an existing elastigroup if it exists, otherwise this creates a new elastigroup."""
@@ -250,14 +283,11 @@ class DiscoElastigroup(BaseGroup):
         existing_groups = self._get_spotinst_groups(hostclass, group_name)
         if existing_groups and not create_if_exists:
             group = existing_groups[0]
-            roll_needed = self._modify_group(
+            self._modify_group(
                 group, desired_size=desired_size, min_size=min_size, max_size=max_size,
                 image_id=image_id, tags=tags, instance_profile_name=instance_profile_name,
                 block_device_mappings=block_device_mappings, spotinst_reserve=spotinst_reserve
             )
-
-            if roll_if_needed and roll_needed:
-                self._roll_group(group['id'], wait=True)
 
             return {'name': group['name']}
 
@@ -314,17 +344,12 @@ class DiscoElastigroup(BaseGroup):
         new_group = self.spotinst_client.create_group(group_config)
         new_group_name = new_group['name']
 
-        self.wait_for_instance_id(new_group_name)
         return {'name': new_group_name}
 
     def _modify_group(self, existing_group, desired_size=None, min_size=None, max_size=None,
                       image_id=None, tags=None, instance_profile_name=None, block_device_mappings=None,
                       spotinst_reserve=None):
         new_config = copy.deepcopy(existing_group)
-
-        # changing some config options requires a roll in order for them to take effect
-        # track if any of the updated options require a roll
-        requires_roll = False
 
         if min_size is not None:
             new_config['capacity']['minimum'] = min_size
@@ -334,12 +359,11 @@ class DiscoElastigroup(BaseGroup):
             new_config['capacity']['target'] = desired_size
         if spotinst_reserve is not None:
             new_config['strategy'] = self._get_risk_config(spotinst_reserve)
-            requires_roll = True
         if tags is not None:
+            tags['group_name'] = existing_group['name']
             new_config['compute']['launchSpecification']['tags'] = self._create_elastigroup_tags(tags)
         if image_id is not None:
             new_config['compute']['launchSpecification']['imageId'] = image_id
-            requires_roll = True
         if block_device_mappings is not None:
             launch_spec = new_config['compute']['launchSpecification']
             launch_spec['blockDeviceMappings'] = self._get_block_device_config(block_device_mappings)
@@ -357,8 +381,6 @@ class DiscoElastigroup(BaseGroup):
         group_id = new_config.pop('id')
 
         self.spotinst_client.update_group(group_id, {'group': new_config})
-
-        return requires_roll
 
     def _delete_group(self, group_id):
         """Delete an elastigroup by group id"""
@@ -499,7 +521,7 @@ class DiscoElastigroup(BaseGroup):
         self.spotinst_client.update_group(existing_group['id'], group_config)
 
         if new_lbs or extras:
-            self._roll_group(existing_group['id'], wait=True)
+            self._roll_group(existing_group['id'], health_check_type='ELB', wait=True)
 
         return new_lbs, extras
 
@@ -613,15 +635,17 @@ class DiscoElastigroup(BaseGroup):
             current_time = time.time()
 
             # wait an extra amount of time after grace_period has ended to give time for roll to finish
-            stop_time = current_time + grace_period + 600
+            stop_time = current_time + grace_period + 300
 
             while current_time < stop_time:
                 roll_status = self.spotinst_client.get_roll_status(group_id, deploy_id)
                 if roll_status['status'] != 'in_progress':
+                    if roll_status['status'] != 'finished':
+                        logger.error("Roll of group %s did not complete successfully", group_id)
                     break
 
                 logger.info("Waiting for %s group to roll in order to update settings", group_id)
-                time.sleep(20)
+                time.sleep(10)
                 current_time = time.time()
 
             if current_time >= stop_time:

@@ -71,9 +71,9 @@ class SpotinstClient(object):
         request = {
             "batchSizePercentage": batch_percentage,
             "gracePeriod": grace_period,
+            "healthCheckType": health_check_type,
             "strategy": {
-                "action": "REPLACE_SERVER",
-                "healthCheckType": health_check_type
+                "action": "REPLACE_SERVER"
             }
         }
         self._make_throttled_request(path='aws/ec2/group/%s/roll' % group_id, data=request, method='put')
@@ -85,11 +85,12 @@ class SpotinstClient(object):
         :return list[dict]:
         """
         response = self._make_throttled_request(path='aws/ec2/group/%s/roll' % group_id, method='get')
-        return response['response']['items']
+        deploys = response['response']['items']
+        return sorted(deploys, key=lambda deploy: deploy['createdAt'])
 
     def get_roll_status(self, group_id, deploy_id):
         """
-        Get info about a specific deployment for a group
+        Get info about a specific deployment (also called a roll) for a group
         :param str group_id:
         :param str deploy_id:
         :return dict:
@@ -143,8 +144,10 @@ class SpotinstClient(object):
         if response.status_code != 200:
             status = ret['response']['status']
             req_id = ret['request']['id']
+            errors = ret['response'].get('errors')
             raise SpotinstApiException(
-                "Unknown Spotinst API error encountered: {0}. RequestId {1}".format(status, req_id)
+                "Unknown Spotinst API error encountered: {0} {1}. RequestId {2}"
+                .format(status, errors, req_id)
             )
 
         return ret

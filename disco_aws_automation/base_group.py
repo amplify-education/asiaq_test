@@ -87,7 +87,7 @@ class BaseGroup(object):
                                associate_public_ip_address=None, user_data=None, tags=None,
                                instance_profile_name=None, block_device_mappings=None, group_name=None,
                                create_if_exists=False, termination_policies=None, spotinst=False,
-                               spotinst_reserve=None, roll_if_needed=False):
+                               spotinst_reserve=None):
         """
         Create a new autoscaling group or update an existing one
         """

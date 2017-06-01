@@ -390,8 +390,7 @@ class DiscoDeploy(object):
                 if deployable and self._set_testing_mode(hostclass, group_instances, False):
                     logger.info("Successfully left testing mode for group %s", new_group['name'])
                     # Update ASG to exit testing mode and attach to the normal ELB if applicable.
-                    self._disco_aws.spinup([new_group_config], group_name=new_group['name'],
-                                           roll_if_needed=True)
+                    self._disco_aws.spinup([new_group_config], group_name=new_group['name'])
                     if uses_elb:
                         try:
                             # get the list of instance Ids again because they might have changed after
