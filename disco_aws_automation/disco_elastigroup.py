@@ -24,7 +24,6 @@ class DiscoElastigroup(BaseGroup):
 
     def __init__(self, environment_name):
         self.environment_name = environment_name
-        self.boto3_autoscale = boto3.client('ec2')
 
         if os.environ.get('SPOTINST_TOKEN'):
             self.spotinst_client = SpotinstClient(os.environ.get('SPOTINST_TOKEN'))
