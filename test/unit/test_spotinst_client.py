@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import requests_mock
 from mock import patch
-from requests.exceptions import ReadTimeout
+from requests.exceptions import ReadTimeout, ConnectTimeout, ConnectionError
 
 from disco_aws_automation.exceptions import SpotinstRateExceededException
 from disco_aws_automation.spotinst_client import SpotinstClient
@@ -146,9 +146,81 @@ class DiscoSpotinstClientTests(TestCase):
             }
         })
 
-        self.spotinst_client.roll_group('sig-5af12785', 100, 100)
+        self.spotinst_client.roll_group('sig-5af12785', 100, 100, health_check_type='EC2')
 
         self.assertEqual(len(requests.request_history), 1)
+
+    @requests_mock.mock()
+    def test_get_deployments(self, requests):
+        """Test getting a list of deployments for a group"""
+        requests.get('https://api.spotinst.io/aws/ec2/group/sig-5af12785/roll', json={
+            "request": {
+                "id": "3213e42e-455e-4901-a185-cc3eb65fac5f",
+                "url": "/aws/ec2/group/sig-5af12785/roll",
+                "method": "PUT",
+                "time": "2016-02-10T15:49:11.911Z"
+            },
+            "response": {
+                "items": [
+                    {
+                        "id": "sbgd-c47a527a",
+                        "status": "finished",
+                        "progress": {
+                            "unit": "percent",
+                            "value": 100
+                        },
+                        "createdAt": "2017-05-24T12:12:39.000+0000",
+                        "updatedAt": "2017-05-24T12:19:17.000+0000"
+                    },
+                    {
+                        "id": "sbgd-f789ec37",
+                        "status": "in_progress",
+                        "progress": {
+                            "unit": "percent",
+                            "value": 0
+                        },
+                        "createdAt": "2017-05-24T20:13:37.000+0000",
+                        "updatedAt": "2017-05-24T20:15:17.000+0000"
+                    }],
+                "count": 2
+            }
+        })
+
+        deployments = self.spotinst_client.get_deployments('sig-5af12785')
+
+        self.assertEqual(len(requests.request_history), 1)
+        self.assertEqual(len(deployments), 2)
+
+    @requests_mock.mock()
+    def test_get_roll_status(self, requests):
+        """Test getting the status of a deployment"""
+        requests.get('https://api.spotinst.io/aws/ec2/group/sig-5af12785/roll/sbgd-c47a527a', json={
+            "request": {
+                "id": "3213e42e-455e-4901-a185-cc3eb65fac5f",
+                "url": "/aws/ec2/group/sig-5af12785/roll",
+                "method": "PUT",
+                "time": "2016-02-10T15:49:11.911Z"
+            },
+            "response": {
+                "items": [
+                    {
+                        "id": "sbgd-c47a527a",
+                        "status": "finished",
+                        "progress": {
+                            "unit": "percent",
+                            "value": 100
+                        },
+                        "createdAt": "2017-05-24T12:12:39.000+0000",
+                        "updatedAt": "2017-05-24T12:19:17.000+0000"
+                    }],
+                "count": 1
+            }
+        })
+
+        status = self.spotinst_client.get_roll_status('sig-5af12785', 'sbgd-c47a527a')
+
+        self.assertEqual(len(requests.request_history), 1)
+        self.assertEqual(status['status'], 'finished')
 
     # pylint: disable=unused-argument
     @requests_mock.mock()
@@ -177,8 +249,8 @@ class DiscoSpotinstClientTests(TestCase):
             {'status_code': 429},
             {'exc': ReadTimeout},
             {'status_code': 429},
-            {'status_code': 429},
-            {'exc': ReadTimeout},
+            {'exc': ConnectTimeout},
+            {'exc': ConnectionError},
             {'json': {
                 'response': {
                     'items': [{

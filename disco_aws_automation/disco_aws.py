@@ -348,8 +348,7 @@ class DiscoAWS(object):
     def provision(self, ami, hostclass=None, owner=None, instance_type=None, monitoring_enabled=True,
                   extra_space=None, extra_disk=None, iops=None, no_destroy=False, min_size=None,
                   desired_size=None, max_size=None, testing=False, termination_policies=None, chaos=None,
-                  create_if_exists=False, group_name=None, spotinst=False, spotinst_reserve=None,
-                  roll_if_needed=False):
+                  create_if_exists=False, group_name=None, spotinst=False, spotinst_reserve=None):
         # TODO move key, instance_type, monitoring enabled, extra_space, extra_disk into config file.
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
@@ -426,8 +425,7 @@ class DiscoAWS(object):
             termination_policies=termination_policies,
             group_name=group_name,
             spotinst=is_spotinst,
-            spotinst_reserve=spotinst_reserve,
-            roll_if_needed=roll_if_needed
+            spotinst_reserve=spotinst_reserve
         )
 
         self.create_scaling_schedule(min_size, desired_size, max_size, group_name=group['name'])
@@ -626,7 +624,7 @@ class DiscoAWS(object):
             self.log_metrics.delete_log_groups(hostclass)
 
     def spinup(self, hostclass_dicts, stage=None, no_smoke=False, testing=False, create_if_exists=False,
-               group_name=None, roll_if_needed=False):
+               group_name=None):
         # Pylint thinks this function has too many local variables
         # pylint: disable=R0914,R0912
         """
@@ -698,8 +696,7 @@ class DiscoAWS(object):
                     create_if_exists=create_if_exists,
                     group_name=group_name,
                     spotinst=hdict.get("spotinst"),
-                    spotinst_reserve=hdict.get('spotinst_reserve'),
-                    roll_if_needed=roll_if_needed
+                    spotinst_reserve=hdict.get('spotinst_reserve')
                 )
                 for (hostclass, termination_policies, hdict) in hostclass_iter]
 

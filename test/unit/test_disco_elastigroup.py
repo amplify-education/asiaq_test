@@ -181,7 +181,8 @@ class DiscoElastigroupTests(TestCase):
                     'launchSpecification': {
                         "iamRole": None,
                         'userData': None,
-                        'tags': None,
+                        'tags': [{'tagKey': 'group_name', 'tagValue': ANY},
+                                 {'tagKey': 'spotinst', 'tagValue': 'True'}],
                         'blockDeviceMappings': None,
                         'imageId': None,
                         'networkInterfaces': None,
@@ -447,3 +448,37 @@ class DiscoElastigroupTests(TestCase):
         self.elastigroup = DiscoElastigroup(ENVIRONMENT_NAME)
 
         self.assertFalse(self.elastigroup.is_spotinst_enabled())
+
+    def test_get_instances(self):
+        """Testing getting list of instances for a Elastigroup"""
+        self.elastigroup.boto3_ec.describe_instances = MagicMock(return_value={
+            'Reservations': [{
+                'Instances': [{
+                    'InstanceId': 'i-2345',
+                    'Tags': [{
+                        'Key': 'group_name',
+                        'Value': 'mhcfoo_1234'
+                    }]
+                }]
+            }],
+            'NextToken': None
+        })
+
+        instances = self.elastigroup.get_instances()
+
+        self.elastigroup.boto3_ec.describe_instances.assert_called_once_with(
+            Filters=[
+                {'Name': 'tag:spotinst', 'Values': ['True']},
+                {'Name': 'tag:environment', 'Values': ['moon']},
+                {
+                    'Name': 'instance-state-name',
+                    'Values': ['pending', 'running', 'shutting-down', 'stopping', 'stopped']
+                }
+            ])
+
+        expected = [{
+            'instance_id': 'i-2345',
+            'group_name': 'mhcfoo_1234'
+        }]
+
+        self.assertEqual(expected, instances)
