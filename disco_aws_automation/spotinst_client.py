@@ -147,7 +147,7 @@ class SpotinstClient(object):
             errors = ret['response'].get('errors')
 
             for error in errors:
-                if error.get('code') == 'RequestLimitExceeded':
+                if error.get('code') in ("Throttling", "RequestLimitExceeded"):
                     raise SpotinstRateExceededException("Rate exceeded while calling {0} {1}"
                                                         .format(method, path))
 
