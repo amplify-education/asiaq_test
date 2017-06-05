@@ -4,7 +4,7 @@ Integration tests for disco_dynamodb.py
 
 import json
 from random import randint
-from test.helpers.integration_helpers import IntegrationTest
+from tests.helpers.integration_helpers import IntegrationTest
 
 
 MOCK_TABLE_NAME = "IntegrationTest"

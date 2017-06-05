@@ -5,7 +5,7 @@ import unittest
 from mock import MagicMock, patch, PropertyMock, call
 
 from disco_aws_automation import DiscoVPC
-from test.helpers.patch_disco_aws import get_mock_config, get_default_config_dict
+from tests.helpers.patch_disco_aws import get_mock_config, get_default_config_dict
 
 
 class DiscoVPCTests(unittest.TestCase):

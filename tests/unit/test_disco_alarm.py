@@ -10,7 +10,7 @@ from disco_aws_automation import DiscoAlarm, DiscoAlarmsConfig
 from disco_aws_automation import DiscoAlarmConfig
 from disco_aws_automation import DiscoSNS
 from disco_aws_automation import DiscoELB
-from test.helpers.patch_disco_aws import get_mock_config
+from tests.helpers.patch_disco_aws import get_mock_config
 
 TOPIC_ARN = "arn:aws:sns:us-west-2:123456789012:ci"
 ENVIRONMENT = "testenv"

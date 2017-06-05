@@ -6,7 +6,7 @@ import datetime
 from unittest import TestCase
 from mock import MagicMock, call
 from disco_aws_automation import DiscoESArchive
-from test.helpers.patch_disco_aws import get_mock_config
+from tests.helpers.patch_disco_aws import get_mock_config
 
 
 ENVIRONMENT = "foo"

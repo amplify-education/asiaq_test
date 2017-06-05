@@ -6,9 +6,9 @@ from unittest import TestCase
 from mock import MagicMock, create_autospec
 
 from disco_aws_automation import DiscoChaos, DiscoAWS, DiscoGroup
-from test.helpers.patch_disco_aws import (get_default_config_dict,
-                                          get_mock_config,
-                                          TEST_ENV_NAME)
+from tests.helpers.patch_disco_aws import (get_default_config_dict,
+                                           get_mock_config,
+                                           TEST_ENV_NAME)
 
 
 class DiscoChaosTests(TestCase):

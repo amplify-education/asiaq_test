@@ -29,7 +29,7 @@ from ConfigParser import NoSectionError, NoOptionError
 from mock import patch
 from moto import mock_ec2, mock_s3, mock_autoscaling, mock_route53, mock_elb
 
-from test.helpers.patcher import patcher
+from tests.helpers.patcher import patcher
 from disco_aws_automation.disco_config import AsiaqConfig
 
 TEST_ENV_NAME = "unittestenv"

@@ -5,7 +5,7 @@ import re
 from unittest import skip
 
 from disco_aws_automation.resource_helper import keep_trying
-from test.helpers.integration_helpers import IntegrationTest, cleanup_amis, TEST_HOSTCLASS
+from tests.helpers.integration_helpers import IntegrationTest, cleanup_amis, TEST_HOSTCLASS
 
 
 class DiscoBakeTests(IntegrationTest):

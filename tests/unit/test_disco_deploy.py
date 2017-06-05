@@ -23,7 +23,7 @@ from disco_aws_automation.exceptions import (
     TooManyAutoscalingGroups,
     UnknownDeploymentStrategyException
 )
-from test.helpers.patch_disco_aws import get_mock_config
+from tests.helpers.patch_disco_aws import get_mock_config
 
 # Don't limit number of tests
 # pylint: disable=R0904

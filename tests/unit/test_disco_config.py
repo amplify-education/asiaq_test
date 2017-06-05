@@ -6,7 +6,7 @@ from ConfigParser import NoOptionError
 from mock import patch, Mock
 
 from disco_aws_automation import disco_config, exceptions
-from test.helpers.patch_disco_aws import MockAsiaqConfig
+from tests.helpers.patch_disco_aws import MockAsiaqConfig
 
 
 @patch("disco_aws_automation.disco_config.ASIAQ_CONFIG", "FAKE_CONFIG_DIR")

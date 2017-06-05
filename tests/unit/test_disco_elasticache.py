@@ -4,8 +4,8 @@ Tests of disco_elasticache
 from unittest import TestCase
 from mock import MagicMock, call, patch
 from disco_aws_automation import DiscoElastiCache
-from test.helpers.matchers import MatchAnything
-from test.helpers.patch_disco_aws import get_mock_config
+from tests.helpers.matchers import MatchAnything
+from tests.helpers.patch_disco_aws import get_mock_config
 
 
 def _get_mock_vpc():

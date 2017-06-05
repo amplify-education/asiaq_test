@@ -7,7 +7,7 @@ from mock import MagicMock, call, patch, PropertyMock
 from disco_aws_automation.disco_vpc import DiscoVPC
 from disco_aws_automation.disco_vpc_sg_rules import DiscoVPCSecurityGroupRules
 
-from test.helpers.patch_disco_aws import TEST_ENV_NAME, get_mock_config
+from tests.helpers.patch_disco_aws import TEST_ENV_NAME, get_mock_config
 
 
 # pylint: disable=unused-argument

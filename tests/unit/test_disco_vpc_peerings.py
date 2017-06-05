@@ -8,7 +8,7 @@ from moto import mock_ec2
 from disco_aws_automation import DiscoVPC
 from disco_aws_automation.disco_vpc_peerings import DiscoVPCPeerings, PeeringConnection, PeeringEndpoint
 
-from test.helpers.patch_disco_aws import get_mock_config
+from tests.helpers.patch_disco_aws import get_mock_config
 
 
 class DiscoVPCPeeringsTests(unittest.TestCase):

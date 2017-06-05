@@ -1,7 +1,7 @@
 """
 Integration tests for disco_iam.py
 """
-from test.helpers.integration_helpers import IntegrationTest
+from tests.helpers.integration_helpers import IntegrationTest
 
 LISTUSERS_CMD = "disco_iam.py listusers"
 LISTGROUPS_CMD = "disco_iam.py listgroups"

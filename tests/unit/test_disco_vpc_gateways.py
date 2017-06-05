@@ -7,7 +7,7 @@ from mock import MagicMock, patch, PropertyMock
 from disco_aws_automation.disco_vpc import DiscoVPC
 from disco_aws_automation.disco_vpc_gateways import DiscoVPCGateways
 
-from test.helpers.patch_disco_aws import get_mock_config
+from tests.helpers.patch_disco_aws import get_mock_config
 
 
 MOCK_IGW_ID = 'mock_igw_id'

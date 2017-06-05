@@ -11,8 +11,8 @@ from disco_aws_automation import DiscoSSM
 from disco_aws_automation import disco_ssm
 from disco_aws_automation.disco_ssm import SSM_DOCUMENTS_DIR, SSM_OUTPUT_ERROR_DELIMITER
 
-from test.helpers.patch_disco_aws import (get_mock_config,
-                                          TEST_ENV_NAME)
+from tests.helpers.patch_disco_aws import (get_mock_config,
+                                           TEST_ENV_NAME)
 
 MOCK_BUCKET_PREFIX = 'asiaq-test-buckets'
 MOCK_S3_BUCKET_NAME = MOCK_BUCKET_PREFIX + '--ssm'

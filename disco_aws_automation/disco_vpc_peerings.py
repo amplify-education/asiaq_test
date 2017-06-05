@@ -3,9 +3,9 @@ This module contains logic that processes a VPC's peering connections
 """
 
 import logging
-from sets import ImmutableSet
 
 from itertools import product
+from sets import ImmutableSet
 
 from boto.exception import EC2ResponseError
 import boto3
