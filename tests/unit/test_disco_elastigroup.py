@@ -350,6 +350,15 @@ class DiscoElastigroupTests(TestCase):
 
         self.elastigroup.spotinst_client.update_group.assert_called_once_with(group['id'], expected_request)
 
+    def test_update_group_update_elb(self):
+        """Verifies updating group also updates ELB"""
+        group = self.mock_elastigroup(hostclass='mhcfoo')
+        self.elastigroup.spotinst_client.get_groups.return_value = [group]
+
+        self.elastigroup.create_or_update_group(hostclass="mhcfoo", load_balancers=["elb-newelb"], spotinst=True)
+
+        self.elastigroup.spotinst_client.roll_group.assert_called_once_with(group['id'], ANY, ANY, 'ELB')
+
     def test_create_recurring_group_action(self):
         """Verifies recurring actions are created for Elastigroups"""
         group = self.mock_elastigroup(hostclass='mhcfoo')
