@@ -349,6 +349,7 @@ class DiscoElastigroupTests(TestCase):
         }
 
         self.elastigroup.spotinst_client.update_group.assert_called_once_with(group['id'], expected_request)
+        self.elastigroup.spotinst_client.roll_group.assert_called_once_with(group['id'], ANY, ANY, 'ELB')
 
     def test_update_group_update_elb(self):
         """Verifies updating group also updates ELB"""
@@ -361,6 +362,22 @@ class DiscoElastigroupTests(TestCase):
             spotinst=True
         )
 
+        expected_request = {
+            'group': {
+                'compute': {
+                    'launchSpecification': {
+                        'loadBalancersConfig': {
+                            'loadBalancers': [{
+                                'name': 'elb-newelb',
+                                'type': 'CLASSIC'
+                            }]
+                        }
+                    }
+                }
+            }
+        }
+
+        self.elastigroup.spotinst_client.update_group.assert_called_with(group['id'], expected_request)
         self.elastigroup.spotinst_client.roll_group.assert_called_once_with(group['id'], ANY, ANY, 'ELB')
 
     def test_create_recurring_group_action(self):
