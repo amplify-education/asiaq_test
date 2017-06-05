@@ -355,7 +355,11 @@ class DiscoElastigroupTests(TestCase):
         group = self.mock_elastigroup(hostclass='mhcfoo')
         self.elastigroup.spotinst_client.get_groups.return_value = [group]
 
-        self.elastigroup.create_or_update_group(hostclass="mhcfoo", load_balancers=["elb-newelb"], spotinst=True)
+        self.elastigroup.create_or_update_group(
+            hostclass="mhcfoo",
+            load_balancers=["elb-newelb"],
+            spotinst=True
+        )
 
         self.elastigroup.spotinst_client.roll_group.assert_called_once_with(group['id'], ANY, ANY, 'ELB')
 
