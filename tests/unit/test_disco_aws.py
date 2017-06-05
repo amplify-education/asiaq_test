@@ -16,10 +16,10 @@ from disco_aws_automation import DiscoAWS
 from disco_aws_automation.exceptions import TimeoutError, SmokeTestError
 from disco_aws_automation.disco_elb import DiscoELBPortConfig, DiscoELBPortMapping
 
-from test.helpers.patch_disco_aws import (patch_disco_aws,
-                                          get_default_config_dict,
-                                          get_mock_config,
-                                          TEST_ENV_NAME)
+from tests.helpers.patch_disco_aws import (patch_disco_aws,
+                                           get_default_config_dict,
+                                           get_mock_config,
+                                           TEST_ENV_NAME)
 
 
 def _get_meta_network_mock():

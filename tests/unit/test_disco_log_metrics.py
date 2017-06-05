@@ -2,7 +2,7 @@
 from unittest import TestCase
 from mock import MagicMock, call, PropertyMock
 from disco_aws_automation import DiscoLogMetrics
-from test.helpers.patch_disco_aws import get_mock_config
+from tests.helpers.patch_disco_aws import get_mock_config
 
 
 class DiscoLogMetricsTests(TestCase):

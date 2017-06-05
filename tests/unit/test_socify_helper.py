@@ -6,7 +6,7 @@ import requests
 import requests_mock
 
 from disco_aws_automation.socify_helper import SocifyHelper
-from test.helpers.patch_disco_aws import get_mock_config
+from tests.helpers.patch_disco_aws import get_mock_config
 
 SOCIFY_API_BASE = 'https://socify-ci.aws.wgen.net/soc'
 

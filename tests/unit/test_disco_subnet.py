@@ -8,7 +8,7 @@ from disco_aws_automation.disco_subnet import (
     DiscoSubnet,
     DYNO_NAT_TAG_KEY
 )
-from test.helpers.patch_disco_aws import TEST_ENV_NAME
+from tests.helpers.patch_disco_aws import TEST_ENV_NAME
 
 
 MOCK_SUBNET_NAME = 'availability_zone_1'

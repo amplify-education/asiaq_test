@@ -4,8 +4,8 @@ succeed
 """
 
 from unittest import TestCase
-from test.helpers.disco_env_helpers import DiscoEnv
-from test.helpers.integration_helpers import IntegrationTest
+from tests.helpers.disco_env_helpers import DiscoEnv
+from tests.helpers.integration_helpers import IntegrationTest
 
 
 class TestDiscoVPCEnv(IntegrationTest, DiscoEnv, TestCase):

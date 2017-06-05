@@ -2,7 +2,7 @@
 Integration tests for disco_accounts.py
 """
 from random import randint
-from test.helpers.integration_helpers import IntegrationTest
+from tests.helpers.integration_helpers import IntegrationTest
 
 
 TEST_ACCOUNT_NAME = "test_account"

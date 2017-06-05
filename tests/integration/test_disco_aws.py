@@ -7,8 +7,8 @@ from unittest import TestCase
 from re import search, MULTILINE
 from time import time, sleep
 
-from test.helpers.disco_env_helpers import DiscoEnv, DISCO_AWS_COMMAND
-from test.helpers.integration_helpers import IntegrationTest, TEST_HOSTCLASS
+from tests.helpers.disco_env_helpers import DiscoEnv, DISCO_AWS_COMMAND
+from tests.helpers.integration_helpers import IntegrationTest, TEST_HOSTCLASS
 
 
 class TestDiscoAWS(IntegrationTest, DiscoEnv, TestCase):

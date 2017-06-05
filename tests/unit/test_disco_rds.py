@@ -8,7 +8,7 @@ from mock import MagicMock, patch
 
 from disco_aws_automation.disco_rds import RDS, DiscoRDS
 from disco_aws_automation.exceptions import RDSEnvironmentError
-from test.helpers.patch_disco_aws import get_mock_config
+from tests.helpers.patch_disco_aws import get_mock_config
 
 TEST_ENV_NAME = 'unittestenv'
 TEST_VPC_ID = 'vpc-56e10e3d'  # the hard coded VPC Id that moto will always return

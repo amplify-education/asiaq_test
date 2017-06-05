@@ -8,7 +8,7 @@ from unittest import TestCase
 from mock import MagicMock
 from disco_aws_automation import DiscoElasticsearch
 from disco_aws_automation.disco_aws_util import is_truthy
-from test.helpers.patch_disco_aws import get_mock_config
+from tests.helpers.patch_disco_aws import get_mock_config
 
 MOCK_AWS_CONFIG_DEFINITION = {
     "disco_aws": {

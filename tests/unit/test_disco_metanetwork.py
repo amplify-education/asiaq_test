@@ -6,7 +6,7 @@ from mock import MagicMock, call, patch
 from disco_aws_automation.disco_metanetwork import DiscoMetaNetwork
 from disco_aws_automation.exceptions import EIPConfigError
 
-from test.helpers.patch_disco_aws import TEST_ENV_NAME
+from tests.helpers.patch_disco_aws import TEST_ENV_NAME
 
 
 MOCK_ROUTE_FILTER = {"vpc-id": "mock_vpc_id",
