@@ -283,7 +283,8 @@ class DiscoElastigroup(BaseGroup):
             self._modify_group(
                 group, desired_size=desired_size, min_size=min_size, max_size=max_size,
                 image_id=image_id, tags=tags, instance_profile_name=instance_profile_name,
-                block_device_mappings=block_device_mappings, spotinst_reserve=spotinst_reserve
+                block_device_mappings=block_device_mappings, spotinst_reserve=spotinst_reserve,
+                load_balancers=load_balancers
             )
 
             return {'name': group['name']}
@@ -345,7 +346,7 @@ class DiscoElastigroup(BaseGroup):
 
     def _modify_group(self, existing_group, desired_size=None, min_size=None, max_size=None,
                       image_id=None, tags=None, instance_profile_name=None, block_device_mappings=None,
-                      spotinst_reserve=None):
+                      spotinst_reserve=None, load_balancers=None):
         new_config = copy.deepcopy(existing_group)
 
         if min_size is not None:
@@ -378,6 +379,9 @@ class DiscoElastigroup(BaseGroup):
         group_id = new_config.pop('id')
 
         self.spotinst_client.update_group(group_id, {'group': new_config})
+
+        if load_balancers:
+            self.update_elb(load_balancers, group_name=existing_group['name'])
 
     def _delete_group(self, group_id):
         """Delete an elastigroup by group id"""
