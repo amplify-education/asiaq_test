@@ -384,7 +384,8 @@ class DiscoBake(object):
                     user
                 )
 
-    def bake_ami(self, hostclass, no_destroy, source_ami_id=None, stage=None, extra_tags=None):
+    def bake_ami(self, hostclass, no_destroy, source_ami_id=None, stage=None, is_private=False,
+                 extra_tags=None):
         # Pylint thinks this function has too many local variables and too many statements and branches
         # pylint: disable=R0914, R0915, R0912
         """
@@ -483,7 +484,8 @@ class DiscoBake(object):
 
             productline = self.hc_option_default(hostclass, "product_line", None)
 
-            DiscoBake._tag_ami_with_metadata(image, stage, source_ami_id, productline, extra_tags=extra_tags)
+            DiscoBake._tag_ami_with_metadata(image, stage, source_ami_id, productline,
+                                             is_private, extra_tags=extra_tags)
 
             wait_for_state(image, u'available',
                            int(self.hc_option_default(hostclass, "ami_available_wait_time", "600")))
@@ -502,10 +504,11 @@ class DiscoBake(object):
         return image
 
     @staticmethod
-    def _tag_ami_with_metadata(ami, stage, source_ami_id, productline=None, extra_tags=None):
+    def _tag_ami_with_metadata(ami, stage, source_ami_id, productline=None, is_private=False,
+                               extra_tags=None):
         """
         Tags an AMI with the stage, source_ami, the branch/git-hash of disco_aws_automation,
-        and the productline if provided.
+        the is_private value and the productline if provided.
 
         Also accepts an extra_tags parameter, which is an additional dictionary of tags that will be
         appended to the AMI after the tags required by Asiaq.
@@ -517,6 +520,7 @@ class DiscoBake(object):
         tag_dict['source_ami'] = source_ami_id
         tag_dict['baker'] = getpass.getuser()
         tag_dict['version-asiaq'] = DiscoBake._git_ref()
+        tag_dict['is_private'] = str(is_private)
 
         if productline:
             tag_dict['productline'] = productline

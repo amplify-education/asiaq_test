@@ -121,6 +121,9 @@ def get_parser():
     parser_bake.add_argument('--tag', dest='tags', required=False, action='append', type=str, default=[],
                              help='The key:value pair used to tag the AMI '
                                   '(Example: --tag application:dnext)')
+    parser_bake.add_argument('--private', dest='is_private', action='store_const', const=True,
+                             default=False, help='Tag the baked ami as "private". The AMI will not be visible'
+                                                 ' to disco_deploy.py or disco_aws.py promote.')
 
     parser_create = subparsers.add_parser(
         'create', help="Create a hostclass",
@@ -144,7 +147,8 @@ def run():
     if args.mode == "bake":
         extra_tags = OrderedDict(tag.split(':', 1) for tag in args.tags)
         bakery = DiscoBake(use_local_ip=args.use_local_ip)
-        bakery.bake_ami(args.hostclass, args.no_destroy, args.source_ami, args.stage, extra_tags=extra_tags)
+        bakery.bake_ami(args.hostclass, args.no_destroy, args.source_ami, args.stage, args.is_private,
+                        extra_tags=extra_tags)
     elif args.mode == "create":
         HostclassTemplating.create_hostclass(args.hostclass)
     elif args.mode == "promote":

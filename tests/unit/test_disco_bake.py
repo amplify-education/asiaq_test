@@ -146,6 +146,7 @@ class DiscoBakeTests(TestCase):
                 "source_ami": "mock_source",
                 "stage": "mock_stage",
                 "productline": "mock_productline",
+                "is_private": "False",
                 "baker": "mock_user",
                 "version-asiaq": DiscoBake._git_ref(),
                 "mock": "gecko"
@@ -175,6 +176,35 @@ class DiscoBakeTests(TestCase):
                 "source_ami": "mock_source",
                 "stage": "mock_stage",
                 "productline": "mock_productline",
+                "is_private": "False",
+                "baker": "mock_user",
+                "version-asiaq": DiscoBake._git_ref(),
+                "mock": "gecko"
+            }
+        )
+
+    @patch('getpass.getuser', MagicMock(return_value="mock_user"))
+    @patch('disco_aws_automation.DiscoBake._tag_ami')
+    def test_is_private_tag(self, mock_tag_ami):
+        '''Test that additional tags are applied to AMI if specified'''
+        ami = self._amis_by_name["mhcbar 0000000001"],
+
+        self._bake._tag_ami_with_metadata(
+            ami=ami,
+            source_ami_id='mock_source',
+            stage='mock_stage',
+            productline='mock_productline',
+            is_private=True,
+            extra_tags={'mock': 'gecko'}
+        )
+
+        mock_tag_ami.assert_called_once_with(
+            ami,
+            {
+                "source_ami": "mock_source",
+                "stage": "mock_stage",
+                "productline": "mock_productline",
+                "is_private": "True",
                 "baker": "mock_user",
                 "version-asiaq": DiscoBake._git_ref(),
                 "mock": "gecko"
