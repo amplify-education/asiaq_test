@@ -123,7 +123,7 @@ def get_parser():
                                   '(Example: --tag application:dnext)')
     parser_bake.add_argument('--private', dest='is_private', action='store_const', const=True,
                              default=False, help='Tag the baked ami as "private". The AMI will not be visible'
-                                                 ' to disco_deploy.py or disco_aws.py promote.')
+                                                 ' to disco_deploy.py or disco_aws.py provision.')
 
     parser_create = subparsers.add_parser(
         'create', help="Create a hostclass",
