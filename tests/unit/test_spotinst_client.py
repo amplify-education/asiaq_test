@@ -248,7 +248,24 @@ class DiscoSpotinstClientTests(TestCase):
         responses = [
             {'status_code': 429},
             {'exc': ReadTimeout},
-            {'status_code': 429},
+            {
+                'status_code': 400,
+                'json': {
+                    'request': {
+                        'id': 'b4415046-bb2d-4338-9b8a-73a405a6fe0c'
+                    },
+                    'response': {
+                        'status': '',
+                        'errors': [{
+                            'message': 'Cant validate AMI',
+                            'code': 'CANT_VALIDATE_IMAGE'
+                        }, {
+                            'message': 'Request limit exceeded',
+                            'code': 'RequestLimitExceeded'
+                        }]
+                    }
+                }
+            },
             {'exc': ConnectTimeout},
             {'exc': ConnectionError},
             {'json': {

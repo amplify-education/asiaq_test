@@ -145,6 +145,12 @@ class SpotinstClient(object):
             status = ret['response']['status']
             req_id = ret['request']['id']
             errors = ret['response'].get('errors')
+
+            for error in errors:
+                if error.get('code') in ("Throttling", "RequestLimitExceeded"):
+                    raise SpotinstRateExceededException("Rate exceeded while calling {0} {1}"
+                                                        .format(method, path))
+
             raise SpotinstApiException(
                 "Unknown Spotinst API error encountered: {0} {1}. RequestId {2}"
                 .format(status, errors, req_id)
