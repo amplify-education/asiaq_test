@@ -17,6 +17,7 @@ from mock import MagicMock, create_autospec, call
 
 from disco_aws_automation import DiscoDeploy, DiscoAWS, DiscoGroup, DiscoBake, DiscoELB
 from disco_aws_automation.disco_constants import DEPLOYMENT_STRATEGY_BLUE_GREEN
+from disco_aws_automation.disco_deploy import DiscoDeployTestHelper, DiscoDeployUpdateHelper
 from disco_aws_automation.exceptions import (
     TimeoutError,
     IntegrationTestError,
@@ -122,12 +123,12 @@ class DiscoDeployTests(TestCase):
     # Useful for when lengthy setUp runs can cause a parallel nose run to time out.
     _multiprocess_shared_ = True
 
-    def mock_ami(self, name, stage=None, state=u'available'):
+    def mock_ami(self, name, stage=None, state=u'available', is_private=False):
         '''Create a mock AMI'''
         ami = create_autospec(boto.ec2.image.Image)
         ami.name = name
-        ami.tags = MagicMock()
-        ami.tags.get = MagicMock(return_value=stage)
+        ami.tags = {"stage": stage, "is_private": str(is_private)}
+        # ami.tags.get = MagicMock(return_value=stage)
         ami.id = 'ami-' + ''.join(random.choice("0123456789abcdef") for _ in range(8))
         ami.state = state
         return ami
@@ -152,11 +153,12 @@ class DiscoDeployTests(TestCase):
         group_mock.instances = instances or []
         return group_mock
 
-    def add_ami(self, name, stage, state=u'available'):
+    def add_ami(self, name, stage, state=u'available', is_private=False):
         '''Add one Instance AMI Mock to an AMI list'''
-        ami = self.mock_ami(name, stage, state)
+        ami = self.mock_ami(name, stage, state, is_private)
         assert ami.name == name
-        assert ami.tags.get() == stage
+        assert ami.tags.get('stage') == stage
+        assert ami.tags.get('is_private') == str(is_private)
         self._amis.append(ami)
         self._amis_by_name[ami.name] = ami
         return ami
@@ -167,8 +169,10 @@ class DiscoDeployTests(TestCase):
             "mhcintegrated": self._amis_by_name['mhcintegrated 2'],
             "mhcfoo": self._amis_by_name['mhcfoo 4'],
             "mhcbluegreen": self._amis_by_name['mhcbluegreen 1'],
-            "mhcbluegreennondeployable": self._amis_by_name['mhcbluegreennondeployable 1']
+            "mhcbluegreennondeployable": self._amis_by_name['mhcbluegreennondeployable 1'],
+            "mhcbar": self._amis_by_name['mhcbar 3']
         }
+        self._real_get_latest_running_amis = self._ci_deploy.get_latest_running_amis
         self._ci_deploy.get_latest_running_amis = MagicMock(return_value=amis)
 
     def setUp(self):
@@ -194,6 +198,7 @@ class DiscoDeployTests(TestCase):
         self._amis_by_name = {}
         self.add_ami('mhcfoo 1', 'untested')
         self.add_ami('mhcbar 2', 'tested')
+        self.add_ami('mhcbar 3', 'tested', is_private=True)
         self.add_ami('mhcfoo 4', 'tested')
         self.add_ami('mhcfoo 5', None)
         self.add_ami('mhcbar 1', 'tested')
@@ -202,6 +207,10 @@ class DiscoDeployTests(TestCase):
         self.add_ami('mhcfoo 6', 'untested')
         self.add_ami('mhcnew 1', 'untested')
         self.add_ami('mhcfoo 7', 'failed')
+        self.add_ami('mhcfoo 8', 'untested', is_private=True)
+        self.add_ami('mhcfoo 9', None, is_private=True)
+        self.add_ami('mhcfoo 10', 'tested', is_private=True)
+        self.add_ami('mhcfoo 11', 'failed', is_private=True)
         self.add_ami('mhcintegrated 1', None)
         self.add_ami('mhcintegrated 2', 'tested')
         self.add_ami('mhcintegrated 3', None)
@@ -228,7 +237,8 @@ class DiscoDeployTests(TestCase):
         '''Tests that filter on hostclass filters when the filtering hostclass is set'''
         self._ci_deploy._restrict_hostclass = 'mhcbar'
         self.assertEqual(self._ci_deploy._filter_amis(self._amis),
-                         [self._amis_by_name['mhcbar 2'], self._amis_by_name['mhcbar 1']])
+                         [self._amis_by_name['mhcbar 2'], self._amis_by_name['mhcbar 3'],
+                          self._amis_by_name['mhcbar 1']])
 
     def test_filter_with_pipeline_restriction(self):
         '''Tests that filter on hostclass filters to pipeline when no hostclass filter set'''
@@ -240,6 +250,10 @@ class DiscoDeployTests(TestCase):
                           self._amis_by_name["mhcfoo 3"],
                           self._amis_by_name["mhcfoo 6"],
                           self._amis_by_name["mhcfoo 7"],
+                          self._amis_by_name["mhcfoo 8"],
+                          self._amis_by_name["mhcfoo 9"],
+                          self._amis_by_name["mhcfoo 10"],
+                          self._amis_by_name["mhcfoo 11"],
                           self._amis_by_name["mhcintegrated 1"],
                           self._amis_by_name["mhcintegrated 2"],
                           self._amis_by_name["mhcintegrated 3"],
@@ -253,7 +267,8 @@ class DiscoDeployTests(TestCase):
         '''Tests that filter overrides pipeline filtering when hostclass is set'''
         self._ci_deploy._restrict_hostclass = 'mhcbar'
         self.assertEqual(self._ci_deploy._filter_amis(self._amis),
-                         [self._amis_by_name['mhcbar 2'], self._amis_by_name['mhcbar 1']])
+                         [self._amis_by_name['mhcbar 2'], self._amis_by_name['mhcbar 3'],
+                          self._amis_by_name['mhcbar 1']])
 
     def test_all_stage_amis_with_any_hostclass(self):
         '''Tests that all_stage_amis calls list_amis correctly without restrictions'''
@@ -270,6 +285,10 @@ class DiscoDeployTests(TestCase):
                           self._amis_by_name["mhcfoo 3"],
                           self._amis_by_name["mhcfoo 6"],
                           self._amis_by_name["mhcfoo 7"],
+                          self._amis_by_name["mhcfoo 8"],
+                          self._amis_by_name["mhcfoo 9"],
+                          self._amis_by_name["mhcfoo 10"],
+                          self._amis_by_name["mhcfoo 11"],
                           self._amis_by_name["mhcintegrated 1"],
                           self._amis_by_name["mhcintegrated 2"],
                           self._amis_by_name["mhcintegrated 3"],
@@ -300,22 +319,22 @@ class DiscoDeployTests(TestCase):
         self.assertEqual(self._ci_deploy.get_newest_in_either_map(map_a, map_b), map_c)
 
     def test_get_latest_untested_amis_works(self):
-        '''Tests that get_latest_untested_amis() returns untested amis'''
+        '''Tests that get_latest_untested_amis() returns non private untested amis'''
         self.assertEqual(self._ci_deploy.get_latest_untested_amis()['mhcfoo'],
                          self._amis_by_name['mhcfoo 6'])
 
     def test_get_latest_untagged_amis_works(self):
-        '''Tests that get_latest_untagged_amis() returns untagged amis'''
+        '''Tests that get_latest_untagged_amis() returns non private untagged amis'''
         self.assertEqual(self._ci_deploy.get_latest_untagged_amis()['mhcfoo'],
                          self._amis_by_name['mhcfoo 5'])
 
     def test_get_latest_tested_amis_works_inc(self):
-        '''Tests that get_latest_tested_amis() returns latest tested amis (inc)'''
+        '''Tests that get_latest_tested_amis() returns non private latest tested amis (inc)'''
         self.assertEqual(self._ci_deploy.get_latest_tested_amis()['mhcfoo'],
                          self._amis_by_name['mhcfoo 4'])
 
     def test_get_latest_tested_amis_works_dec(self):
-        '''Tests that get_latest_tested_amis() returns latest tested amis (dec)'''
+        '''Tests that get_latest_tested_amis() returns non private latest tested amis (dec)'''
         self._ci_deploy._allow_any_hostclass = True
         self.assertEqual(self._ci_deploy.get_latest_tested_amis()['mhcbar'],
                          self._amis_by_name['mhcbar 2'])
@@ -330,7 +349,7 @@ class DiscoDeployTests(TestCase):
                          self._amis_by_name['mhcfoo 3'])
 
     def test_get_latest_failed_amis_works(self):
-        '''Tests that get_latest_failed_amis() returns latest failed amis'''
+        '''Tests that get_latest_failed_amis() returns non private latest failed amis'''
         self.assertEqual(self._ci_deploy.get_latest_failed_amis()['mhcfoo'],
                          self._amis_by_name['mhcfoo 7'])
 
@@ -345,21 +364,28 @@ class DiscoDeployTests(TestCase):
                           'mhctimedautoscale 1'])
 
     def test_get_test_amis_from_pipeline(self):
-        '''Tests that we can find the next untested ami to test for each hostclass restricted to pipeline'''
+        '''
+        Tests that we can find the next non private untested ami to test
+        for each hostclass restricted to pipeline
+        '''
         self.assertEqual([ami.name for ami in self._ci_deploy.get_test_amis()],
                          ['mhcfoo 6', 'mhcbluegreennondeployable 2',
                           'mhcbluegreen 2', 'mhctimedautoscale 1'])
 
     def test_get_failed_amis(self):
-        '''Tests that we can find the next untested ami to test for each hostclass'''
+        '''Tests that we can find the next non private failed ami to test for each hostclass'''
         self.assertEqual([ami.name for ami in self._ci_deploy.get_failed_amis()],
                          ['mhcfoo 7'])
 
     def test_get_latest_running_amis(self):
-        '''get_latest_running_amis returns later ami if hostclass has two AMIs running'''
-        amis = [self._amis_by_name['mhcintegrated 1'], self._amis_by_name['mhcintegrated 2']]
+        '''get_latest_running_amis returns the latest non private running AMIs'''
+        amis = [self._amis_by_name['mhcintegrated 1'], self._amis_by_name['mhcintegrated 2'],
+                self._amis_by_name['mhcbar 2'], self._amis_by_name['mhcbar 3']]
         self._ci_deploy._disco_bake.get_amis = MagicMock(return_value=amis)
-        self.assertEqual(self._ci_deploy.get_latest_running_amis()['mhcintegrated'], amis[1])
+        self._ci_deploy.get_latest_running_amis = self._real_get_latest_running_amis
+        latest_running_amis = self._ci_deploy.get_latest_running_amis()
+        self.assertEqual(latest_running_amis['mhcintegrated'], amis[1])
+        self.assertEqual(latest_running_amis['mhcbar'], amis[2])
 
     def test_get_update_amis_untested(self):
         '''Tests that we can find the next untested AMI to deploy in prod'''
@@ -1378,3 +1404,33 @@ class DiscoDeployTests(TestCase):
             deployment_strategy="foobar",
             dry_run=False
         )
+
+    def test_test_get_ami_to_deploy_hostclass(self):
+        """Test DiscoDeployTestHelper get_ami_to_deploy for specific host return non private ami"""
+        self._ci_deploy._restrict_hostclass = 'mhcfoo'
+        disco_deploy_helper = DiscoDeployTestHelper(self._ci_deploy)
+        ami = disco_deploy_helper._get_ami_to_deploy()
+        self.assertEqual(ami, self._amis_by_name['mhcfoo 6'])
+
+    def test_test_get_ami_to_deploy_private(self):
+        """Test DiscoDeployTestHelper get_ami_to_deploy for specific private ami"""
+        disco_deploy_helper = DiscoDeployTestHelper(self._ci_deploy)
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcfoo 8'].id]
+        ami = disco_deploy_helper._get_ami_to_deploy()
+        self.assertEqual(ami, self._amis_by_name['mhcfoo 8'])
+
+    def test_update_get_ami_to_deploy_hostclass(self):
+        """Test DiscoDeployUpdateHelper get_ami_to_deploy for specific host return non private ami"""
+        self._ci_deploy._restrict_hostclass = 'mhcfoo'
+        # Mark mhcfoo host deployable
+        self._ci_deploy._hostclasses['mhcfoo']['deployable'] = 'yes'
+        disco_deploy_helper = DiscoDeployUpdateHelper(self._ci_deploy)
+        ami = disco_deploy_helper._get_ami_to_deploy()
+        self.assertEqual(ami, self._amis_by_name['mhcfoo 5'])
+
+    def test_update_get_ami_to_deploy_private(self):
+        """Test DiscoDeployUpdateHelper get_ami_to_deploy for specific private ami"""
+        disco_deploy_helper = DiscoDeployUpdateHelper(self._ci_deploy)
+        self._ci_deploy._restrict_amis = [self._amis_by_name['mhcfoo 10'].id]
+        ami = disco_deploy_helper._get_ami_to_deploy()
+        self.assertEqual(ami, self._amis_by_name['mhcfoo 10'])
