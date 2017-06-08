@@ -293,7 +293,7 @@ class DiscoBake(object):
         """
         Promote youngest ami of latest stage to production
         """
-        ami = self.find_ami(stage=self.final_stage, hostclass=hostclass)
+        ami = self.find_ami(stage=self.final_stage, hostclass=hostclass, include_private=False)
         self.promote_ami_to_production(ami)
 
     def is_prod_ami(self, ami):
@@ -359,7 +359,8 @@ class DiscoBake(object):
         return self.disco_remote_exec.rsync(address, *args, **kwargs)
 
     def _get_phase1_ami_id(self, hostclass):
-        phase1_ami = self.find_ami(self.ami_stages()[-1], self.hc_option(hostclass, "phase1_ami_name"))
+        phase1_ami = self.find_ami(self.ami_stages()[-1], self.hc_option(hostclass, "phase1_ami_name"),
+                                   include_private=False)
         if not phase1_ami:
             raise AMIError("Couldn't find phase 1 ami.")
         return phase1_ami.id
@@ -686,9 +687,9 @@ class DiscoBake(object):
         cutoff_time = int(time.time()) - days * 60 * 60 * 24
         stragglers = dict()
         for hostclass in hostclasses:
-            latest_promoted = self.find_ami(stage, hostclass)
+            latest_promoted = self.find_ami(stage, hostclass, include_private=False)
             if not latest_promoted or DiscoBake.ami_timestamp(latest_promoted) < cutoff_time:
-                latest = self.find_ami(first_stage, hostclass)
+                latest = self.find_ami(first_stage, hostclass, include_private=False)
                 stragglers[hostclass] = latest
         return stragglers
 
@@ -748,7 +749,8 @@ class DiscoBake(object):
         """Return hostclass/ami-type from ami"""
         return ami.name.split()[0]
 
-    def ami_filter(self, amis, stage=None, product_line=None, state=None, hostclass=None):
+    def ami_filter(self, amis, stage=None, product_line=None, state=None, hostclass=None,
+                   include_private=True):
         """
         Returns a filtered subset of amis. Optionally filtered by their productline,
         stage, state, and hostclass.
@@ -760,12 +762,13 @@ class DiscoBake(object):
                 not stages or ami.tags.get("stage", None) in stages,
                 not product_line or ami.tags.get("productline", None) == product_line,
                 not state or ami.state == state,
-                not hostclass or self.ami_hostclass(ami) == hostclass]
+                not hostclass or self.ami_hostclass(ami) == hostclass,
+                ami.tags.get("is_private", False) == 'False' or include_private]
             if all(filters):
                 filtered_amis.append(ami)
         return filtered_amis
 
-    def find_ami(self, stage, hostclass=None, ami_id=None, product_line=None):
+    def find_ami(self, stage, hostclass=None, ami_id=None, product_line=None, include_private=True):
         """
         Find latest AMI of compatible stage, filtered on AMI's hostclass, id, or product_line
         Note that id overrides stage, product_line, and hostclass options.
@@ -779,7 +782,7 @@ class DiscoBake(object):
             filters["name"] = "{0} *".format(hostclass)
             amis = self.get_amis(filters=filters)
             logger.debug("AMI search for %s found %s", filters, amis)
-            amis = self.ami_filter(amis, stage, product_line)
+            amis = self.ami_filter(amis, stage, product_line, include_private=include_private)
             stages = [val.strip() for val in stage.split(",")] if stage else []
             return self._latest_best_stage_ami(stages, amis)
         else:

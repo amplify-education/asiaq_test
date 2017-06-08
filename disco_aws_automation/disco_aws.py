@@ -655,7 +655,8 @@ class DiscoAWS(object):
         stage = stage if stage else self.vpc.ami_stage()
         bake = DiscoBake(self._config, self.connection)
         for entry in hostclass_dicts:
-            entry["ami_obj"] = bake.find_ami(stage, entry.get("hostclass"), entry.get("ami"))
+            entry["ami_obj"] = bake.find_ami(stage, entry.get("hostclass"), entry.get("ami"),
+                                             include_private=False)
             if not entry["ami_obj"]:
                 raise AMIError(
                     "Couldn't find AMI {0} for hostclass {1}, aborting spinup.".format(
