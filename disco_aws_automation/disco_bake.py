@@ -763,7 +763,7 @@ class DiscoBake(object):
                 not product_line or ami.tags.get("productline", None) == product_line,
                 not state or ami.state == state,
                 not hostclass or self.ami_hostclass(ami) == hostclass,
-                ami.tags.get("is_private", False) == 'False' or include_private]
+                ami.tags.get("is_private", 'False') == 'False' or include_private]
             if all(filters):
                 filtered_amis.append(ami)
         return filtered_amis
