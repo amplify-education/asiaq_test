@@ -728,6 +728,7 @@ class DiscoDeployHelperBase(object):
         hostclass = None
         previous_ami_id = None
         status = None
+        ami = None
 
         socify_helper = SocifyHelper(config=self._disco_deploy.config,
                                      ticket_id=ticket_id,

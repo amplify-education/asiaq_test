@@ -13,7 +13,7 @@ import requests_mock
 import requests
 
 import boto.ec2.instance
-from mock import MagicMock, create_autospec, call
+from mock import MagicMock, create_autospec, call, patch
 
 from disco_aws_automation import DiscoDeploy, DiscoAWS, DiscoGroup, DiscoBake, DiscoELB
 from disco_aws_automation.disco_constants import DEPLOYMENT_STRATEGY_BLUE_GREEN
@@ -1316,6 +1316,25 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy.update(ticket_id="AL-1102")
         self.assertEqual(self._ci_deploy.update_ami.call_count, 1)
         self.assertEqual(mock_requests.call_count, 2)
+
+    @requests_mock.Mocker()
+    @patch("disco_aws_automation.disco_deploy.DiscoDeployUpdateHelper._get_ami_to_deploy")
+    def test_update_with_invalid_ami_soc_event(self, mock_requests, mock_get_ami):
+        '''Test update with exception when getting ami and send error event to Socify'''
+        mock_get_ami.side_effect = RuntimeError("Invalid amiId")
+        mock_validate_response = {
+            'message': 'SOCIFY-Mock has successfully processed the validate request:: DeployEvent',
+            'result': {'status': 'Passed', 'err_msgs': []}
+        }
+        mock_event_response = {
+            'message': 'SOCIFY-Mock has successfully processed the event: DeployEvent'
+        }
+        mock_requests.post(SOCIFY_API_BASE + "/validate", json=mock_validate_response, status_code=200)
+        mock_requests.post(SOCIFY_API_BASE + "/event", json=mock_event_response)
+
+        with self.assertRaisesRegexp(RuntimeError, "Invalid amiId"):
+            self._ci_deploy.update(ticket_id="AL-1102")
+        self.assertEqual(mock_requests.call_count, 1)
 
     def test_update_wo_amis(self):
         '''Test update without amis'''
