@@ -50,14 +50,14 @@ class DiscoVPCGateways(object):
         if internet_gateway:
             igw_routes = self.disco_vpc.get_config("{0}_igw_routes".format(network_name))
             if igw_routes:
-                igw_routes = igw_routes.split(" ")
+                igw_routes = igw_routes.split()
                 for igw_route in igw_routes:
                     route_tuples.append((igw_route, internet_gateway['InternetGatewayId']))
 
         if vpn_gateway:
             vgw_routes = self.disco_vpc.get_config("{0}_vgw_routes".format(network_name))
             if vgw_routes:
-                vgw_routes = vgw_routes.split(" ")
+                vgw_routes = vgw_routes.split()
                 for vgw_route in vgw_routes:
                     route_tuples.append((vgw_route, vpn_gateway['VpnGatewayId']))
 
