@@ -271,7 +271,8 @@ class DiscoElastigroupTests(TestCase):
 
     @parameterized.expand([
         ("53%", 47, None),
-        ("20", None, 20)
+        ("20", None, 20),
+        ("", 100, None)
     ])
     def test_update_spotinst_reserve(self, spotinst_reserve, risk, on_demand_count):
         """Verifies updating risk of an existing group"""

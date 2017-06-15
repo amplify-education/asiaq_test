@@ -144,7 +144,7 @@ class SpotinstClient(object):
         if response.status_code != 200:
             status = ret['response']['status']
             req_id = ret['request']['id']
-            errors = ret['response'].get('errors')
+            errors = ret['response'].get('errors') or []
 
             for error in errors:
                 if error.get('code') in ("Throttling", "RequestLimitExceeded"):

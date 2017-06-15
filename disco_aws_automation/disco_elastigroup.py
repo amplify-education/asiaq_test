@@ -14,7 +14,8 @@ from .exceptions import TooManyAutoscalingGroups, SpotinstException, TimeoutErro
 
 logger = logging.getLogger(__name__)
 
-GROUP_ROLL_TIMEOUT = 300
+# max time to wait in seconds for instances to become healthy after a roll
+GROUP_ROLL_TIMEOUT = 1200
 
 
 class DiscoElastigroup(BaseGroup):
@@ -642,7 +643,7 @@ class DiscoElastigroup(BaseGroup):
 
             while current_time < stop_time:
                 roll_status = self.spotinst_client.get_roll_status(group_id, deploy_id)
-                if roll_status['status'] != 'in_progress':
+                if roll_status['status'] not in ('in_progress', 'starting'):
                     if roll_status['status'] != 'finished':
                         logger.error("Roll of group %s did not complete successfully with status %s",
                                      group_id, roll_status['status'])
