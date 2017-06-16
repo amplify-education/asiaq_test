@@ -187,8 +187,8 @@ def _get_mock_s3():
             return {
                 'Contents': [{'Key': key} for key in data.keys() if key.startswith(Prefix)]
             }
-        else:
-            return {}
+
+        return {}
 
     def _mock_head_bucket(Bucket):
         if Bucket != MOCK_S3_BUCKET_NAME:
