@@ -183,11 +183,12 @@ def _get_mock_s3():
     def _mock_list_objects_v2(Bucket, Prefix):
         data = MOCK_S3_STORE[Bucket]
 
-        response = {
-            'Contents': [{'Key': key} for key in data.keys() if key.startswith(Prefix)]
-        }
-
-        return response
+        if data.keys():
+            return {
+                'Contents': [{'Key': key} for key in data.keys() if key.startswith(Prefix)]
+            }
+        else:
+            return {}
 
     def _mock_head_bucket(Bucket):
         if Bucket != MOCK_S3_BUCKET_NAME:
@@ -551,6 +552,27 @@ class DiscoSSMTests(TestCase):
             self.assertEquals('-', output[0]['stderr'])
 
     @patch('boto3.client', mock_boto3_client)
+    def test_get_output_from_s3_bucket_with_no_output(self):
+        """Verify that we get the correct output from an S3 bucket with no output"""
+        instance_ids = ['i-1', 'i-2']
+        mock_command = _create_mock_command(
+            instance_ids=instance_ids,
+            document_name='foo-doc',
+            output_s3_bucket_name='foo-bucket',
+            stdout=None,
+            stderr=None
+        )
+
+        command_id = mock_command['CommandId']
+        command_output = self._ssm.get_ssm_command_output(command_id)
+
+        self.assertEquals(instance_ids, command_output.keys())
+
+        for output in command_output.values():
+            self.assertEquals('-', output[0]['stdout'])
+            self.assertEquals('-', output[0]['stderr'])
+
+    @patch('boto3.client', mock_boto3_client)
     def test_get_output_from_ssm(self):
         """Verify that we get the correct output from the SSM service"""
         instance_ids = ['i-1', 'i-2']
@@ -604,6 +626,26 @@ class DiscoSSMTests(TestCase):
 
         for output in command_output.values():
             self.assertEquals('stdout', output[0]['stdout'])
+            self.assertEquals('-', output[0]['stderr'])
+
+    @patch('boto3.client', mock_boto3_client)
+    def test_get_output_from_ssm_bucket_with_no_output(self):
+        """Verify that we get the correct output from SSM with no output"""
+        instance_ids = ['i-1', 'i-2']
+        mock_command = _create_mock_command(
+            instance_ids=instance_ids,
+            document_name='foo-doc',
+            stderr=None,
+            stdout=None
+        )
+        command_id = mock_command['CommandId']
+
+        command_output = self._ssm.get_ssm_command_output(command_id)
+
+        self.assertEquals(instance_ids, command_output.keys())
+
+        for output in command_output.values():
+            self.assertEquals('-', output[0]['stdout'])
             self.assertEquals('-', output[0]['stderr'])
 
     @patch('boto3.client', mock_boto3_client)
