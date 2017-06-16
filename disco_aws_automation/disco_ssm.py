@@ -247,7 +247,7 @@ class DiscoSSM(object):
             Prefix=key
         )
 
-        keys_from_command = [entry['Key'] for entry in response['Contents']]
+        keys_from_command = [entry['Key'] for entry in response.get('Contents', [])]
 
         stdout_keys = [key for key in keys_from_command if key.endswith('stdout')]
         stderr_keys = [key for key in keys_from_command if key.endswith('stderr')]
