@@ -89,7 +89,7 @@ class DiscoSSM(object):
                 self.s3.head_bucket(Bucket=bucket_name)
                 arguments["OutputS3BucketName"] = bucket_name
             except ClientError:
-                logger.error(
+                logger.warning(
                     "Unable to access S3 bucket '%s', output limited to 2500 characters",
                     bucket_name
                 )
