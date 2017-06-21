@@ -350,7 +350,6 @@ class DiscoElastigroupTests(TestCase):
         }
 
         self.elastigroup.spotinst_client.update_group.assert_called_once_with(group['id'], expected_request)
-        self.elastigroup.spotinst_client.roll_group.assert_called_once_with(group['id'], ANY, ANY, 'ELB')
 
     def test_update_group_update_elb(self):
         """Verifies updating group also updates ELB"""
@@ -379,7 +378,6 @@ class DiscoElastigroupTests(TestCase):
         }
 
         self.elastigroup.spotinst_client.update_group.assert_called_with(group['id'], expected_request)
-        self.elastigroup.spotinst_client.roll_group.assert_called_once_with(group['id'], ANY, ANY, 'ELB')
 
     def test_create_recurring_group_action(self):
         """Verifies recurring actions are created for Elastigroups"""
@@ -480,7 +478,20 @@ class DiscoElastigroupTests(TestCase):
 
         self.assertFalse(self.elastigroup.is_spotinst_enabled())
 
-    def test_get_instances(self):
+    @patch('os.environ.get', MagicMock(return_value="foo"))
+    def test_is_spotinst_enabled(self):
+        """Verify that if spotinst token is set, spotinst is enabled"""
+        self.elastigroup = DiscoElastigroup(ENVIRONMENT_NAME)
+
+        self.assertTrue(self.elastigroup.is_spotinst_enabled())
+
+    @parameterized.expand([
+        (None, None),
+        ("mhcfoo", None),
+        (None, "mhcfoo1"),
+        ("mhcfoo", "mhcfoo1"),
+    ])
+    def test_get_instances(self, hostclass, group_name):
         """Testing getting list of instances for a Elastigroup"""
         self.elastigroup.boto3_ec.describe_instances = MagicMock(return_value={
             'Reservations': [{
@@ -495,17 +506,30 @@ class DiscoElastigroupTests(TestCase):
             'NextToken': None
         })
 
-        instances = self.elastigroup.get_instances()
+        instances = self.elastigroup.get_instances(hostclass=hostclass, group_name=group_name)
 
-        self.elastigroup.boto3_ec.describe_instances.assert_called_once_with(
-            Filters=[
-                {'Name': 'tag:spotinst', 'Values': ['True']},
-                {'Name': 'tag:environment', 'Values': ['moon']},
-                {
-                    'Name': 'instance-state-name',
-                    'Values': ['pending', 'running', 'shutting-down', 'stopping', 'stopped']
-                }
-            ])
+        filters = [
+            {'Name': 'tag:spotinst', 'Values': ['True']},
+            {'Name': 'tag:environment', 'Values': ['moon']},
+            {
+                'Name': 'instance-state-name',
+                'Values': ['pending', 'running', 'shutting-down', 'stopping', 'stopped']
+            }
+        ]
+
+        if hostclass:
+            filters.append({
+                'Name': 'tag:hostclass',
+                'Values': [hostclass]
+            })
+
+        if group_name:
+            filters.append({
+                'Name': 'tag:group_name',
+                'Values': [group_name]
+            })
+
+        self.elastigroup.boto3_ec.describe_instances.assert_called_once_with(Filters=filters)
 
         expected = [{
             'instance_id': 'i-2345',
