@@ -111,7 +111,9 @@ class DiscoDeploy(object):
         '''
         latest_ami = {}
         for ami in self.all_stage_amis:
-            if stage and ami.tags.get("stage") != stage:
+            if ami.tags.get("is_private") == 'True':
+                continue
+            elif stage and ami.tags.get("stage") != stage:
                 continue
             elif stage is None and ami.tags.get("stage") is not None:
                 continue
@@ -175,7 +177,10 @@ class DiscoDeploy(object):
     def get_latest_running_amis(self):
         '''Retuns hostclass: ami mapping with latest running AMIs'''
         running_ami_ids = list({instance.image_id for instance in self._disco_aws.instances()})
-        running_amis = self._disco_bake.get_amis(running_ami_ids)
+        # excludes private amis
+        running_amis = [ami for ami in self._disco_bake.get_amis(running_ami_ids) if ami.tags.get(
+            "is_private") == 'False']
+
         sorted_amis = sorted(running_amis, key=self._disco_bake.get_ami_creation_time)
         return {DiscoBake.ami_hostclass(ami): ami for ami in sorted_amis}
 
@@ -723,6 +728,7 @@ class DiscoDeployHelperBase(object):
         hostclass = None
         previous_ami_id = None
         status = None
+        ami = None
 
         socify_helper = SocifyHelper(config=self._disco_deploy.config,
                                      ticket_id=ticket_id,

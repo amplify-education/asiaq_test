@@ -14,7 +14,8 @@ from .exceptions import TooManyAutoscalingGroups, SpotinstException, TimeoutErro
 
 logger = logging.getLogger(__name__)
 
-GROUP_ROLL_TIMEOUT = 300
+# max time to wait in seconds for instances to become healthy after a roll
+GROUP_ROLL_TIMEOUT = 1200
 
 
 class DiscoElastigroup(BaseGroup):
@@ -65,8 +66,10 @@ class DiscoElastigroup(BaseGroup):
     def get_existing_groups(self, hostclass=None, group_name=None):
         # get a dict for each group that matches the structure that would be returned by DiscoAutoscale
         # this dict needs to have at least all the fields that the interface specifies
-        groups = [
-            {
+        groups = []
+        for group in self._get_spotinst_groups(hostclass, group_name):
+            launch_spec = group['compute']['launchSpecification']
+            groups.append({
                 'name': group['name'],
                 'min_size': group['capacity']['minimum'],
                 'max_size': group['capacity']['maximum'],
@@ -77,19 +80,16 @@ class DiscoElastigroup(BaseGroup):
                     zone['subnetId'] for zone in group['compute']['availabilityZones']
                 ),
                 'load_balancers': [
-                    elb['name'] for elb
                     # loadBalancers will be None instead of a empty list if there is no ELB
-                    in (group['compute']['launchSpecification']['loadBalancersConfig']['loadBalancers'] or [])
+                    elb['name'] for elb in (launch_spec['loadBalancersConfig']['loadBalancers'] or [])
                 ],
-                'image_id': group['compute']['launchSpecification']['imageId'],
+                'image_id': launch_spec['imageId'],
                 'id': group['id'],
                 'type': 'spot',
                 # blockDeviceMappings will be None instead of a empty list if there is no ELB
-                'blockDeviceMappings': (group['compute']['launchSpecification']['blockDeviceMappings'] or []),
+                'blockDeviceMappings': (launch_spec.get('blockDeviceMappings') or []),
                 'scheduling': group.get('scheduling', {'tasks': []})
-            }
-            for group in self._get_spotinst_groups(hostclass, group_name)
-        ]
+            })
         groups.sort(key=lambda grp: grp['name'], reverse=True)
         return groups
 
@@ -630,6 +630,9 @@ class DiscoElastigroup(BaseGroup):
         self.spotinst_client.roll_group(group_id, batch_percentage, grace_period, health_check_type)
 
         if wait:
+            # wait for the deploy to appear in list
+            time.sleep(10)
+
             deployments = self.spotinst_client.get_deployments(group_id)
             deploy_id = deployments[-1]['id']
 
@@ -640,9 +643,10 @@ class DiscoElastigroup(BaseGroup):
 
             while current_time < stop_time:
                 roll_status = self.spotinst_client.get_roll_status(group_id, deploy_id)
-                if roll_status['status'] != 'in_progress':
+                if roll_status['status'] not in ('in_progress', 'starting'):
                     if roll_status['status'] != 'finished':
-                        logger.error("Roll of group %s did not complete successfully", group_id)
+                        logger.error("Roll of group %s did not complete successfully with status %s",
+                                     group_id, roll_status['status'])
                     break
 
                 logger.info("Waiting for %s group to roll in order to update settings", group_id)
