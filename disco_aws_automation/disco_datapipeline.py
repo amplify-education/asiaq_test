@@ -94,7 +94,8 @@ class AsiaqDataPipeline(object):
         return _optional_list_to_dict(self._param_values)
 
     def update_content(self, contents=None, parameter_definitions=None, param_values=None,
-                       template_name=None, log_location=None, subnet_id=None):
+                       template_name=None, log_location=None, subnet_id=None,
+                       backup_period=None):
         """
         Set the pipeline content (pipeline nodes, parameters and values) for this pipeline.
 
@@ -105,6 +106,7 @@ class AsiaqDataPipeline(object):
         if template_name:
             contents, parameter_definitions = _read_template(template_name)
         _update_defaults(contents, log_location, subnet_id)
+        _update_daily_schedule(contents, backup_period)
         self._objects = contents
         self._params = parameter_definitions
         if param_values is not None:
@@ -276,7 +278,8 @@ class AsiaqDataPipelineManager(object):
                 if metanetwork:
                     subnet_id = self._find_subnet_id(metanetwork, availability_zone)
                 pipeline.update_content(template_name=template_name,
-                                        log_location=log_location, subnet_id=subnet_id)
+                                        log_location=log_location, subnet_id=subnet_id,
+                                        backup_period=backup_period)
                 self.save(pipeline)
             else:
                 self.fetch_content(pipeline)
