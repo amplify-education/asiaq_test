@@ -217,7 +217,7 @@ class AsiaqDynamoDbBackupManager(object):
         either a particular backup or the latest one.
         """
         env = self.config.environment
-        pipeline_name = "%s %s - restore" % (table_name, env)
+        pipeline_name = "%s restore - %s" % (table_name, env)
         pipeline_description = "DynamoDB backup restore pipeline for %s." % env
         tags = {'environment': env, 'template': self.RESTORE_PIPELINE_TEMPLATE, 'table_name': table_name}
         if not backup_dir:
