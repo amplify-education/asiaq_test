@@ -521,9 +521,6 @@ class DiscoElastigroup(BaseGroup):
 
         self.spotinst_client.update_group(existing_group['id'], group_config)
 
-        if new_lbs or extras:
-            self._roll_group(existing_group['id'], health_check_type='ELB', wait=True)
-
         return new_lbs, extras
 
     def get_launch_config(self, hostclass=None, group_name=None):
