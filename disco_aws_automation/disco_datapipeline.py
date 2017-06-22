@@ -94,8 +94,7 @@ class AsiaqDataPipeline(object):
         return _optional_list_to_dict(self._param_values)
 
     def update_content(self, contents=None, parameter_definitions=None, param_values=None,
-                       template_name=None, log_location=None, subnet_id=None,
-                       backup_period=None):
+                       template_name=None, log_location=None, subnet_id=None):
         """
         Set the pipeline content (pipeline nodes, parameters and values) for this pipeline.
 
@@ -106,7 +105,6 @@ class AsiaqDataPipeline(object):
         if template_name:
             contents, parameter_definitions = _read_template(template_name)
         _update_defaults(contents, log_location, subnet_id)
-        _update_daily_schedule(contents, backup_period)
         self._objects = contents
         self._params = parameter_definitions
         if param_values is not None:
@@ -176,7 +174,7 @@ class AsiaqDataPipelineManager(object):
             param_values=contents.get('parameterValues')
         )
 
-    def fetch_content(self, pipeline, backup_period=None):
+    def fetch_content(self, pipeline):
         "Populate the pipeline content fields of this pipeline object with the information fetched from AWS."
         if pipeline.has_content():
             raise DataPipelineStateException(
@@ -187,8 +185,7 @@ class AsiaqDataPipelineManager(object):
                                     pipelineId=pipeline._id, version='latest')
         pipeline.update_content(definition['pipelineObjects'],
                                 definition.get('parameterObjects'),
-                                definition.get('parameterValues'),
-                                backup_period=backup_period)
+                                definition.get('parameterValues'))
 
     def search_descriptions(self, name=None, tags=None):
         """
@@ -280,11 +277,10 @@ class AsiaqDataPipelineManager(object):
                 if metanetwork:
                     subnet_id = self._find_subnet_id(metanetwork, availability_zone)
                 pipeline.update_content(template_name=template_name,
-                                        log_location=log_location, subnet_id=subnet_id,
-                                        backup_period=backup_period)
+                                        log_location=log_location, subnet_id=subnet_id)
                 self.save(pipeline)
             else:
-                self.fetch_content(pipeline, backup_period=backup_period)
+                self.fetch_content(pipeline)
         else:
             if metanetwork:
                 subnet_id = self._find_subnet_id(metanetwork, availability_zone)
