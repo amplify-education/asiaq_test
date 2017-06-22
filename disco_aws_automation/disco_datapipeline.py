@@ -266,7 +266,6 @@ class AsiaqDataPipelineManager(object):
         searched = self.search_descriptions(tags=tags)
         subnet_id = None
         if searched:
-
             if len(searched) > 1:
                 raise DataPipelineStateException(
                     "Expected one pipeline with tags %s, found %s" % (tags, len(searched)))
