@@ -213,6 +213,20 @@ class DiscoVPCPeerings(object):
                 str(source_network.network_cidr)
             )
 
+    def _delete_peering_routes(self, peering):
+        """Delete routes related to a peering connection"""
+        route_tables = self._get_peering_route_tables(peering['VpcPeeringConnectionId'])
+        for route_table in route_tables:
+            route_table_id = route_table['RouteTableId']
+            peering_routes = [route for route in route_table['Routes']
+                              if route.get('VpcPeeringConnectionId') == peering['VpcPeeringConnectionId']]
+            if peering_routes:
+                for route in peering_routes:
+                    self.client.delete_route(
+                        DestinationCidrBlock=route['DestinationCidrBlock'],
+                        RouteTableId=route_table_id
+                    )
+
     def _get_peerings_from_config(self, vpc_id=None):
         """
         Parses configuration from disco_vpc.ini's peerings sections.
@@ -258,6 +272,8 @@ class DiscoVPCPeerings(object):
         """Delete peerings. If vpc_id is specified, delete all peerings of the VPCs only"""
         for peering in self.list_peerings(vpc_id):
             try:
+                logger.info('deleting routes for peering connection %s', peering['VpcPeeringConnectionId'])
+                throttled_call(self._delete_peering_routes, peering)
                 logger.info('deleting peering connection %s', peering['VpcPeeringConnectionId'])
                 throttled_call(
                     self.client.delete_vpc_peering_connection,
