@@ -140,6 +140,24 @@ class DataPipelineTest(TestCase):
         self.assertEquals(pipeline._name, "asdf")
         self.assertEquals(pipeline._description, "qwerty")
 
+    def test__from_template__with_backup_period(self):
+        "AsiaqDataPipeline.from_template with backup_period."
+        default_period = "1 day"
+        pipeline = AsiaqDataPipeline.from_template(
+            name="asdf", description="qwerty", template_name="dynamodb_backup")
+        actual_pipeline_schedule = pipeline._objects[0]
+        self.assertEquals("DailySchedule", actual_pipeline_schedule['id'])
+        actual_schedule_fields = actual_pipeline_schedule['fields']
+        self.assertEquals(default_period, actual_schedule_fields[0]['stringValue'])
+        expected_backup_period = "6 hours"
+        pipeline = AsiaqDataPipeline.from_template(
+            name="asdf", description="qwerty", template_name="dynamodb_backup",
+            backup_period=expected_backup_period
+        )
+        actual_pipeline_schedule = pipeline._objects[0]
+        actual_schedule_fields = actual_pipeline_schedule['fields']
+        self.assertEquals(expected_backup_period, actual_schedule_fields[0]['stringValue'])
+
     def test__from_template__log_and_subnet_fields__fields_set(self):
         "AsiaqDataPipeline.from_template with a log location and subnet ID"
         pipeline = AsiaqDataPipeline.from_template(
@@ -190,6 +208,26 @@ class DataPipelineTest(TestCase):
             [{'id': 'this', 'stringValue': 'will not'}, {'id': 'be', 'stringValue': 'overwritten'}],
             pipeline._param_values
         )
+
+    def test__update_content_with_backup_period(self):
+        "AsiaqDataPipeline.update_content with backup_period."
+        pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
+        origin_pipeline_objects = [{"fields": [{"stringValue": "2 hours", "key": "period"}],
+                                    "id": "DailySchedule", "name": "DailySchedule"}]
+        expected_backup_period = "2 hours"
+        param_defs = Mock()
+        pipeline.update_content(origin_pipeline_objects, param_defs)
+        for actual_pipeline_object in pipeline._objects:
+            actual_fields = actual_pipeline_object['fields']
+            for actual_field in actual_fields:
+                self.assertEquals(actual_field['stringValue'], expected_backup_period)
+        expected_backup_period = "3 hours"
+        pipeline.update_content(origin_pipeline_objects, param_defs,
+                                backup_period=expected_backup_period)
+        for actual_pipeline_object in pipeline._objects:
+            actual_fields = actual_pipeline_object['fields']
+            for actual_field in actual_fields:
+                self.assertEquals(actual_field['stringValue'], expected_backup_period)
 
     def test__update_content__old_values_new_empty__values_cleared(self):
         "AsiaqDataPipeline.update_content does not overwrite parameter values when not appropriate"
