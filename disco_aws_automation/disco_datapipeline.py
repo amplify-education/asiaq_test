@@ -106,7 +106,7 @@ class AsiaqDataPipeline(object):
         if template_name:
             contents, parameter_definitions = _read_template(template_name)
         _update_defaults(contents, log_location, subnet_id)
-        _update_daily_schedule(contents, backup_period)
+        _update_schedule(contents, backup_period)
         self._objects = contents
         self._params = parameter_definitions
         if param_values is not None:
@@ -131,7 +131,7 @@ class AsiaqDataPipeline(object):
         """Create a new AsiaqDataPipeline object, populated from template in the configuration directory."""
         boto_objects, boto_parameters = _read_template(template_name)
         _update_defaults(boto_objects, log_location, subnet_id)
-        _update_daily_schedule(boto_objects, backup_period)
+        _update_schedule(boto_objects, backup_period)
         return cls(contents=boto_objects, parameter_definitions=boto_parameters,
                    name=name, description=description, tags=tags, param_values=param_values)
 
@@ -448,7 +448,7 @@ def _update_defaults(pipeline_objects, log_location=None, subnet_id=None):
         add_default_object_fields(pipeline_objects, new_fields)
 
 
-def _update_daily_schedule(pipeline_objects, backup_period=None):
+def _update_schedule(pipeline_objects, backup_period=None):
     """
     Update backup pipeline daily schedule and set backup_period. By default backup
     period is 1 day
