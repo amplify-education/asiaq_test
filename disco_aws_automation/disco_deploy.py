@@ -111,7 +111,7 @@ class DiscoDeploy(object):
         '''
         latest_ami = {}
         for ami in self.all_stage_amis:
-            if ami.tags.get("is_private") == 'True':
+            if ami.tags.get("is_private", 'False') == 'True':
                 continue
             elif stage and ami.tags.get("stage") != stage:
                 continue
@@ -179,7 +179,7 @@ class DiscoDeploy(object):
         running_ami_ids = list({instance.image_id for instance in self._disco_aws.instances()})
         # excludes private amis
         running_amis = [ami for ami in self._disco_bake.get_amis(running_ami_ids) if ami.tags.get(
-            "is_private") == 'False']
+            "is_private", 'False') == 'False']
 
         sorted_amis = sorted(running_amis, key=self._disco_bake.get_ami_creation_time)
         return {DiscoBake.ami_hostclass(ami): ami for ami in sorted_amis}
