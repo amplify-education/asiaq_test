@@ -94,8 +94,7 @@ class AsiaqDataPipeline(object):
         return _optional_list_to_dict(self._param_values)
 
     def update_content(self, contents=None, parameter_definitions=None, param_values=None,
-                       template_name=None, log_location=None, subnet_id=None,
-                       backup_period=None):
+                       template_name=None, log_location=None, subnet_id=None):
         """
         Set the pipeline content (pipeline nodes, parameters and values) for this pipeline.
 
@@ -106,7 +105,6 @@ class AsiaqDataPipeline(object):
         if template_name:
             contents, parameter_definitions = _read_template(template_name)
         _update_defaults(contents, log_location, subnet_id)
-        _update_schedule(contents, backup_period)
         self._objects = contents
         self._params = parameter_definitions
         if param_values is not None:
@@ -127,11 +125,10 @@ class AsiaqDataPipeline(object):
 
     @classmethod
     def from_template(cls, template_name, name, description, tags=None, param_values=None,
-                      log_location=None, subnet_id=None, backup_period=None):
+                      log_location=None, subnet_id=None):
         """Create a new AsiaqDataPipeline object, populated from template in the configuration directory."""
         boto_objects, boto_parameters = _read_template(template_name)
         _update_defaults(boto_objects, log_location, subnet_id)
-        _update_schedule(boto_objects, backup_period)
         return cls(contents=boto_objects, parameter_definitions=boto_parameters,
                    name=name, description=description, tags=tags, param_values=param_values)
 
@@ -249,8 +246,7 @@ class AsiaqDataPipelineManager(object):
         self._dp_client.delete_pipeline(pipelineId=pipeline._id)
 
     def fetch_or_create(self, template_name, pipeline_name, pipeline_description, tags, log_location,
-                        force_update=False, metanetwork=None, availability_zone=None,
-                        backup_period=None):
+                        force_update=False, metanetwork=None, availability_zone=None):
         """
         If a pipeline with the given tags exists, return it; if not, create one with the given tags
         and name based on the provided pipeline, save it, and return it.
@@ -277,9 +273,8 @@ class AsiaqDataPipelineManager(object):
                 _LOG.info("Re-loading content of pipeline %s from template %s", pipeline._id, template_name)
                 if metanetwork:
                     subnet_id = self._find_subnet_id(metanetwork, availability_zone)
-                pipeline.update_content(template_name=template_name,
-                                        log_location=log_location, subnet_id=subnet_id,
-                                        backup_period=backup_period)
+                pipeline.update_content(template_name=template_name, log_location=log_location,
+                                        subnet_id=subnet_id)
                 self.save(pipeline)
             else:
                 self.fetch_content(pipeline)
@@ -288,8 +283,7 @@ class AsiaqDataPipelineManager(object):
                 subnet_id = self._find_subnet_id(metanetwork, availability_zone)
             pipeline = AsiaqDataPipeline.from_template(
                 template_name, pipeline_name, description=pipeline_description,
-                log_location=log_location, tags=tags, subnet_id=subnet_id,
-                backup_period=backup_period)
+                log_location=log_location, tags=tags, subnet_id=subnet_id)
             self.save(pipeline)
             _LOG.info("Created new pipeline %s", pipeline._id)
         return pipeline
@@ -446,21 +440,3 @@ def _update_defaults(pipeline_objects, log_location=None, subnet_id=None):
         new_fields[DataPipelineConsts.SUBNET_ID_FIELD] = subnet_id
     if new_fields:
         add_default_object_fields(pipeline_objects, new_fields)
-
-
-def _update_schedule(pipeline_objects, backup_period=None):
-    """
-    Update backup pipeline daily schedule and set backup_period. By default backup
-    period is 1 day
-    :param pipeline_objects:
-    :param backup_period:
-    :return:
-    """
-    if backup_period:
-        for pipeline_object in pipeline_objects:
-            if pipeline_object['id'] == DataPipelineConsts.DAILY_SCHEDULE:
-                fields = pipeline_object['fields']
-                for field in fields:
-                    if field['key'] == DataPipelineConsts.BACKUP_PERIOD:
-                        _LOG.info("Setting backup period to: %s", backup_period)
-                        field['stringValue'] = backup_period
