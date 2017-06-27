@@ -220,12 +220,12 @@ class DiscoVPCPeerings(object):
             route_table_id = route_table['RouteTableId']
             peering_routes = [route for route in route_table['Routes']
                               if route.get('VpcPeeringConnectionId') == peering['VpcPeeringConnectionId']]
-            if peering_routes:
-                for route in peering_routes:
-                    self.client.delete_route(
-                        DestinationCidrBlock=route['DestinationCidrBlock'],
-                        RouteTableId=route_table_id
-                    )
+
+            for route in peering_routes:
+                self.client.delete_route(
+                    DestinationCidrBlock=route['DestinationCidrBlock'],
+                    RouteTableId=route_table_id
+                )
 
     def _get_peerings_from_config(self, vpc_id=None):
         """

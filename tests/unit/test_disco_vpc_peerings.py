@@ -164,3 +164,34 @@ class DiscoVPCPeeringsUpdateTests(unittest.TestCase):
 
         self.disco_vpc_peerings._create_peering_connections.assert_not_called()
         self.disco_vpc_peerings._create_peering_routes.assert_not_called()
+
+    @patch.object(DiscoVPCPeerings, '_get_peering_route_tables')
+    def test_delete_peering_routes(self, mock_route_tables):
+        """Test peering routes are removed when peering is deleted"""
+
+        self.disco_vpc_peerings.client = MagicMock()
+
+        mock_peering_list = [{
+            'VpcPeeringConnectionId': 'pcx-12345678'
+        }]
+
+        mock_route_tables.return_value = [
+            {
+                'RouteTableId': 'rtb-12345678',
+                'Routes': [
+                    {
+                        'DestinationCidrBlock': '10.10.0.0/16',
+                        'VpcPeeringConnectionId': 'pcx-12345678'
+                    }
+                ]
+            }
+        ]
+
+        self.disco_vpc_peerings.list_peerings = MagicMock(return_value=mock_peering_list)
+
+        self.disco_vpc_peerings.delete_peerings(vpc_id=MagicMock())
+
+        self.disco_vpc_peerings.client.delete_route.assert_called_with(
+            DestinationCidrBlock='10.10.0.0/16',
+            RouteTableId='rtb-12345678'
+        )
