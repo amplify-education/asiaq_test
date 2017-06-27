@@ -203,11 +203,12 @@ class AsiaqDynamoDbBackupManager(object):
                                              pipeline_description=pipeline_description,
                                              log_location=self._s3_url("logs"),
                                              metanetwork=metanetwork,
-                                             force_update=force_update,
-                                             backup_period=backup_period)
+                                             force_update=force_update)
         if start:
             param_values = self._get_table_params(table_name)
             param_values['myOutputS3Loc'] = self._s3_url(env, table_name)
+            if backup_period:
+                param_values['myDDBSchedulePeriod'] = backup_period
             start_resp = self._mgr.start(pipeline, param_values)
             self.logger.debug("Started pipeline, got response %s", start_resp)
 
