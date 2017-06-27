@@ -188,7 +188,8 @@ class AsiaqDynamoDbBackupManager(object):
             self._s3_bucket_name = bucket_name
         return self._s3_bucket_name
 
-    def create_backup(self, table_name, start=True, force_update=False, metanetwork=None):
+    def create_backup(self, table_name, start=True, force_update=False, metanetwork=None,
+                      backup_period=None):
         """
         Create a backup pipeline for the given table, and start it running (unless the
         'start' argument is False).
@@ -206,6 +207,8 @@ class AsiaqDynamoDbBackupManager(object):
         if start:
             param_values = self._get_table_params(table_name)
             param_values['myOutputS3Loc'] = self._s3_url(env, table_name)
+            if backup_period:
+                param_values['myDDBSchedulePeriod'] = backup_period
             start_resp = self._mgr.start(pipeline, param_values)
             self.logger.debug("Started pipeline, got response %s", start_resp)
 
@@ -215,9 +218,9 @@ class AsiaqDynamoDbBackupManager(object):
         either a particular backup or the latest one.
         """
         env = self.config.environment
-        pipeline_name = "%s-restore" % env
+        pipeline_name = "%s restore - %s" % (table_name, env)
         pipeline_description = "DynamoDB backup restore pipeline for %s." % env
-        tags = {'environment': env, 'template': self.RESTORE_PIPELINE_TEMPLATE}
+        tags = {'environment': env, 'template': self.RESTORE_PIPELINE_TEMPLATE, 'table_name': table_name}
         if not backup_dir:
             self.logger.debug("Looking in S3 for most recent backup of %s/%s", env, table_name)
             backup_dir = self._find_latest_backup(env, table_name)
