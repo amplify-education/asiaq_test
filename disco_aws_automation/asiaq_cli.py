@@ -127,6 +127,11 @@ class DynamoDbBackupCommand(CliCommand):
             backup_restore_parser.add_argument("--metanetwork", metavar="NAME",
                                                help="Metanetwork in which to launch pipeline assets")
 
+        backup_parser.add_argument("--backup_period", metavar="PERIOD",
+                                   help="Set period to backup schedule. \n"
+                                        "The format is: \"N [minutes|hours|days|weeks|months]\"\n"
+                                        "Example: --backup_period \"1 hours\"")
+
         restore_parser.add_argument("--from", dest="backup_dir",
                                     help="Previous backup to restore from (default: latest)")
         list_parser = subsub.add_parser("list", help="List existing backups")
@@ -151,7 +156,7 @@ class DynamoDbBackupCommand(CliCommand):
 
     def _create_backup(self, mgr):
         mgr.create_backup(self.args.table_name, force_update=self.args.force_reload,
-                          metanetwork=self.args.metanetwork)
+                          metanetwork=self.args.metanetwork, backup_period=self.args.backup_period)
 
     def _list(self, mgr):
         backups = mgr.list_backups(self.config.environment, self.args.table_name)

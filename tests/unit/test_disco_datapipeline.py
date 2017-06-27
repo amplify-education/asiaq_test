@@ -136,9 +136,18 @@ class DataPipelineTest(TestCase):
         self.assertFalse(pipeline.is_persisted())
         self.assertTrue(pipeline.has_content())
         # nasty cherry-pick:
-        self.assertEquals("DailySchedule", pipeline._objects[0]['id'])
+        self.assertEquals("SchedulePeriod", pipeline._objects[0]['id'])
         self.assertEquals(pipeline._name, "asdf")
         self.assertEquals(pipeline._description, "qwerty")
+
+    def test__from_template__backup_period_value(self):
+        "AsiaqDataPipeline.from_template test if from_template contains myDDBSchedulePeriod."
+        expected_period_value = "#{myDDBSchedulePeriod}"
+        pipeline = AsiaqDataPipeline.from_template(
+            name="asdf", description="qwerty", template_name="dynamodb_backup")
+        actual_pipeline_schedule = pipeline._objects[0]
+        actual_schedule_fields = actual_pipeline_schedule['fields']
+        self.assertEquals(expected_period_value, actual_schedule_fields[0]['stringValue'])
 
     def test__from_template__log_and_subnet_fields__fields_set(self):
         "AsiaqDataPipeline.from_template with a log location and subnet ID"
@@ -638,7 +647,7 @@ class PipelineUtilityTest(TestCase):
             {'id': 'foo', 'name': 'bar', 'fields': []},
             {'id': 'Default', 'name': 'Deffy', 'fields': [
                 {'key': 'pipelineLogUri', 'stringValue': 's3://stupid-bucket'},
-                {'key': 'scheduleType', 'refValue': 'DailySchedule'}
+                {'key': 'scheduleType', 'refValue': 'SchedulePeriod'}
             ]},
             {'id': 'bar', 'name': 'baz', 'fields': []}
         ]
@@ -653,7 +662,7 @@ class PipelineUtilityTest(TestCase):
         object_list = [
             {'id': 'foo', 'name': 'bar', 'fields': []},
             {'id': 'Default', 'name': 'Deffy', 'fields': [
-                {'key': 'scheduleType', 'refValue': 'DailySchedule'}
+                {'key': 'scheduleType', 'refValue': 'SchedulePeriod'}
             ]},
             {'id': 'bar', 'name': 'baz', 'fields': []}
         ]
@@ -668,7 +677,7 @@ class PipelineUtilityTest(TestCase):
         "add_default_object_fields: existing log location gets updated, new field gets added"
         default_fields = [
             {'key': 'pipelineLogUri', 'stringValue': 's3://stupid-bucket'},
-            {'key': 'scheduleType', 'refValue': 'DailySchedule'}
+            {'key': 'scheduleType', 'refValue': 'SchedulePeriod'}
         ]
         object_list = [
             {'id': 'foo', 'name': 'bar', 'fields': []},

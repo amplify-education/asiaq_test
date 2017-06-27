@@ -6,9 +6,9 @@
     "objects": [
         {
             "startAt": "FIRST_ACTIVATION_DATE_TIME",
-            "name": "DailySchedule",
-            "id": "DailySchedule",
-            "period": "1 day",
+            "name": "SchedulePeriod",
+            "id": "SchedulePeriod",
+            "period": "#{myDDBSchedulePeriod}",
             "type": "Schedule"
         },
         {
@@ -16,7 +16,7 @@
             "name": "Default",
             "scheduleType": "CRON",
             "schedule": {
-                "ref": "DailySchedule"
+                "ref": "SchedulePeriod"
             },
             "failureAndRerunMode": "CASCADE",
             "role": "DataPipelineDefaultRole",
@@ -90,6 +90,12 @@
             "id": "myOutputS3Loc",
             "type": "AWS::S3::ObjectKey",
             "description": "Output S3 folder"
+        },
+        {
+            "id": "myDDBSchedulePeriod",
+            "type": "String",
+            "description": "DynamoDB schedule period",
+            "default": "1 day"
         }
     ]
 }
