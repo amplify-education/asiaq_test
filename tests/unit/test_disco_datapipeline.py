@@ -136,7 +136,7 @@ class DataPipelineTest(TestCase):
         self.assertFalse(pipeline.is_persisted())
         self.assertTrue(pipeline.has_content())
         # nasty cherry-pick:
-        self.assertEquals("DailySchedule", pipeline._objects[0]['id'])
+        self.assertEquals("SchedulePeriod", pipeline._objects[0]['id'])
         self.assertEquals(pipeline._name, "asdf")
         self.assertEquals(pipeline._description, "qwerty")
 
@@ -647,7 +647,7 @@ class PipelineUtilityTest(TestCase):
             {'id': 'foo', 'name': 'bar', 'fields': []},
             {'id': 'Default', 'name': 'Deffy', 'fields': [
                 {'key': 'pipelineLogUri', 'stringValue': 's3://stupid-bucket'},
-                {'key': 'scheduleType', 'refValue': 'DailySchedule'}
+                {'key': 'scheduleType', 'refValue': 'SchedulePeriod'}
             ]},
             {'id': 'bar', 'name': 'baz', 'fields': []}
         ]
@@ -662,7 +662,7 @@ class PipelineUtilityTest(TestCase):
         object_list = [
             {'id': 'foo', 'name': 'bar', 'fields': []},
             {'id': 'Default', 'name': 'Deffy', 'fields': [
-                {'key': 'scheduleType', 'refValue': 'DailySchedule'}
+                {'key': 'scheduleType', 'refValue': 'SchedulePeriod'}
             ]},
             {'id': 'bar', 'name': 'baz', 'fields': []}
         ]
@@ -677,7 +677,7 @@ class PipelineUtilityTest(TestCase):
         "add_default_object_fields: existing log location gets updated, new field gets added"
         default_fields = [
             {'key': 'pipelineLogUri', 'stringValue': 's3://stupid-bucket'},
-            {'key': 'scheduleType', 'refValue': 'DailySchedule'}
+            {'key': 'scheduleType', 'refValue': 'SchedulePeriod'}
         ]
         object_list = [
             {'id': 'foo', 'name': 'bar', 'fields': []},

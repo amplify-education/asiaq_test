@@ -6,8 +6,8 @@
     "objects": [
         {
             "startAt": "FIRST_ACTIVATION_DATE_TIME",
-            "name": "DailySchedule",
-            "id": "DailySchedule",
+            "name": "SchedulePeriod",
+            "id": "SchedulePeriod",
             "period": "#{myDDBSchedulePeriod}",
             "type": "Schedule"
         },
@@ -16,7 +16,7 @@
             "name": "Default",
             "scheduleType": "CRON",
             "schedule": {
-                "ref": "DailySchedule"
+                "ref": "SchedulePeriod"
             },
             "failureAndRerunMode": "CASCADE",
             "role": "DataPipelineDefaultRole",
