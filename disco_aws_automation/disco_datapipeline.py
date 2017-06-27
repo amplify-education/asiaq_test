@@ -25,8 +25,6 @@ class DataPipelineConsts(object):
     TEMPLATE_DIR = "datapipeline_templates"
     LOG_LOCATION_FIELD = "pipelineLogUri"
     SUBNET_ID_FIELD = 'subnetId'
-    BACKUP_PERIOD = 'period'
-    DAILY_SCHEDULE = 'DailySchedule'
 
 
 class DataPipelineMetadata(object):
