@@ -271,8 +271,8 @@ class AsiaqDataPipelineManager(object):
                 _LOG.info("Re-loading content of pipeline %s from template %s", pipeline._id, template_name)
                 if metanetwork:
                     subnet_id = self._find_subnet_id(metanetwork, availability_zone)
-                pipeline.update_content(template_name=template_name, log_location=log_location,
-                                        subnet_id=subnet_id)
+                pipeline.update_content(template_name=template_name,
+                                        log_location=log_location, subnet_id=subnet_id)
                 self.save(pipeline)
             else:
                 self.fetch_content(pipeline)
