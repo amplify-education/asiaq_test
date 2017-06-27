@@ -8,7 +8,7 @@
             "startAt": "FIRST_ACTIVATION_DATE_TIME",
             "name": "DailySchedule",
             "id": "DailySchedule",
-            "period": "1 day",
+            "period": "#{myDDBSchedulePeriod}",
             "type": "Schedule"
         },
         {
@@ -90,6 +90,12 @@
             "id": "myOutputS3Loc",
             "type": "AWS::S3::ObjectKey",
             "description": "Output S3 folder"
+        },
+        {
+            "id": "myDDBSchedulePeriod",
+            "type": "String",
+            "description": "DynamoDB schedule period",
+            "default": "1 day"
         }
     ]
 }
