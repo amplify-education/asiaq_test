@@ -745,8 +745,10 @@ class DiscoDeployHelperBase(object):
                 raise RuntimeError("The SOC validation of the associated Ticket and AMI failed.")
             else:
                 hostclass = DiscoBake.ami_hostclass(ami)
+                logger.debug("Deploying new ami %s for hostclass %s.", ami.id, hostclass)
                 previous_ami = self._disco_deploy.get_latest_running_amis().get(hostclass)
                 previous_ami_id = previous_ami.id if previous_ami else ""
+                logger.debug("Previous ami %s.", ami.id)
 
                 self._deploy_ami(ami, dry_run, deployment_strategy)
                 status = SocifyHelper.SOC_EVENT_OK
