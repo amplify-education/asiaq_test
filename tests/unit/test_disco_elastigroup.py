@@ -558,7 +558,7 @@ class DiscoElastigroupTests(TestCase):
         self.assertEqual(expected, instances)
 
     def test_get_launch_config(self):
-        """Verifies Elastigroups are scaled down"""
+        """Testing getting launch config for a hostclass"""
         group = self.mock_elastigroup(hostclass='mhcfoo')
         self.elastigroup.spotinst_client.get_groups.return_value = [group]
 
