@@ -358,8 +358,8 @@ class DiscoElastigroupTests(TestCase):
 
         self.elastigroup.spotinst_client.update_group.assert_called_once_with(group['id'], expected_request)
 
-        self.assertEquals({'elb-newelb'}, new_elbs)
-        self.assertEquals({'elb-1234'}, extras)
+        self.assertEqual({'elb-newelb'}, new_elbs)
+        self.assertEqual({'elb-1234'}, extras)
 
     def test_update_elb_missing_group(self):
         """Test updating ELB for group that doesn't exist"""
@@ -367,8 +367,8 @@ class DiscoElastigroupTests(TestCase):
 
         new_elbs, extras = self.elastigroup.update_elb(['elb-newelb'], hostclass='mhcfoo')
 
-        self.assertEquals(set(), new_elbs)
-        self.assertEquals(set(), extras)
+        self.assertEqual(set(), new_elbs)
+        self.assertEqual(set(), extras)
 
     def test_update_group_update_elb(self):
         """Verifies updating group also updates ELB"""
@@ -564,4 +564,4 @@ class DiscoElastigroupTests(TestCase):
 
         launch_config = self.elastigroup.get_launch_config(hostclass='mhcfoo')
 
-        self.assertEquals({'instance_type': 'm4.large'}, launch_config)
+        self.assertEqual({'instance_type': 'm4.large'}, launch_config)
