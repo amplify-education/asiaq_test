@@ -539,8 +539,6 @@ class DiscoElastigroup(BaseGroup):
 
         instance_type = ':'.join([on_demand_type] + spot_types)
 
-        logging.error(instance_type)
-
         return {
             'instance_type': instance_type
         }
