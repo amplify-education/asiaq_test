@@ -220,7 +220,7 @@ class DiscoAWS(object):
     def get_instance_type(self, hostclass):
         """Pull in instance_type existing launch configuration"""
         old_config = self.discogroup.get_launch_config(hostclass=hostclass)
-        return old_config.instance_type if old_config else DEFAULT_INSTANCE_TYPE
+        return old_config['instance_type'] if old_config else DEFAULT_INSTANCE_TYPE
 
     def get_meta_network_by_name(self, meta_network_name):
         """Return meta network instance by meta network name"""
@@ -254,16 +254,11 @@ class DiscoAWS(object):
         Create new BDM if parameters are specified, else create a device
         mapping from existing configuration.
         """
-        old_config = self.discogroup.get_launch_config(hostclass=hostclass)
-        if not old_config or any([extra_space, extra_disk, iops]):
-            block_device_mappings = [self.disco_storage.configure_storage(
-                hostclass=hostclass, ami_id=ami.id,
-                extra_space=extra_space, extra_disk=extra_disk, iops=iops,
-                ephemeral_disk_count=min([self.disco_storage.get_ephemeral_disk_count(i_type)
-                                          for i_type in instance_type.split(':')]))]
-        else:
-            block_device_mappings = [old_config.block_device_mappings]
-        return block_device_mappings
+        return [self.disco_storage.configure_storage(
+            hostclass=hostclass, ami_id=ami.id,
+            extra_space=extra_space, extra_disk=extra_disk, iops=iops,
+            ephemeral_disk_count=min([self.disco_storage.get_ephemeral_disk_count(i_type)
+                                      for i_type in instance_type.split(':')]))]
 
     def create_floating_interfaces(self, meta_network, hostclass):
         """Creates any floating interfaces as needed"""
