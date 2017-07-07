@@ -150,8 +150,14 @@ class DiscoGroup(BaseGroup):
         )
 
     def get_launch_config(self, hostclass=None, group_name=None):
-        """Create new launchconfig group name"""
-        return self.autoscale.get_launch_config(hostclass, group_name)
+        """Return launch config info for a hostclass, None otherwise"""
+        return self._service_call_for_group(
+            'get_launch_config',
+            _hostclass=hostclass,
+            _group_name=group_name,
+            hostclass=hostclass,
+            group_name=group_name
+        )
 
     # pylint: disable=R0913, R0914
     def create_or_update_group(self, hostclass, desired_size=None, min_size=None, max_size=None,

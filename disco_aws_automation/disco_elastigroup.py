@@ -284,7 +284,7 @@ class DiscoElastigroup(BaseGroup):
                 group, desired_size=desired_size, min_size=min_size, max_size=max_size,
                 image_id=image_id, tags=tags, instance_profile_name=instance_profile_name,
                 block_device_mappings=block_device_mappings, spotinst_reserve=spotinst_reserve,
-                load_balancers=load_balancers
+                load_balancers=load_balancers, instance_type=instance_type
             )
 
             return {'name': group['name']}
@@ -346,7 +346,7 @@ class DiscoElastigroup(BaseGroup):
 
     def _modify_group(self, existing_group, desired_size=None, min_size=None, max_size=None,
                       image_id=None, tags=None, instance_profile_name=None, block_device_mappings=None,
-                      spotinst_reserve=None, load_balancers=None):
+                      spotinst_reserve=None, load_balancers=None, instance_type=None):
         new_config = copy.deepcopy(existing_group)
 
         if min_size is not None:
@@ -369,6 +369,8 @@ class DiscoElastigroup(BaseGroup):
             new_config['compute']['launchSpecification']['iamRole'] = {
                 'name': instance_profile_name
             }
+        if instance_type is not None:
+            new_config['compute']['instanceTypes'] = self._get_instance_type_config(instance_type)
 
         # remove fields that can't be updated
         new_config['capacity'].pop('unit', None)
@@ -524,8 +526,22 @@ class DiscoElastigroup(BaseGroup):
         return new_lbs, extras
 
     def get_launch_config(self, hostclass=None, group_name=None):
-        """Create new launchconfig group name"""
-        raise Exception('Elastigroups don\'t have launch configs')
+        """Return launch config info for a hostclass, None otherwise"""
+        existing_groups = self._get_spotinst_groups(hostclass=hostclass, group_name=group_name)
+
+        if not existing_groups:
+            return None
+
+        on_demand_type = existing_groups[0]['compute']['instanceTypes']['ondemand']
+
+        # the first spot type is always the ondemand type so strip it out to avoid returning it twice
+        spot_types = existing_groups[0]['compute']['instanceTypes']['spot'][1:]
+
+        instance_type = ':'.join([on_demand_type] + spot_types)
+
+        return {
+            'instance_type': instance_type
+        }
 
     def clean_configs(self):
         """Delete unused Launch Configurations in current environment"""

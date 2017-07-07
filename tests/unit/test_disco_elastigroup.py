@@ -35,6 +35,12 @@ class DiscoElastigroupTests(TestCase):
             },
             "compute": {
                 "product": "Linux/UNIX",
+                "instanceTypes": {
+                    "ondemand": "m4.large",
+                    "spot": [
+                        "m4.large"
+                    ]
+                },
                 "launchSpecification": {
                     "imageId": ami_id,
                     "loadBalancersConfig": {
@@ -228,6 +234,7 @@ class DiscoElastigroupTests(TestCase):
                 'name': ANY,
                 'capacity': ANY,
                 'compute': {
+                    'instanceTypes': ANY,
                     'availabilityZones': ANY,
                     'launchSpecification': {
                         'blockDeviceMappings': ANY,
@@ -332,7 +339,7 @@ class DiscoElastigroupTests(TestCase):
         group = self.mock_elastigroup(hostclass='mhcfoo')
         self.elastigroup.spotinst_client.get_groups.return_value = [group]
 
-        self.elastigroup.update_elb(['elb-newelb'], hostclass='mhcfoo')
+        new_elbs, extras = self.elastigroup.update_elb(['elb-newelb'], hostclass='mhcfoo')
 
         expected_request = {
             'group': {
@@ -350,6 +357,18 @@ class DiscoElastigroupTests(TestCase):
         }
 
         self.elastigroup.spotinst_client.update_group.assert_called_once_with(group['id'], expected_request)
+
+        self.assertEqual({'elb-newelb'}, new_elbs)
+        self.assertEqual({'elb-1234'}, extras)
+
+    def test_update_elb_missing_group(self):
+        """Test updating ELB for group that doesn't exist"""
+        self.elastigroup.spotinst_client.get_groups.return_value = []
+
+        new_elbs, extras = self.elastigroup.update_elb(['elb-newelb'], hostclass='mhcfoo')
+
+        self.assertEqual(set(), new_elbs)
+        self.assertEqual(set(), extras)
 
     def test_update_group_update_elb(self):
         """Verifies updating group also updates ELB"""
@@ -537,3 +556,12 @@ class DiscoElastigroupTests(TestCase):
         }]
 
         self.assertEqual(expected, instances)
+
+    def test_get_launch_config(self):
+        """Testing getting launch config for a hostclass"""
+        group = self.mock_elastigroup(hostclass='mhcfoo')
+        self.elastigroup.spotinst_client.get_groups.return_value = [group]
+
+        launch_config = self.elastigroup.get_launch_config(hostclass='mhcfoo')
+
+        self.assertEqual({'instance_type': 'm4.large'}, launch_config)
