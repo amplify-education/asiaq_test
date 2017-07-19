@@ -460,10 +460,10 @@ class DiscoElastigroup(BaseGroup):
             }
 
             if min_size:
-                task['scaleMinCapcity'] = min_size
+                task['scaleMinCapacity'] = min_size
 
             if max_size:
-                task['scaleMaxCapcity'] = max_size
+                task['scaleMaxCapacity'] = max_size
 
             if desired_capacity:
                 task['scaleTargetCapacity'] = desired_capacity

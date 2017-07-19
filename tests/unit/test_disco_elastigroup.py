@@ -68,7 +68,7 @@ class DiscoElastigroupTests(TestCase):
                 "tasks": [{
                     'taskType': 'scale',
                     'cronExpression': '12 0 * * *',
-                    'scaleMinCapcity': 5
+                    'scaleMinCapacity': 5
                 }]
             }
         }
@@ -411,11 +411,11 @@ class DiscoElastigroupTests(TestCase):
                     'tasks': [{
                         'taskType': 'scale',
                         'cronExpression': '12 0 * * *',
-                        'scaleMinCapcity': 5
+                        'scaleMinCapacity': 5
                     }, {
                         'taskType': 'scale',
                         'cronExpression': '0 0 * * *',
-                        'scaleMinCapcity': 1
+                        'scaleMinCapacity': 1
                     }]
                 }
             }
