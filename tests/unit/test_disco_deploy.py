@@ -1424,7 +1424,7 @@ class DiscoDeployTests(TestCase):
             dry_run=False
         )
 
-    def test_deployable_option_overrides_in_test(self):
+    def test_deployable_option_in_test(self):
         """Tests that providing a deployable option overrides in test"""
         self._ci_deploy.handle_blue_green_ami = MagicMock()
 
@@ -1442,18 +1442,12 @@ class DiscoDeployTests(TestCase):
             force_deployable=True
         )
 
-        self._ci_deploy.handle_blue_green_ami.assert_has_calls(
-            [
-                 call(
-                    ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=False
-                 ),
-                 call(
-                    ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=True
-                 )
-            ]
-        )
+        self._ci_deploy.handle_blue_green_ami.assert_has_calls([
+            call(ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=False),
+            call(ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=True)
+        ])
 
-    def test_deployable_option_overrides_in_update(self):
+    def test_deployable_option_in_update(self):
         """Tests that providing a deployable option overrides in update"""
         self._ci_deploy.handle_blue_green_ami = MagicMock()
 
@@ -1471,16 +1465,10 @@ class DiscoDeployTests(TestCase):
             force_deployable=True
         )
 
-        self._ci_deploy.handle_blue_green_ami.assert_has_calls(
-            [
-                 call(
-                    ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=False
-                 ),
-                 call(
-                    ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=True
-                 )
-            ]
-        )
+        self._ci_deploy.handle_blue_green_ami.assert_has_calls([
+            call(ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=False),
+            call(ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=True)
+        ])
 
     def test_test_get_ami_to_deploy_hostclass(self):
         """Test DiscoDeployTestHelper get_ami_to_deploy for specific host return non private ami"""
