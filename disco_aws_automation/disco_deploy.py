@@ -566,7 +566,7 @@ class DiscoDeploy(object):
         sys.stdout.write(stdout)
         return exit_code == 0
 
-    def test_ami(self, ami, dry_run, deployment_strategy=None):
+    def test_ami(self, ami, dry_run, deployment_strategy=None, force_deployable=None):
         '''Handles testing and promoting a new AMI for a hostclass'''
         logger.info("testing %s %s", ami.id, ami.name)
         hostclass = DiscoBake.ami_hostclass(ami)
@@ -579,7 +579,10 @@ class DiscoDeploy(object):
         # the testing environment but do need to be tested. An example would be hostclasses that are
         # only expected to exist in the bakery_environment. This doesn't hold true for update, which
         # should just always deploy things unless explicitly told no.
-        deployable = pipeline_hostclass_dict and self.is_deployable(hostclass)
+        if force_deployable is not None:
+            deployable = force_deployable
+        else:
+            deployable = pipeline_hostclass_dict and self.is_deployable(hostclass)
 
         if deployment_strategy is not None:
             desired_deployment_strategy = deployment_strategy
@@ -601,7 +604,7 @@ class DiscoDeploy(object):
                 "Unsupported deployment strategy: {0}".format(desired_deployment_strategy)
             )
 
-    def update_ami(self, ami, dry_run, deployment_strategy=None):
+    def update_ami(self, ami, dry_run, deployment_strategy=None, force_deployable=None):
         '''Handles updating a hostclass to the latest tested AMI'''
         logger.info("updating %s %s", ami.id, ami.name)
         hostclass = DiscoBake.ami_hostclass(ami)
@@ -609,8 +612,12 @@ class DiscoDeploy(object):
         if not pipeline_dict:
             raise RuntimeError("Pipeline Dictionary is not defined.")
 
+        if force_deployable is not None:
+            deployable = force_deployable
+        else:
+            deployable = self.is_deployable(hostclass)
+
         group = self._disco_group.get_existing_group(hostclass)
-        deployable = self.is_deployable(hostclass)
         testable = bool(self.get_integration_test(hostclass))
 
         if deployment_strategy:
@@ -633,7 +640,7 @@ class DiscoDeploy(object):
                 "Unsupported deployment strategy: {0}".format(desired_deployment_strategy)
             )
 
-    def test(self, dry_run=False, deployment_strategy=None, ticket_id=None):
+    def test(self, dry_run=False, deployment_strategy=None, ticket_id=None, force_deployable=None):
         '''
         Tests a single AMI and marks it as tested or failed.
         If the ami id is specified using the option --ami then run test on the specified ami
@@ -641,9 +648,14 @@ class DiscoDeploy(object):
         Otherwise use the most recent untested ami for the hostclass
         '''
         disco_deploy_helper = DiscoDeployTestHelper(self)
-        disco_deploy_helper.run_deploy(dry_run, deployment_strategy, ticket_id)
+        disco_deploy_helper.run_deploy(
+            dry_run,
+            deployment_strategy,
+            ticket_id,
+            force_deployable=force_deployable
+        )
 
-    def update(self, dry_run=False, deployment_strategy=None, ticket_id=None):
+    def update(self, dry_run=False, deployment_strategy=None, ticket_id=None, force_deployable=None):
         '''
         Updates a single autoscaling group with a newer AMI or AMI specified in the --ami option
         If the ami id is specify using the option --ami then run update using the specified ami
@@ -651,7 +663,12 @@ class DiscoDeploy(object):
         Otherwise uses the most recent tested or un tagged ami
         '''
         disco_deploy_helper = DiscoDeployUpdateHelper(self)
-        disco_deploy_helper.run_deploy(dry_run, deployment_strategy, ticket_id)
+        disco_deploy_helper.run_deploy(
+            dry_run,
+            deployment_strategy,
+            ticket_id,
+            force_deployable=force_deployable
+        )
 
     def hostclass_option(self, hostclass, key):
         '''
@@ -703,7 +720,7 @@ class DiscoDeployHelperBase(object):
         return
 
     @abstractmethod
-    def _deploy_ami(self, ami, dry_run, deployment_strategy):
+    def _deploy_ami(self, ami, dry_run, deployment_strategy, force_deployable=None):
         """
         Process the deploy command of a given ami.
        :param ami:
@@ -713,7 +730,7 @@ class DiscoDeployHelperBase(object):
         """
         return
 
-    def run_deploy(self, dry_run=False, deployment_strategy=None, ticket_id=None):
+    def run_deploy(self, dry_run=False, deployment_strategy=None, ticket_id=None, force_deployable=None):
         '''
         deploy test or update a single AMI and marks it as tested or failed.
         '''
@@ -750,7 +767,7 @@ class DiscoDeployHelperBase(object):
                 previous_ami_id = previous_ami.id if previous_ami else ""
                 logger.debug("Previous ami %s.", ami.id)
 
-                self._deploy_ami(ami, dry_run, deployment_strategy)
+                self._deploy_ami(ami, dry_run, deployment_strategy, force_deployable=force_deployable)
                 status = SocifyHelper.SOC_EVENT_OK
         except Exception as err:
             socify_helper.send_event(
@@ -785,8 +802,8 @@ class DiscoDeployTestHelper(DiscoDeployHelperBase):
             self._disco_deploy.get_test_amis()
         return random.choice(amis) if amis else None
 
-    def _deploy_ami(self, ami, dry_run, deployment_strategy):
-        self._disco_deploy.test_ami(ami, dry_run, deployment_strategy)
+    def _deploy_ami(self, ami, dry_run, deployment_strategy, force_deployable=None):
+        self._disco_deploy.test_ami(ami, dry_run, deployment_strategy, force_deployable=force_deployable)
 
 
 class DiscoDeployUpdateHelper(DiscoDeployHelperBase):
@@ -806,5 +823,5 @@ class DiscoDeployUpdateHelper(DiscoDeployHelperBase):
             self._disco_deploy.get_update_amis()
         return random.choice(amis) if amis else None
 
-    def _deploy_ami(self, ami, dry_run, deployment_strategy):
-        self._disco_deploy.update_ami(ami, dry_run, deployment_strategy)
+    def _deploy_ami(self, ami, dry_run, deployment_strategy, force_deployable=None):
+        self._disco_deploy.update_ami(ami, dry_run, deployment_strategy, force_deployable=force_deployable)

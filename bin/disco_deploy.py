@@ -5,10 +5,10 @@ Deploys newly baked hostclasses
 Usage:
     disco_deploy.py [options] test --pipeline PIPELINE
                     [--environment ENV] [--ami AMI] [--hostclass HOSTCLASS] [--allow-any-hostclass]
-                    [--strategy STRATEGY] [--ticket TICKETID]
+                    [--strategy STRATEGY] [--ticket TICKETID] [--deployable DEPLOYABLE]
     disco_deploy.py [options] update --pipeline PIPELINE --environment ENV
                     [--ami AMI] [--hostclass HOSTCLASS] [--allow-any-hostclass] [--strategy STRATEGY]
-                    [--ticket TICKETID]
+                    [--ticket TICKETID] [--deployable DEPLOYABLE]
     disco_deploy.py [options] list (--tested|--untested|--failed|--failures|--testable)
                     [--pipeline PIPELINE] [--environment ENV] [--ami AMI] [--hostclass HOSTCLASS]
                     [--allow-any-hostclass]
@@ -34,9 +34,13 @@ Options:
      --hostclass HOSTCLASS  Limit command to a specific hostclass
      --environment ENV      Environment to operate in
      --allow-any-hostclass  Do not limit command to hostclasses defined in pipeline
-     --strategy STRATEGY    The deployment strategy to use. Currently supported: 'classic' or 'blue_green'.
+     --strategy STRATEGY    The deployment strategy to use. Currently supported: 'blue_green'.
      --ticket TICKETID      The issue id associated to the deploy. The specified issue will be
                             updated based on the deploy status
+    --deployable DEPLOYABLE Whether or not to force the instance to be deployed as deployable, or not. If an
+                            instance is not deployable, the old ASG is retained and the new ASG is deleted.
+                            Otherwise, if it is deployable, the new ASG is retained and the old ASG is
+                            deleted.
 
      --tested               List of latest tested AMI for each hostclass
      --untested             List of latest untested AMI for each hostclass
@@ -56,7 +60,7 @@ import sys
 from docopt import docopt
 
 from disco_aws_automation import DiscoAWS, DiscoGroup, DiscoBake, DiscoDeploy, DiscoELB, DiscoVPC
-from disco_aws_automation.disco_aws_util import run_gracefully
+from disco_aws_automation.disco_aws_util import run_gracefully, is_truthy
 from disco_aws_automation.disco_config import read_config
 from disco_aws_automation.disco_logging import configure_logging
 
@@ -77,6 +81,8 @@ def run():
     configure_logging(args["--debug"])
 
     env = args["--environment"] or config.get("disco_aws", "default_environment")
+
+    force_deployable = None if args["--deployable"] is None else is_truthy(args["--deployable"])
 
     pipeline_definition = []
     if args["--pipeline"]:
@@ -111,14 +117,14 @@ def run():
     if args["test"]:
         try:
             deploy.test(dry_run=args["--dry-run"], deployment_strategy=args["--strategy"],
-                        ticket_id=args["--ticket"])
+                        ticket_id=args["--ticket"], force_deployable=force_deployable)
         except RuntimeError as err:
             logger.error(str(err))
             sys.exit(1)
     elif args["update"]:
         try:
             deploy.update(dry_run=args["--dry-run"], deployment_strategy=args["--strategy"],
-                          ticket_id=args["--ticket"])
+                          ticket_id=args["--ticket"], force_deployable=force_deployable)
         except RuntimeError as err:
             logger.error(str(err))
             sys.exit(1)
