@@ -13,7 +13,7 @@ import requests_mock
 import requests
 
 import boto.ec2.instance
-from mock import MagicMock, create_autospec, call, patch
+from mock import MagicMock, create_autospec, call, patch, ANY
 
 from disco_aws_automation import DiscoDeploy, DiscoAWS, DiscoGroup, DiscoBake, DiscoELB
 from disco_aws_automation.disco_constants import DEPLOYMENT_STRATEGY_BLUE_GREEN
@@ -1422,6 +1422,64 @@ class DiscoDeployTests(TestCase):
             ami=self._amis_by_name['mhcfoo 4'],
             deployment_strategy="foobar",
             dry_run=False
+        )
+
+    def test_deployable_option_overrides_in_test(self):
+        """Tests that providing a deployable option overrides in test"""
+        self._ci_deploy.handle_blue_green_ami = MagicMock()
+
+        self._ci_deploy.test_ami(
+            ami=self._amis_by_name['mhcfoo 4'],
+            deployment_strategy=DEPLOYMENT_STRATEGY_BLUE_GREEN,
+            dry_run=False,
+            force_deployable=False
+        )
+
+        self._ci_deploy.test_ami(
+            ami=self._amis_by_name['mhcfoo 4'],
+            deployment_strategy=DEPLOYMENT_STRATEGY_BLUE_GREEN,
+            dry_run=False,
+            force_deployable=True
+        )
+
+        self._ci_deploy.handle_blue_green_ami.assert_has_calls(
+            [
+                 call(
+                    ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=False
+                 ),
+                 call(
+                    ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=True
+                 )
+            ]
+        )
+
+    def test_deployable_option_overrides_in_update(self):
+        """Tests that providing a deployable option overrides in update"""
+        self._ci_deploy.handle_blue_green_ami = MagicMock()
+
+        self._ci_deploy.update_ami(
+            ami=self._amis_by_name['mhcfoo 4'],
+            deployment_strategy=DEPLOYMENT_STRATEGY_BLUE_GREEN,
+            dry_run=False,
+            force_deployable=False
+        )
+
+        self._ci_deploy.update_ami(
+            ami=self._amis_by_name['mhcfoo 4'],
+            deployment_strategy=DEPLOYMENT_STRATEGY_BLUE_GREEN,
+            dry_run=False,
+            force_deployable=True
+        )
+
+        self._ci_deploy.handle_blue_green_ami.assert_has_calls(
+            [
+                 call(
+                    ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=False
+                 ),
+                 call(
+                    ANY, dry_run=ANY, old_group=ANY, pipeline_dict=ANY, run_tests=ANY, deployable=True
+                 )
+            ]
         )
 
     def test_test_get_ami_to_deploy_hostclass(self):
