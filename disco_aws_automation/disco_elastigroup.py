@@ -468,8 +468,9 @@ class DiscoElastigroup(BaseGroup):
 
             existing_schedule = existing_group['scheduling']
 
+            # don't create tasks that already exist
             if task in existing_schedule['tasks']:
-                return
+                continue
 
             existing_schedule['tasks'].append(task)
 
