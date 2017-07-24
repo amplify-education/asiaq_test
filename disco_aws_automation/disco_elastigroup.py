@@ -440,9 +440,7 @@ class DiscoElastigroup(BaseGroup):
 
             group_config = {
                 'group': {
-                    'scheduling': {
-                        'tasks': []
-                    }
+                    'scheduling': None
                 }
             }
 
@@ -469,6 +467,10 @@ class DiscoElastigroup(BaseGroup):
                 task['scaleTargetCapacity'] = desired_capacity
 
             existing_schedule = existing_group['scheduling']
+
+            if task in existing_schedule['tasks']:
+                return
+
             existing_schedule['tasks'].append(task)
 
             group_config = {
