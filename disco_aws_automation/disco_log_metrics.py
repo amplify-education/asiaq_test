@@ -8,7 +8,7 @@ from ConfigParser import ConfigParser
 import boto3
 
 from .disco_config import normalize_path
-from .resource_helper import throttled_call
+from .resource_helper import throttled_call, get_boto3_paged_results
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +96,14 @@ class DiscoLogMetrics(object):
 
     def list_log_groups(self, hostclass):
         """List log groups for a hostclass"""
-        response = throttled_call(self.logs.describe_log_groups,
-                                  logGroupNamePrefix=self.environment + "/" + hostclass)
+        log_groups = get_boto3_paged_results(
+            self.logs.describe_log_groups,
+            results_key='logGroups',
+            next_token_key='nextToken',
+            logGroupNamePrefix=self.environment + "/" + hostclass
+        )
 
-        return sorted(response.get('logGroups', []), key=lambda group: group['logGroupName'])
+        return sorted(log_groups, key=lambda group: group['logGroupName'])
 
     def delete_all_metrics(self):
         """Delete all metric filters in the current environment"""
