@@ -432,9 +432,7 @@ class DiscoElastigroupTests(TestCase):
 
         expected_request = {
             'group': {
-                'scheduling': {
-                    'tasks': []
-                }
+                'scheduling': None
             }
         }
 
