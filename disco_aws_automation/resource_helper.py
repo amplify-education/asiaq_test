@@ -202,6 +202,25 @@ def wait_for_sshable(remotecmd, instance, timeout=15 * 60, quiet=False):
         .format(instance, timeout))
 
 
+def get_boto3_paged_results(func, results_key, next_token_key='NextToken', *args, **kwargs):
+    """
+    Helper method for automatically making multiple boto requests for their listing functions
+    :param function func: Boto3 function to call
+    :param str results_key: Key of response dict that contains list items
+    :param str next_token_key: Key of the response dict that contains the paging token
+    :return list:
+    """
+    response = throttled_call(func, *args, **kwargs)
+    response_items = response[results_key]
+
+    while response.get(next_token_key):
+        kwargs[next_token_key] = response[next_token_key]
+        response = throttled_call(func, *args, **kwargs)
+        response_items += response[results_key]
+
+    return response_items
+
+
 def check_written_s3(object_name, expected_written_length, written_length):
     """
     Check S3 object is written by checking the bytes_written from key.set_contents_from_* method
