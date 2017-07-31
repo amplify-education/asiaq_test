@@ -59,7 +59,7 @@ import sys
 
 from docopt import docopt
 
-from disco_aws_automation import DiscoAWS, DiscoGroup, DiscoBake, DiscoDeploy, DiscoELB, DiscoVPC
+from disco_aws_automation import DiscoAWS, DiscoGroup, DiscoBake, DiscoDeploy, DiscoELB, DiscoVPC, DiscoSSM
 from disco_aws_automation.disco_aws_util import run_gracefully, is_truthy
 from disco_aws_automation.disco_config import read_config
 from disco_aws_automation.disco_logging import configure_logging
@@ -109,7 +109,7 @@ def run():
     vpc = DiscoVPC.fetch_environment(environment_name=env)
 
     deploy = DiscoDeploy(
-        aws, test_aws, bake, DiscoGroup(env), DiscoELB(vpc),
+        aws, test_aws, bake, DiscoGroup(env), DiscoELB(vpc), DiscoSSM(environment_name=env),
         pipeline_definition=pipeline_definition,
         ami=args.get("--ami"), hostclass=args.get("--hostclass"),
         allow_any_hostclass=args["--allow-any-hostclass"])

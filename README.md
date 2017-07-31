@@ -2317,6 +2317,8 @@ test_hostclass=mhcfootest
 test_user=integration_tester
 test_command=/opt/asiaq/bin/run_tests.sh
 deployment_strategy=blue_green # One of [blue_green]
+ssm_doc_testing_mode=asiaq-testing-mode
+ssm_doc_integration_tests=asiaq-run-tests
 ```
 
 * test_hostclass
@@ -2327,6 +2329,14 @@ deployment_strategy=blue_green # One of [blue_green]
   * The command to execute the tests on ```test_hostclass``` as the ```test_user```. Typically a shell script with some logic for handling the test argument that is passed to it. The exit code of this command determines whether or not the integration tests were successful.
 * deployment_strategy
   * The deployment strategy to use when deploying a new AMI. The default is currently ```blue_green```.
+* ssm_doc_testing_mode
+  * If provided, Asiaq will execute the provided SSM document with a `mode` variable set to either `on` or `off`, depending on whether or not the instance is entering or exiting testing mode. If this entry is not provided, Asiaq will fallback to executing the `/etc/asiaq/bin/testing_mode.sh` via SSH.
+* ssm_doc_integration_tests
+  * If provided, Asiaq will execute the provided SSM document to run integration tests during deployment. The SSM document will be passed several variables:
+    * `runner` will be given the value of `test_command`
+    * `user` will be given the value of `test_user`
+    * `test` will be given the name of the integration test defined in the pipeline.
+  * If not provided, Asiaq will fallback to executing the integration tests via SSH.
 
 These options can be specified in two places in ```disco_aws.ini```, in the ```[test]``` section or in a given hostclass' section. Below is an example of specifying defaults in the ```[test]``` section and overriding them for the mhcfoo hostclass.
 

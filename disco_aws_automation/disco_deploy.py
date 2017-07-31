@@ -39,7 +39,7 @@ class DiscoDeploy(object):
     '''DiscoDeploy takes care of testing, promoting and deploying the latests AMIs'''
 
     # pylint: disable=too-many-arguments
-    def __init__(self, aws, test_aws, bake, discogroup, elb, pipeline_definition,
+    def __init__(self, aws, test_aws, bake, discogroup, elb, ssm, pipeline_definition,
                  ami=None, hostclass=None, allow_any_hostclass=False, config=None):
         '''
         Constructor for DiscoDeploy
@@ -49,6 +49,7 @@ class DiscoDeploy(object):
         :param bake a DiscoBake instance to use
         :param discogroup a DiscoGroup instance to use
         :param elb a DiscoELB instance to use
+        :param ssm a DiscoSSM instance to use
         :param pipeline_definition a list of dicts containing hostname, deployable and other pipeline values
         :param allow_any_hostclass do not restrict to hostclasses in the pipeline definition
         :param config: Configuration object to use.
@@ -62,6 +63,7 @@ class DiscoDeploy(object):
         self._disco_bake = bake
         self._disco_group = discogroup
         self._disco_elb = elb
+        self._disco_ssm = ssm
         self._all_stage_amis = None
         self._hostclasses = self._get_hostclasses_from_pipeline_definition(pipeline_definition)
         self._allow_any_hostclass = allow_any_hostclass
@@ -519,6 +521,19 @@ class DiscoDeploy(object):
 
         Returns False if any of the instances failed to enter or exit testing mode.
         '''
+        ssm_doc_testing_mode = self.hostclass_option_default(hostclass, "ssm_doc_testing_mode")
+
+        if ssm_doc_testing_mode:
+            instance_ids = [instance.id for instance in instances]
+            return self._disco_ssm.execute(
+                instance_ids=instance_ids,
+                document_name=ssm_doc_testing_mode,
+                parameters={
+                    "mode": "on" if mode_on else "off"
+                },
+                comment="Asiaq Deploy is toggling testing mode"
+            )
+
         exit_code = 0
         for inst in instances:
             _code, _stdout = self._disco_aws.remotecmd(
@@ -559,9 +574,27 @@ class DiscoDeploy(object):
                 logger.exception("Waiting for health of instances attached to testing ELB timed out")
                 return False
 
+        test_host = self.get_host(test_hostclass)
+
         logger.info("running integration test %s on %s", test_name, test_hostclass)
+
+        ssm_doc_integration_tests = self.hostclass_option_default(hostclass, "ssm_doc_integration_tests")
+
+        if ssm_doc_integration_tests:
+            instance_id = test_host.id
+            return self._disco_ssm.execute(
+                instance_ids=[instance_id],
+                document_name=ssm_doc_integration_tests,
+                parameters={
+                    "runner": test_command,
+                    "test": test_name,
+                    "user": test_user
+                },
+                comment="Asiaq Deploy is running integration tests"
+            )
+
         exit_code, stdout = self._test_aws.remotecmd(
-            self.get_host(test_hostclass), [test_command, test_name],
+            test_host, [test_command, test_name],
             user=test_user, nothrow=True)
         sys.stdout.write(stdout)
         return exit_code == 0

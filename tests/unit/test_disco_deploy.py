@@ -2,20 +2,17 @@
 Tests of disco_bake
 """
 from __future__ import print_function
+
 import random
-
 from unittest import TestCase
-
-from datetime import datetime
-from datetime import timedelta
-
-import requests_mock
-import requests
+from datetime import datetime, timedelta
 
 import boto.ec2.instance
+import requests
+import requests_mock
 from mock import MagicMock, create_autospec, call, patch, ANY
 
-from disco_aws_automation import DiscoDeploy, DiscoAWS, DiscoGroup, DiscoBake, DiscoELB
+from disco_aws_automation import DiscoDeploy, DiscoAWS, DiscoGroup, DiscoBake, DiscoELB, DiscoSSM
 from disco_aws_automation.disco_constants import DEPLOYMENT_STRATEGY_BLUE_GREEN
 from disco_aws_automation.disco_deploy import DiscoDeployTestHelper, DiscoDeployUpdateHelper
 from disco_aws_automation.exceptions import (
@@ -87,8 +84,19 @@ MOCK_PIPELINE_DEFINITION = [
         'max_size': '5@30 16 * * 1-5:6@00 17 * * 1-5',
         'integration_test': None,
         'deployable': 'no'
+    },
+    {
+        'hostclass': 'mhcssmdocs',
+        'min_size': "1",
+        'desired_size': "1",
+        'integration_test': "ssm_service",
+        'deployable': 'no'
     }
 ]
+
+SOCIFY_API_BASE = 'https://socify-ci.aws.wgen.net'
+SSM_DOC_TESTING_MODE = "fake_ssm_doc_testing_mode"
+SSM_DOC_INTEGRATION_TESTS = "fake_ssm_doc_integration_tests"
 
 MOCK_CONFIG_DEFINITON = {
     "test": {
@@ -106,12 +114,15 @@ MOCK_CONFIG_DEFINITON = {
     "mhcbluegreennondeployable": {
         "deployment_strategy": DEPLOYMENT_STRATEGY_BLUE_GREEN
     },
+    "mhcssmdocs": {
+        "deployment_strategy": DEPLOYMENT_STRATEGY_BLUE_GREEN,
+        "ssm_doc_testing_mode": SSM_DOC_TESTING_MODE,
+        "ssm_doc_integration_tests": SSM_DOC_INTEGRATION_TESTS
+    },
     "socify": {
-        'socify_baseurl': 'https://socify-ci.aws.wgen.net'
+        'socify_baseurl': SOCIFY_API_BASE
     }
 }
-
-SOCIFY_API_BASE = 'https://socify-ci.aws.wgen.net'
 
 
 # Too many tests is probably not a bad thing
@@ -180,6 +191,7 @@ class DiscoDeployTests(TestCase):
         self._disco_group = create_autospec(DiscoGroup, instance=True)
         self._disco_elb = create_autospec(DiscoELB, instance=True)
         self._disco_aws = create_autospec(DiscoAWS, instance=True)
+        self._disco_ssm = create_autospec(DiscoSSM, instance=True)
         self._disco_aws.environment_name = "test_env"
         self._test_aws = self._disco_aws
         self._existing_group = self.mock_group("mhcfoo")
@@ -190,9 +202,8 @@ class DiscoDeployTests(TestCase):
         self._disco_bake.get_ami_creation_time = DiscoBake.extract_ami_creation_time_from_ami_name
         self._ci_deploy = DiscoDeploy(
             self._disco_aws, self._test_aws, self._disco_bake, self._disco_group, self._disco_elb,
-            pipeline_definition=MOCK_PIPELINE_DEFINITION,
-            ami=None, hostclass=None, allow_any_hostclass=False,
-            config=get_mock_config(MOCK_CONFIG_DEFINITON))
+            self._disco_ssm, pipeline_definition=MOCK_PIPELINE_DEFINITION, ami=None, hostclass=None,
+            allow_any_hostclass=False, config=get_mock_config(MOCK_CONFIG_DEFINITON))
         self._ci_deploy._disco_aws.terminate = MagicMock()
         self._amis = []
         self._amis_by_name = {}
@@ -1056,8 +1067,8 @@ class DiscoDeployTests(TestCase):
         self._disco_aws.smoketest_once = MagicMock(side_effect=TimeoutError)
         self.assertRaises(IntegrationTestError, self._ci_deploy.get_host, ['test_hostclass'])
 
-    def test_run_integration_tests_command(self):
-        '''run_integration_tests runs the correct command on the correct instance'''
+    def test_run_integration_tests_ssh(self):
+        '''run_integration_tests runs the correct command on the correct instance via ssh'''
         ami = self.mock_ami("mhcintegrated 1 2")
         self._ci_deploy._disco_aws.remotecmd = MagicMock(return_value=(0, ""))
         self._disco_aws.instances_from_hostclasses = MagicMock(return_value=["i-12345678"])
@@ -1065,6 +1076,43 @@ class DiscoDeployTests(TestCase):
         self._ci_deploy._disco_aws.remotecmd.assert_called_with(
             "i-12345678", ["test_command", "foo_service"],
             user="test_user", nothrow=True)
+
+    def test_run_integration_tests_ssm(self):
+        '''run_integration_tests runs the correct command on the correct instance via ssm'''
+        ami = self.mock_ami("mhcssmdocs 1 2")
+        self._disco_aws.instances_from_hostclasses = MagicMock(return_value=[MagicMock(id="i-12345678")])
+        self._ci_deploy._disco_ssm.execute.return_value = True
+        self.assertEqual(self._ci_deploy.run_integration_tests(ami), True)
+        self._ci_deploy._disco_ssm.execute.assert_called_with(
+            instance_ids=["i-12345678"],
+            document_name=SSM_DOC_INTEGRATION_TESTS,
+            parameters={
+                "runner": "test_command",
+                "test": "ssm_service",
+                "user": "test_user"
+            },
+            comment=ANY
+        )
+
+    def test_setting_testing_mode_ssm(self):
+        '''toggles testing mode correctly via ssm'''
+        self._ci_deploy._disco_ssm.execute.return_value = True
+        self.assertEqual(
+            self._ci_deploy._set_testing_mode(
+                "mhcssmdocs",
+                [MagicMock(id="i-12345678")],
+                True
+            ),
+            True
+        )
+        self._ci_deploy._disco_ssm.execute.assert_called_with(
+            instance_ids=["i-12345678"],
+            document_name=SSM_DOC_TESTING_MODE,
+            parameters={
+                "mode": "on"
+            },
+            comment=ANY
+        )
 
     def test_run_integration_tests_get_host_fail(self):
         '''run_integration_tests raises exception when a get_host fails to find a host'''
