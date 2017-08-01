@@ -2333,7 +2333,7 @@ ssm_doc_integration_tests=asiaq-run-tests
   * If provided, Asiaq will execute the provided SSM document with a `mode` variable set to either `on` or `off`, depending on whether or not the instance is entering or exiting testing mode. If this entry is not provided, Asiaq will fallback to executing the `/etc/asiaq/bin/testing_mode.sh` via SSH.
 * ssm_doc_integration_tests
   * If provided, Asiaq will execute the provided SSM document to run integration tests during deployment. The SSM document will be passed several variables:
-    * `runner` will be given the value of `test_command`
+    * `command` will be given the value of `test_command`
     * `user` will be given the value of `test_user`
     * `test` will be given the name of the integration test defined in the pipeline.
   * If not provided, Asiaq will fallback to executing the integration tests via SSH.

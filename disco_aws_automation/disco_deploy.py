@@ -586,7 +586,7 @@ class DiscoDeploy(object):
                 instance_ids=[instance_id],
                 document_name=ssm_doc_integration_tests,
                 parameters={
-                    "runner": test_command,
+                    "command": test_command,
                     "test": test_name,
                     "user": test_user
                 },
