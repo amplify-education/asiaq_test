@@ -362,3 +362,8 @@ class DiscoStorage(object):
         throttled_call(snapshot.add_tags, tags=tags)
 
         return snapshot.id
+
+    def get_snapshot_from_id(self, snapshot_id):
+        """For a given snapshot id return the boto2 snapshot object"""
+        return throttled_call(self.connection.get_all_snapshots,
+                              snapshot_ids=[snapshot_id])[0]
