@@ -69,6 +69,11 @@ class DiscoSSM(object):
 
         Optionally takes parameters to pass to the SSM document and an audit comment to indicate why this
         command was run.
+
+        The parameters object is expected to be in the form of:
+        {
+            "key": ["values"...],
+        }
         """
         bucket_name = self.get_s3_bucket_name()
 

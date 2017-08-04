@@ -529,7 +529,7 @@ class DiscoDeploy(object):
                 instance_ids=instance_ids,
                 document_name=ssm_doc_testing_mode,
                 parameters={
-                    "mode": "on" if mode_on else "off"
+                    "mode": ["on" if mode_on else "off"]
                 },
                 comment="Asiaq Deploy is toggling testing mode"
             )
@@ -586,9 +586,9 @@ class DiscoDeploy(object):
                 instance_ids=[instance_id],
                 document_name=ssm_doc_integration_tests,
                 parameters={
-                    "command": test_command,
-                    "test": test_name,
-                    "user": test_user
+                    "command": [test_command],
+                    "test": [test_name],
+                    "user": [test_user]
                 },
                 comment="Asiaq Deploy is running integration tests"
             )

@@ -1087,9 +1087,9 @@ class DiscoDeployTests(TestCase):
             instance_ids=["i-12345678"],
             document_name=SSM_DOC_INTEGRATION_TESTS,
             parameters={
-                "command": "test_command",
-                "test": "ssm_service",
-                "user": "test_user"
+                "command": ["test_command"],
+                "test": ["ssm_service"],
+                "user": ["test_user"]
             },
             comment=ANY
         )
@@ -1109,7 +1109,7 @@ class DiscoDeployTests(TestCase):
             instance_ids=["i-12345678"],
             document_name=SSM_DOC_TESTING_MODE,
             parameters={
-                "mode": "on"
+                "mode": ["on"]
             },
             comment=ANY
         )
