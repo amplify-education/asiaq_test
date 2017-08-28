@@ -609,7 +609,7 @@ class DiscoVPC(object):
             interfaces = throttled_call(self.boto3_ec2.describe_network_interfaces,
                                         Filters=self.vpc_filters())["NetworkInterfaces"]
             for interface in interfaces:
-                if interface.get('Attachment'):
+                if 'Attachment' in interface:
                     throttled_call(
                         self.boto3_ec2.detach_network_interface,
                         AttachmentId=interface['Attachment']['AttachmentId'],
