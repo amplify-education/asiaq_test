@@ -196,11 +196,13 @@ def get_or_create_ids(username, groupname):
         uid = pwd.getpwnam(username).pw_uid
     except KeyError:
         logger.info("Creating user %s", username)
-        subprocess.call(['/usr/sbin/adduser',
-                         '-r',
-                         '--gid', str(gid),
-                         '--shell', '/sbin/nologin',
-                         username])
+        command = '/usr/sbin/adduser'
+        command_input = ['--gid', str(gid), '--shell', '/sbin/nologin', username]
+        exit_code = subprocess.call([command, '--system'] + command_input)
+        # if the above command fails its highly likely that we are in a Centos 5
+        # system and it doesnt have `--system` option instead it has `-r`.
+        if exit_code != 0:
+            subprocess.call([command, '-r'] + command_input)
         uid = pwd.getpwnam(username).pw_uid
     return uid, gid
 
