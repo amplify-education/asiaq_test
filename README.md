@@ -749,6 +749,13 @@ in the location `$REMOTE_DIRECTORY/$SANDBOX_NAME`.  So, by way of example:
     sandbox_sync_config=zk_blacklist zookeeper-sync-black-lists
         trusted_ip_list   firewall-trusted-cidrs
 
+To spin up a sandbox from existing sandbox config, e.g. Incase you want to 
+spin up more than one sandbox from the same sandbox config, simply run:
+
+    asiaq sandbox $SANDBOX_NAME --config-dir $EXISTING_SANDBOX_NAME
+
+The above command will spin up $SANDBOX_NAME sandbox using 
+$EXISTING_SANDBOX_NAME config.
 
 Provisioning a pipeline
 -----------------------
