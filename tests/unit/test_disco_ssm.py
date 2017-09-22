@@ -726,7 +726,7 @@ class DiscoSSMTests(TestCase):
 
     @patch('boto3.client', mock_boto3_client)
     def test_execute_command_with_exception(self):
-        """Verify that we fail if the command fails"""
+        """Verify that we fail if there is an exception"""
         self._ssm._send_command = MagicMock(side_effect=ClientError({'Error': {}}, ''))
         self._ssm.get_s3_bucket_name = MagicMock(return_value=None)
         instance_ids = ['i-1', 'i-2']

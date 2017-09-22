@@ -1115,7 +1115,7 @@ class DiscoDeployTests(TestCase):
         )
 
     def test_setting_testing_mode_ssm_error(self):
-        '''toggles testing mode correctly via ssm'''
+        '''toggling testing mode fails if execute fails'''
         self._ci_deploy._disco_ssm.execute.return_value = False
         self.assertEqual(
             self._ci_deploy._set_testing_mode(
