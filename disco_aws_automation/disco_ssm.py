@@ -9,6 +9,7 @@ import json
 
 import boto3
 from botocore.exceptions import ClientError
+from boto.exception import BotoServerError
 
 from .disco_config import read_config
 from .resource_helper import throttled_call, wait_for_state_boto3
@@ -105,16 +106,24 @@ class DiscoSSM(object):
             instance_ids
         )
 
-        command = self._send_command(**arguments)
-        command_id = command["Command"]["CommandId"]
+        try:
+            command = self._send_command(**arguments)
+            command_id = command["Command"]["CommandId"]
 
-        is_successful = self._wait_for_ssm_command(command_id=command_id, desired_status=desired_status)
+            is_successful = self._wait_for_ssm_command(command_id=command_id, desired_status=desired_status)
 
-        output = self.get_ssm_command_output(command_id=command_id)
+            output = self.get_ssm_command_output(command_id=command_id)
 
-        self._print_ssm_output(output)
+            self._print_ssm_output(output)
 
-        return is_successful
+            return is_successful
+        except (ClientError, BotoServerError):
+            logger.exception(
+                "Unable to execute document '%s' against instances %s",
+                document_name,
+                instance_ids
+            )
+            return False
 
     def _print_ssm_output(self, output):
         """Convenience method for printing output from an SSM command"""
