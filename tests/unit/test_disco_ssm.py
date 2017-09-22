@@ -725,6 +725,25 @@ class DiscoSSMTests(TestCase):
         self.assertEquals(False, is_successful)
 
     @patch('boto3.client', mock_boto3_client)
+    def test_execute_command_with_exception(self):
+        """Verify that we fail if the command fails"""
+        self._ssm._send_command = MagicMock(side_effect=ClientError({'Error': {}}, ''))
+        self._ssm.get_s3_bucket_name = MagicMock(return_value=None)
+        instance_ids = ['i-1', 'i-2']
+        document_name = "foo-doc"
+        comment = "foo-comment"
+        parameters = "foo-parameters"
+
+        is_successful = self._ssm.execute(
+            instance_ids,
+            document_name,
+            comment=comment,
+            parameters=parameters
+        )
+
+        self.assertEquals(False, is_successful)
+
+    @patch('boto3.client', mock_boto3_client)
     def test_read_env_from_config(self):
         """Verify that we read the env from config if none is provided"""
         config_aws = get_mock_config(MOCK_AWS_CONFIG_DEFINITION)

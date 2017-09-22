@@ -1114,6 +1114,26 @@ class DiscoDeployTests(TestCase):
             comment=ANY
         )
 
+    def test_setting_testing_mode_ssm_error(self):
+        '''toggles testing mode correctly via ssm'''
+        self._ci_deploy._disco_ssm.execute.return_value = False
+        self.assertEqual(
+            self._ci_deploy._set_testing_mode(
+                "mhcssmdocs",
+                [MagicMock(id="i-12345678")],
+                True
+            ),
+            False
+        )
+        self._ci_deploy._disco_ssm.execute.assert_called_with(
+            instance_ids=["i-12345678"],
+            document_name=SSM_DOC_TESTING_MODE,
+            parameters={
+                "mode": ["on"]
+            },
+            comment=ANY
+        )
+
     def test_run_integration_tests_get_host_fail(self):
         '''run_integration_tests raises exception when a get_host fails to find a host'''
         ami = self.mock_ami("mhcintegrated 1 2")
