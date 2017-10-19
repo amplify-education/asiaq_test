@@ -2274,7 +2274,7 @@ By default, the `update-documents` command waits for all the operations to finis
 
     disco_ssm.py update-documents --no-wait
 
-The `update-documents` command also accepts the `--dry-run` flag, which causes the command display the changes that would have been applied to AWS if the flag was not specified.
+The `update-documents` command also accepts the `--dry-run` flag, which causes the command to display the changes that would have been applied to AWS if the flag was not specified.
 
     disco_ssm.py update-documents --dry-run
 
