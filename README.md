@@ -2270,7 +2270,7 @@ To create a new document, first create a `DOCUMENT_NAME.ssm` file with the docum
 
 To modify or delete a document, first update the content of the file or remove the file from `ssm/documents`, respectively. Then run the same `update-documents` command as creating a new document.
 
-By default, the `update-documents` command waits for all the operations to finish before existing. This behavior can be changed by using the `--no-wait` flag.
+By default, the `update-documents` command waits for all the operations to finish before exiting. This behavior can be changed by using the `--no-wait` flag.
 
     disco_ssm.py update-documents --no-wait
 
