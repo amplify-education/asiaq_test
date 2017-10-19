@@ -2262,7 +2262,7 @@ To get a list of the existing SSM documents currently defined in AWS:
 
 To view the content of an existing document:
 
-    disco_ssm.py get-documents --name DOCUMENT_NAME
+    disco_ssm.py get-document --name DOCUMENT_NAME
 
 To create a new document, first create a `DOCUMENT_NAME.ssm` file with the document content in `ssm/documents`. Then run the following `update-documents` command. Note that the final document name in AWS would be the same as the `DOCUMENT_NAME` you specify in the file name.
 
