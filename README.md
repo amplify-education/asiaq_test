@@ -2262,7 +2262,7 @@ To get a list of the existing SSM documents currently defined in AWS:
 
 To view the content of an existing document:
 
-    disco_ssm.py get-documents --name DOCUMENT_NAME
+    disco_ssm.py get-document --name DOCUMENT_NAME
 
 To create a new document, first create a `DOCUMENT_NAME.ssm` file with the document content in `ssm/documents`. Then run the following `update-documents` command. Note that the final document name in AWS would be the same as the `DOCUMENT_NAME` you specify in the file name.
 
@@ -2270,11 +2270,11 @@ To create a new document, first create a `DOCUMENT_NAME.ssm` file with the docum
 
 To modify or delete a document, first update the content of the file or remove the file from `ssm/documents`, respectively. Then run the same `update-documents` command as creating a new document.
 
-By default, the `update-documents` command waits for all the operations to finish before existing. This behavior can be changed by using the `--no-wait` flag.
+By default, the `update-documents` command waits for all the operations to finish before exiting. This behavior can be changed by using the `--no-wait` flag.
 
     disco_ssm.py update-documents --no-wait
 
-The `update-documents` command also accepts the `--dry-run` flag, which causes the command display the changes that would have been applied to AWS if the flag was not specified.
+The `update-documents` command also accepts the `--dry-run` flag, which causes the command to display the changes that would have been applied to AWS if the flag was not specified.
 
     disco_ssm.py update-documents --dry-run
 
