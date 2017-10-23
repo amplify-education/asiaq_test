@@ -2288,7 +2288,7 @@ Here's an example of executing a document of a hostclass in staging:
 
 SSM also supports parameters. If the document you are executing supports parameters, you can specify the parameters as key=value pairs with the `--parameters` argument, repeating the `--parameters` argument for every parameter you need to specify. Here's an example:
 
-`disco_aws.py exec-ssm --document run-tests --hostclass mhcfoo --parameter test=loadtest`
+`disco_aws.py exec-ssm --document run-tests --hostclass mhcfoo --parameters test=loadtest`
 
 For more information, see `disco_aws.py exec-ssm --help` for full usage instructions.
 
