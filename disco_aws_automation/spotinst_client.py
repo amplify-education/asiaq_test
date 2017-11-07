@@ -127,8 +127,10 @@ class SpotinstClient(object):
                 },
                 timeout=60
             )
-        except (ConnectionError, Timeout):
-            raise SpotinstRateExceededException("Rate exceeded while calling {0} {1}".format(method, path))
+        except (ConnectionError, Timeout) as err:
+            raise SpotinstRateExceededException(
+                "Rate exceeded while calling {0} {1}: {2}".format(method, path, err)
+            )
 
         if response.status_code == 401:
             raise SpotinstApiException("Provided Spotinst API token is not valid")
