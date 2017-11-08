@@ -14,6 +14,7 @@ Options:
      --debug                Log in debug level
      --env ENV              Environment to operate in
      --first                In case of multiple matching instances, connect to the first instead of failing
+     -u --user USER         The user to login as
 """
 
 import logging
@@ -43,6 +44,7 @@ class DiscoSSH(object):
         self.config = read_config()
         self.env = self.args["--env"] or self.config.get("disco_aws", "default_environment")
         self.pick_instance = self.args['--first']
+        self.user = self.args.get("--user")
         configure_logging(args["--debug"])
 
     def is_ip(self, string):
@@ -135,7 +137,10 @@ class DiscoSSH(object):
         Given a list of ip addresses, build an ssh command to tunnel through n-1 ips to reach the n-th ip
         """
         command = " ".join([
-            "ssh -At {} {}".format(SSH_OPTIONS, ip)
+            "ssh -At {} {}".format(
+                SSH_OPTIONS,
+                "'%s@%s'" % (self.user, ip) if self.user else ip
+            )
             for ip in ips])
         return command
 
