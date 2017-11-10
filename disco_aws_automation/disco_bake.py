@@ -488,6 +488,8 @@ class DiscoBake(object):
             DiscoBake._tag_ami_with_metadata(image, stage, source_ami_id, productline,
                                              is_private, extra_tags=extra_tags)
 
+            logger.info("Waiting for AMI to become available")
+
             wait_for_state(image, u'available',
                            int(self.hc_option_default(hostclass, "ami_available_wait_time", "600")))
             logger.info("Created %s AMI %s", image_name, image_id)
