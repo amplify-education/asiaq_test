@@ -595,12 +595,6 @@ class DiscoRDS(object):
                   " will be dropped and no backup taken. Data will be irrecoverable." + ansi_color_none)
             response = raw_input("Confirm by typing the amount of allocated storage that will be dropped: ")
             if response == str(allocated_storage):
-                try:
-                    throttled_call(self.client.delete_db_subnet_group, DBSubnetGroupName=db_subnet_group_name)
-                except Exception as err:
-                    logger.exception("Unable to delete subnet group '%s': %s", db_subnet_group_name,
-                                     repr(err))
-
                 throttled_call(
                     self.client.delete_db_instance,
                     DBInstanceIdentifier=instance_identifier,
@@ -615,7 +609,6 @@ class DiscoRDS(object):
             final_snapshot = "%s-final-snapshot" % instance_identifier
             try:
                 throttled_call(self.client.delete_db_snapshot, DBSnapshotIdentifier=final_snapshot)
-                throttled_call(self.client.delete_db_subnet_group, DBSubnetGroupName=db_subnet_group_name)
             except botocore.exceptions.ClientError:
                 pass
             keep_trying(
@@ -623,6 +616,11 @@ class DiscoRDS(object):
                 self.client.delete_db_instance,
                 DBInstanceIdentifier=instance_identifier,
                 FinalDBSnapshotIdentifier=final_snapshot)
+
+        keep_trying(
+            RDS_DELETE_TIMEOUT,
+            self.client.delete_db_subnet_group,
+            DBSubnetGroupName=db_subnet_group_name)
 
     def delete_all_db_instances(self, wait=True):
         """
