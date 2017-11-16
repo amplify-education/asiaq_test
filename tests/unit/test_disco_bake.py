@@ -157,6 +157,7 @@ class DiscoBakeTests(TestCase):
 
         self._bake._tag_ami_with_metadata(
             ami=ami,
+            hostclass="mhcbar",
             source_ami_id='mock_source',
             stage='mock_stage',
             productline='mock_productline',
@@ -167,6 +168,7 @@ class DiscoBakeTests(TestCase):
             ami,
             {
                 "source_ami": "mock_source",
+                "hostclass": "mhcbar",
                 "stage": "mock_stage",
                 "productline": "mock_productline",
                 "is_private": "False",
@@ -184,6 +186,7 @@ class DiscoBakeTests(TestCase):
 
         self._bake._tag_ami_with_metadata(
             ami=ami,
+            hostclass="mhcbar",
             source_ami_id='mock_source',
             stage='mock_stage',
             productline='mock_productline',
@@ -197,6 +200,7 @@ class DiscoBakeTests(TestCase):
             ami,
             {
                 "source_ami": "mock_source",
+                "hostclass": "mhcbar",
                 "stage": "mock_stage",
                 "productline": "mock_productline",
                 "is_private": "False",
@@ -214,6 +218,7 @@ class DiscoBakeTests(TestCase):
 
         self._bake._tag_ami_with_metadata(
             ami=ami,
+            hostclass="mhcbar",
             source_ami_id='mock_source',
             stage='mock_stage',
             productline='mock_productline',
@@ -225,6 +230,7 @@ class DiscoBakeTests(TestCase):
             ami,
             {
                 "source_ami": "mock_source",
+                "hostclass": "mhcbar",
                 "stage": "mock_stage",
                 "productline": "mock_productline",
                 "is_private": "True",
