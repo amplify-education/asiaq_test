@@ -485,7 +485,7 @@ class DiscoBake(object):
 
             productline = self.hc_option_default(hostclass, "product_line", None)
 
-            DiscoBake._tag_ami_with_metadata(image, stage, source_ami_id, productline,
+            DiscoBake._tag_ami_with_metadata(image, hostclass, stage, source_ami_id, productline,
                                              is_private, extra_tags=extra_tags)
 
             logger.info("Waiting for AMI to become available")
@@ -507,7 +507,7 @@ class DiscoBake(object):
         return image
 
     @staticmethod
-    def _tag_ami_with_metadata(ami, stage, source_ami_id, productline=None, is_private=False,
+    def _tag_ami_with_metadata(ami, hostclass, stage, source_ami_id, productline=None, is_private=False,
                                extra_tags=None):
         """
         Tags an AMI with the stage, source_ami, the branch/git-hash of disco_aws_automation,
@@ -519,6 +519,7 @@ class DiscoBake(object):
         # An ordered dictionary is used because AWS has limits on the number of tags that can be applied,
         # so we order the tags by their importance to Asiaq's ability to function. Ergo, stage is first.
         tag_dict = OrderedDict()
+        tag_dict['hostclass'] = hostclass
         tag_dict['stage'] = stage
         tag_dict['source_ami'] = source_ami_id
         tag_dict['baker'] = getpass.getuser()
