@@ -157,6 +157,16 @@ class DiscoVPCSecurityGroupRules(object):
                                    IpPermissions=[permission])
                 except EC2ResponseError:
                     logger.exception("Skipping error deleting sg rule.")
+            for permission in security_group['IpPermissionsEgress']:
+                try:
+                    logger.debug(
+                        "revoking %s %s %s %s", security_group, permission.get('IpProtocol'),
+                        permission.get('FromPort', '-'), permission.get('ToPort', '-'))
+                    throttled_call(self.boto3_ec2.revoke_security_group_egress,
+                                   GroupId=security_group['GroupId'],
+                                   IpPermissions=[permission])
+                except EC2ResponseError:
+                    logger.exception("Skipping error deleting sg rule.")
 
     def _destroy_security_groups(self):
         """ Find all security groups belonging to vpc and destroy them."""

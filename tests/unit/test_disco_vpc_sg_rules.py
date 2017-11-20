@@ -173,18 +173,33 @@ class DiscoVPCSecurityGroupRulesTests(unittest.TestCase):
                 {'IpProtocol': 'tcp', 'FromPort': 8080, 'ToPort': 80808},
                 {'IpProtocol': 'udp', 'FromPort': 23, 'ToPort': 234}
             ],
+            'IpPermissionsEgress': [
+                {'IpProtocol': 'tcp', 'FromPort': 123, 'ToPort': 1234},
+                {'IpProtocol': 'tcp', 'FromPort': 80, 'ToPort': 808},
+                {'IpProtocol': 'tcp', 'FromPort': 8080, 'ToPort': 80808},
+                {'IpProtocol': 'udp', 'FromPort': 23, 'ToPort': 234}
+            ],
             'GroupId': 'sg_id',
             'GroupName': 'sg_name'}
         self.mock_vpc.boto3_ec2.describe_security_groups.return_value = {'SecurityGroups': [security_group]}
 
         self.disco_vpc_sg_rules.destroy()
 
-        expected_revoke_calls = []
+        expected_revoke_calls_ingress = []
         for permission in security_group['IpPermissions']:
-            expected_revoke_calls.append(call(GroupId=security_group['GroupId'],
-                                              IpPermissions=[{'ToPort': permission['ToPort'],
-                                                              'IpProtocol': permission['IpProtocol'],
-                                                              'FromPort': permission['FromPort']}]))
-        self.mock_vpc.boto3_ec2.revoke_security_group_ingress.assert_has_calls(expected_revoke_calls)
+            expected_revoke_calls_ingress.append(call(GroupId=security_group['GroupId'],
+                                                      IpPermissions=[{'ToPort': permission['ToPort'],
+                                                                      'IpProtocol': permission['IpProtocol'],
+                                                                      'FromPort': permission['FromPort']}]))
+
+        expected_revoke_calls_egress = []
+        for permission in security_group['IpPermissionsEgress']:
+            expected_revoke_calls_egress.append(call(GroupId=security_group['GroupId'],
+                                                     IpPermissions=[{'ToPort': permission['ToPort'],
+                                                                     'IpProtocol': permission['IpProtocol'],
+                                                                     'FromPort': permission['FromPort']}]))
+
+        self.mock_vpc.boto3_ec2.revoke_security_group_ingress.assert_has_calls(expected_revoke_calls_ingress)
+        self.mock_vpc.boto3_ec2.revoke_security_group_egress.assert_has_calls(expected_revoke_calls_egress)
         self.mock_vpc.boto3_ec2.delete_security_group.assert_called_once_with(
             GroupId=security_group['GroupId'])
