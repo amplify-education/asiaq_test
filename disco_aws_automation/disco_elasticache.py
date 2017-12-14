@@ -128,7 +128,12 @@ class DiscoElastiCache(object):
         logger.info('Deleting cache cluster %s', cluster['Description'])
         throttled_call(self.conn.delete_replication_group, ReplicationGroupId=cluster['ReplicationGroupId'])
 
-        self.route53.delete_records_by_value('CNAME', cluster['NodeGroups'][0]['PrimaryEndpoint']['Address'])
+        if 'ConfigurationEndpoint' in cluster:
+            address = cluster['ConfigurationEndpoint']['Address']
+        else:
+            address = cluster['NodeGroups'][0]['PrimaryEndpoint']['Address']
+
+        self.route53.delete_records_by_value('CNAME', address)
 
         if wait:
             self.conn.get_waiter('replication_group_deleted').wait(
@@ -146,7 +151,11 @@ class DiscoElastiCache(object):
             throttled_call(self.conn.delete_replication_group,
                            ReplicationGroupId=cluster['ReplicationGroupId'])
 
-            address = cluster['NodeGroups'][0]['PrimaryEndpoint']['Address']
+            if 'ConfigurationEndpoint' in cluster:
+                address = cluster['ConfigurationEndpoint']['Address']
+            else:
+                address = cluster['NodeGroups'][0]['PrimaryEndpoint']['Address']
+
             self.route53.delete_records_by_value('CNAME', address)
 
         if wait:
