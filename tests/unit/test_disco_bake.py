@@ -153,7 +153,7 @@ class DiscoBakeTests(TestCase):
     @patch('disco_aws_automation.DiscoBake._tag_ami')
     def test_extra_tags(self, mock_tag_ami):
         '''Test that additional tags are applied to AMI if specified'''
-        ami = self._amis_by_name["mhcbar 0000000001"],
+        ami = self._amis_by_name["mhcbar 0000000001"]
 
         self._bake._tag_ami_with_metadata(
             ami=ami,
@@ -182,7 +182,7 @@ class DiscoBakeTests(TestCase):
     @patch('disco_aws_automation.DiscoBake._tag_ami')
     def test_extra_tags_no_override(self, mock_tag_ami):
         '''Test that additional tags do not override asiaq tags'''
-        ami = self._amis_by_name["mhcbar 0000000001"],
+        ami = self._amis_by_name["mhcbar 0000000001"]
 
         self._bake._tag_ami_with_metadata(
             ami=ami,
@@ -214,7 +214,7 @@ class DiscoBakeTests(TestCase):
     @patch('disco_aws_automation.DiscoBake._tag_ami')
     def test_is_private_tag(self, mock_tag_ami):
         '''Test that additional tags are applied to AMI if specified'''
-        ami = self._amis_by_name["mhcbar 0000000001"],
+        ami = self._amis_by_name["mhcbar 0000000001"]
 
         self._bake._tag_ami_with_metadata(
             ami=ami,
