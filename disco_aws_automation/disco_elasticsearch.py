@@ -416,9 +416,8 @@ class DiscoElasticsearch(object):
             # Get option from defaults section if it's not found in the cluster's section
             return self.config_es.get('defaults', option)
 
-        raise RuntimeError("Could not find option, %s, in either the %s and the defaults sections "
-                           "of the ElasticSearch config.",
-                           option, section)
+        raise RuntimeError("Could not find option, {} in either the {} and the defaults sections "
+                           "of the ElasticSearch config.".format(option, section))
 
     def _get_nat_eips(self):
         env_option = 'envtype:{}'.format(self.environment_name)
