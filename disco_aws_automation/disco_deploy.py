@@ -391,7 +391,8 @@ class DiscoDeploy(object):
                 group_instance_ids = [inst['instance_id'] for inst in
                                       self._disco_group.get_instances(group_name=new_group['name'])]
                 if not group_instance_ids:
-                    raise RuntimeError("Could not find any instances in new group %s", new_group['name'])
+                    raise RuntimeError("Could not find any instances in new group {}".
+                                       format(new_group['name']))
                 group_instances = self._disco_aws.instances(instance_ids=group_instance_ids)
                 # If we are actually deploying and are able to leave testing mode
                 if deployable and self._set_testing_mode(hostclass, group_instances, False):

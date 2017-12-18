@@ -271,7 +271,7 @@ class DiscoStorage(object):
                 if throttled_call(self.connection.delete_volume, volume_id=volume.id):
                     logger.info("Destroyed temporary volume %s", volume.id)
                 elif raise_error_on_failure:
-                    raise VolumeError("Couldn't destroy temporary volume %s", volume.id)
+                    raise VolumeError("Couldn't destroy temporary volume {}".format(volume.id))
                 else:
                     logger.error("Couldn't destroy temporary volume %s", volume.id)
 

@@ -287,9 +287,8 @@ class DiscoESArchive(object):
         # Make sure S3 bucket used for archival is available.
         buckets = self.s3_client.list_buckets()['Buckets']
         if self.s3_bucket_name not in [bucket['Name'] for bucket in buckets]:
-            raise RuntimeError("Couldn't find S3 bucket (%s) for archiving cluster (%s).",
-                               self.s3_bucket_name,
-                               self.cluster_name)
+            raise RuntimeError("Couldn't find S3 bucket ({}) for archiving cluster ({}).".
+                               format(self.s3_bucket_name, self.cluster_name))
 
         repository_config = {
             "type": self._repository_name,
@@ -333,9 +332,8 @@ class DiscoESArchive(object):
             # Get option from defaults section if it's not found in the cluster's section
             return self.config_es.get('defaults', option)
 
-        raise RuntimeError("Could not find option, %s, in either the %s and the defaults sections "
-                           "of the Disco ElasticSearch config.",
-                           option, section)
+        raise RuntimeError("Could not find option, {}, in either the {} and the defaults sections "
+                           "of the Disco ElasticSearch config.".format(option, section))
 
     def archive(self, dry_run=False):
         """

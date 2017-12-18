@@ -68,7 +68,7 @@ def mock_boto3_client(arg):
     elif arg == "s3":
         return _get_mock_s3()
     else:
-        raise Exception("Mock %s client not implemented.", arg)
+        raise Exception("Mock {} client not implemented.".format(arg))
 
 
 def _get_mock_ssm():

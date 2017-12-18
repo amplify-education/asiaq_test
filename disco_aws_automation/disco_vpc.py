@@ -258,7 +258,8 @@ class DiscoVPC(object):
                 cidr = get_random_free_subnet(self.vpc['CidrBlock'], meta_network_size, used_cidrs)
 
                 if not cidr:
-                    raise VPCConfigError("Can't create metanetwork %s. No subnets available", network_name)
+                    raise VPCConfigError("Can't create metanetwork {}. No subnets available".
+                                         format(network_name))
 
             metanetworks[network_name] = DiscoMetaNetwork(network_name, self, cidr)
             metanetworks[network_name].create()
