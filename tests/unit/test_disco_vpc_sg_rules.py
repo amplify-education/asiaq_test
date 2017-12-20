@@ -87,9 +87,7 @@ class DiscoVPCSecurityGroupRulesTests(unittest.TestCase):
                 'dmz_sg_rules': 'tcp maintenance 22 3212, tcp 66.104.227.162/32 80 443, '
                                 'tcp 38.117.159.162/32 80 443, tcp 64.106.168.244/32 80 443',
                 'maintenance_sg_rules': 'tcp maintenance 22, tcp 66.104.227.162/32 0:65535, '
-                                        'tcp 38.117.159.162/32 0:65535',
-                'customer_ports': '80 443',
-                'customer_cidr': '0.0.0.0/0'
+                                        'tcp 38.117.159.162/32 0:65535'
             }
         })
 
