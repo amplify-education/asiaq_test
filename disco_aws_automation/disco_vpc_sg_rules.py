@@ -73,56 +73,7 @@ class DiscoVPCSecurityGroupRules(object):
                         sg_source_id=self.disco_vpc.networks[source].security_group.id
                     ))
 
-        # Add security rules for customer ports
-        sg_rule_tuples += self._get_dmz_customer_ports_sg_rules(network) +\
-            self._get_intranet_customer_ports_sg_rules(network)
-
-        # Add security rules to allow ICMP (ping, traceroute & etc) and DNS
-        # traffic for all subnets
-        sg_rule_tuples += self._get_icmp_sg_rules(network)
-
         return sg_rule_tuples
-
-    def _get_dmz_customer_ports_sg_rules(self, network):
-        sg_rule_tuples = []
-        if network.name == "dmz":
-            customer_ports = self.disco_vpc.get_config("customer_ports", "").split()
-            customer_cidrs = self.disco_vpc.get_config("customer_cidr", "").split()
-
-            for port_def in customer_ports:
-                port_range = DiscoVPCSecurityGroupRules._extract_port_range(port_def)
-                for customer_cidr in customer_cidrs:
-                    # Allow traffic from customer to dmz
-                    sg_rule_tuples.append(network.create_sg_rule_tuple(
-                        "tcp", port_range, cidr_source=customer_cidr))
-
-                # Allow within DMZ so that vpn host can talk to lbexternal
-                sg_rule_tuples.append(network.create_sg_rule_tuple(
-                    "tcp", port_range,
-                    sg_source_id=network.security_group.id
-                ))
-
-        return sg_rule_tuples
-
-    def _get_intranet_customer_ports_sg_rules(self, network):
-        sg_rule_tuples = []
-        if network.name == "intranet":
-            customer_ports = self.disco_vpc.get_config("customer_ports", "").split()
-            for port_def in customer_ports:
-                port_range = DiscoVPCSecurityGroupRules._extract_port_range(port_def)
-                # Allow traffic from dmz to intranet (for lbexternal)
-                sg_rule_tuples.append(network.create_sg_rule_tuple(
-                    "tcp", port_range,
-                    sg_source_id=self.disco_vpc.networks["dmz"].security_group.id
-                ))
-
-        return sg_rule_tuples
-
-    def _get_icmp_sg_rules(self, network):
-        return [network.create_sg_rule_tuple("icmp", [-1, -1],
-                                             cidr_source=self.disco_vpc.vpc['CidrBlock']),
-                network.create_sg_rule_tuple("udp", [53, 53],
-                                             cidr_source=self.disco_vpc.vpc['CidrBlock'])]
 
     @staticmethod
     def _extract_port_range(port_def):

@@ -87,9 +87,7 @@ class DiscoVPCSecurityGroupRulesTests(unittest.TestCase):
                 'dmz_sg_rules': 'tcp maintenance 22 3212, tcp 66.104.227.162/32 80 443, '
                                 'tcp 38.117.159.162/32 80 443, tcp 64.106.168.244/32 80 443',
                 'maintenance_sg_rules': 'tcp maintenance 22, tcp 66.104.227.162/32 0:65535, '
-                                        'tcp 38.117.159.162/32 0:65535',
-                'customer_ports': '80 443',
-                'customer_cidr': '0.0.0.0/0'
+                                        'tcp 38.117.159.162/32 0:65535'
             }
         })
 
@@ -110,11 +108,7 @@ class DiscoVPCSecurityGroupRulesTests(unittest.TestCase):
             (mock_intranet.security_group.id, 'tcp', 0, 65535, mock_dmz.security_group.id, None),
             (mock_intranet.security_group.id, 'tcp', 0, 65535, mock_maintenance.security_group.id, None),
             (mock_intranet.security_group.id, 'udp', 0, 65535, mock_intranet.security_group.id, None),
-            (mock_intranet.security_group.id, 'tcp', 2181, 2181, mock_dmz.security_group.id, None),
-            (mock_intranet.security_group.id, 'tcp', 80, 80, mock_dmz.security_group.id, None),
-            (mock_intranet.security_group.id, 'tcp', 443, 443, mock_dmz.security_group.id, None),
-            (mock_intranet.security_group.id, 'icmp', -1, -1, None, '10.0.0.0/26'),
-            (mock_intranet.security_group.id, 'udp', 53, 53, None, '10.0.0.0/26')]
+            (mock_intranet.security_group.id, 'tcp', 2181, 2181, mock_dmz.security_group.id, None)]
         mock_intranet.update_sg_rules.assert_called_once_with(expected_intranet_sg_rules, False)
 
         expected_tunnel_sg_rules = [
@@ -134,9 +128,7 @@ class DiscoVPCSecurityGroupRulesTests(unittest.TestCase):
             (mock_tunnel.security_group.id, 'udp', 123, 123, mock_tunnel.security_group.id, None),
             (mock_tunnel.security_group.id, 'udp', 123, 123, mock_intranet.security_group.id, None),
             (mock_tunnel.security_group.id, 'udp', 123, 123, mock_dmz.security_group.id, None),
-            (mock_tunnel.security_group.id, 'udp', 123, 123, mock_maintenance.security_group.id, None),
-            (mock_tunnel.security_group.id, 'icmp', -1, -1, None, '10.0.0.0/26'),
-            (mock_tunnel.security_group.id, 'udp', 53, 53, None, '10.0.0.0/26')]
+            (mock_tunnel.security_group.id, 'udp', 123, 123, mock_maintenance.security_group.id, None)]
         mock_tunnel.update_sg_rules.assert_called_once_with(expected_tunnel_sg_rules, False)
 
         expected_dmz_sg_rules = [
@@ -147,21 +139,13 @@ class DiscoVPCSecurityGroupRulesTests(unittest.TestCase):
             (mock_dmz.security_group.id, 'tcp', 80, 80, None, '38.117.159.162/32'),
             (mock_dmz.security_group.id, 'tcp', 443, 443, None, '38.117.159.162/32'),
             (mock_dmz.security_group.id, 'tcp', 80, 80, None, '64.106.168.244/32'),
-            (mock_dmz.security_group.id, 'tcp', 443, 443, None, '64.106.168.244/32'),
-            (mock_dmz.security_group.id, 'tcp', 80, 80, None, '0.0.0.0/0'),
-            (mock_dmz.security_group.id, 'tcp', 80, 80, mock_dmz.security_group.id, None),
-            (mock_dmz.security_group.id, 'tcp', 443, 443, None, '0.0.0.0/0'),
-            (mock_dmz.security_group.id, 'tcp', 443, 443, mock_dmz.security_group.id, None),
-            (mock_dmz.security_group.id, 'icmp', -1, -1, None, '10.0.0.0/26'),
-            (mock_dmz.security_group.id, 'udp', 53, 53, None, '10.0.0.0/26')]
+            (mock_dmz.security_group.id, 'tcp', 443, 443, None, '64.106.168.244/32')]
         mock_dmz.update_sg_rules.assert_called_once_with(expected_dmz_sg_rules, False)
 
         expected_maintenance_sg_rules = [
             (mock_maintenance.security_group.id, 'tcp', 22, 22, mock_maintenance.security_group.id, None),
             (mock_maintenance.security_group.id, 'tcp', 0, 65535, None, '66.104.227.162/32'),
-            (mock_maintenance.security_group.id, 'tcp', 0, 65535, None, '38.117.159.162/32'),
-            (mock_maintenance.security_group.id, 'icmp', -1, -1, None, '10.0.0.0/26'),
-            (mock_maintenance.security_group.id, 'udp', 53, 53, None, '10.0.0.0/26')]
+            (mock_maintenance.security_group.id, 'tcp', 0, 65535, None, '38.117.159.162/32')]
         mock_maintenance.update_sg_rules.assert_called_once_with(expected_maintenance_sg_rules, False)
 
     def test_destroy(self):
