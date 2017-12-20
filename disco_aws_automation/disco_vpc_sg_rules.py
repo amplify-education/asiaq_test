@@ -77,10 +77,6 @@ class DiscoVPCSecurityGroupRules(object):
         sg_rule_tuples += self._get_dmz_customer_ports_sg_rules(network) +\
             self._get_intranet_customer_ports_sg_rules(network)
 
-        # Add security rules to allow ICMP (ping, traceroute & etc) and DNS
-        # traffic for all subnets
-        sg_rule_tuples += self._get_icmp_sg_rules(network)
-
         return sg_rule_tuples
 
     def _get_dmz_customer_ports_sg_rules(self, network):
@@ -117,12 +113,6 @@ class DiscoVPCSecurityGroupRules(object):
                 ))
 
         return sg_rule_tuples
-
-    def _get_icmp_sg_rules(self, network):
-        return [network.create_sg_rule_tuple("icmp", [-1, -1],
-                                             cidr_source=self.disco_vpc.vpc['CidrBlock']),
-                network.create_sg_rule_tuple("udp", [53, 53],
-                                             cidr_source=self.disco_vpc.vpc['CidrBlock'])]
 
     @staticmethod
     def _extract_port_range(port_def):
