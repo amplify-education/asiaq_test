@@ -139,7 +139,7 @@ class DiscoSSM(object):
                         unicode(plugin.get('name', '-')),
                         unicode(plugin.get('stdout', '-')),
                         unicode(plugin.get('stderr', '-')),
-                        unicode(plugin.get('exit_code'))
+                        unicode(plugin.get('exit_code', '1'))
                     )
                 )
 
