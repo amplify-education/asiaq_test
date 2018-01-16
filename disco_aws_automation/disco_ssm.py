@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Manage AWS SSM document creation and execution
 """
@@ -135,10 +136,10 @@ class DiscoSSM(object):
                     u"STDOUT:\n{}\n\n"
                     u"STDERR:\n{}\n\n"
                     u"Exit Code: {}".format(
-                        unicode(plugin.get('name', '-')),
-                        unicode(plugin.get('stdout', '-')),
-                        unicode(plugin.get('stderr', '-')),
-                        unicode(plugin.get('exit_code'))
+                        plugin.get('name', '-'),
+                        plugin.get('stdout', '-'),
+                        plugin.get('stderr', '-'),
+                        plugin.get('exit_code')
                     )
                 )
 
