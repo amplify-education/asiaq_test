@@ -139,7 +139,7 @@ class DiscoSSM(object):
                         plugin.get('name', '-').encode('utf-8'),
                         plugin.get('stdout', '-').encode('utf-8'),
                         plugin.get('stderr', '-').encode('utf-8'),
-                        plugin.get('exit_code', 1))
+                        plugin.get('exit_code', 1)
                     )
                 )
 
