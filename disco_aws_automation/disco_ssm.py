@@ -131,14 +131,17 @@ class DiscoSSM(object):
         for instance, instance_output in output.iteritems():
             print("Output for instance: {}".format(instance))
             for plugin in instance_output:
+                print(plugin.get('name', '-'))
+                print(plugin.get('stdout', '-'))
+                print(plugin.get('stderr', '-'))
                 print(
                     u"Plugin: {}\n\n"
                     u"STDOUT:\n{}\n\n"
                     u"STDERR:\n{}\n\n"
                     u"Exit Code: {}".format(
-                        plugin.get('name', '-').encode('utf-8'),
-                        plugin.get('stdout', '-').encode('utf-8'),
-                        plugin.get('stderr', '-').encode('utf-8'),
+                        plugin.get('name', '-'),
+                        plugin.get('stdout', '-'),
+                        plugin.get('stderr', '-'),
                         plugin.get('exit_code', 1)
                     )
                 )
