@@ -7,7 +7,6 @@ import os
 import logging
 import time
 import json
-from lib2to3.pgen2.tokenize import detect_encoding
 
 import boto3
 from botocore.exceptions import ClientError
@@ -141,7 +140,6 @@ class DiscoSSM(object):
                     print(u''.join(plugin.get('stdout', '-')).encode('utf-8'))
                     print(u''.join(plugin.get('stderr', '-')).encode('utf-8'))
                     print(u''.join(exit_code))
-                    print(unicode(plugin.get('stdout', '-'), encoding=detect_encoding(plugin.get('stdout', '-'))))
                 except:
                     print("oooops")
                 print(u"Plugin: {}\n\n".format(plugin.get('name', '-')))
