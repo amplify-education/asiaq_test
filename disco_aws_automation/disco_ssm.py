@@ -132,9 +132,11 @@ class DiscoSSM(object):
             print("Output for instance: {}".format(instance))
             for plugin in instance_output:
                 try:
-                    print(u' '.join(plugin.get('stdout', '-')).encode("utf-8"))
+                    print('Try utf encode')
+                    print(u''.join(plugin.get('stdout', '-')).encode("utf-8"))
                 except:
-                    print(u' '.join(plugin.get('stdout', '-')).encode("latin-1"))
+                    print('Try latin encode')
+                    print(u''.join(plugin.get('stdout', '-')).encode("latin-1"))
                 print(
                     u"Plugin: {}\n\n"
                     u"STDOUT:\n{}\n\n"
