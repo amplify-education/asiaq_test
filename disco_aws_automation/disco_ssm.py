@@ -131,21 +131,10 @@ class DiscoSSM(object):
         for instance, instance_output in output.iteritems():
             print("Output for instance: {}".format(instance))
             for plugin in instance_output:
-                exit_code = plugin.get('exit_code', 1)
-                exit_code = str(exit_code) if isinstance(exit_code, int) else exit_code
-                try:
-                    import sys
-                    print("Encoding")
-                    print(sys.getdefaultencoding())
-                    print(u''.join(plugin.get('stdout', '-')).encode('utf-8'))
-                    print(u''.join(plugin.get('stderr', '-')).encode('utf-8'))
-                    print(u''.join(exit_code))
-                except:
-                    print("oooops")
                 print(u"Plugin: {}\n\n".format(plugin.get('name', '-')))
                 print(u"STDOUT:\n{}\n\n".format(plugin.get('stdout', '-')))
                 print(u"STDERR:\n{}\n\n".format(plugin.get('stderr', '-')))
-                print(u"Exit Code: {}".format(exit_code))
+                print(u"Exit Code: {}".format(plugin.get('exit_code', 1)))
 
     def _wait_for_ssm_command(self, command_id, desired_status='Success', timeout=600):
         """
