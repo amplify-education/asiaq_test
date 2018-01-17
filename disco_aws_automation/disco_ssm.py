@@ -133,6 +133,14 @@ class DiscoSSM(object):
             for plugin in instance_output:
                 exit_code = plugin.get('exit_code', 1)
                 exit_code = str(exit_code) if isinstance(exit_code, int) else exit_code
+                try:
+                    import sys
+                    print("Encoding")
+                    print(sys.getdefaultencoding())
+                    print(type(exit_code))
+                    print(exit_code)
+                except:
+                    pass
                 print(
                     u"Plugin: {}\n\n"
                     u"STDOUT:\n{}\n\n"
@@ -141,7 +149,7 @@ class DiscoSSM(object):
                         plugin.get('name', '-'),
                         u''.join(plugin.get('stdout', '-')).encode('utf-8'),
                         u''.join(plugin.get('stderr', '-')).encode('utf-8'),
-                        u''.join(exit_code).encode('utf-8')
+                        u''.join(exit_code)
                     )
                 )
 
