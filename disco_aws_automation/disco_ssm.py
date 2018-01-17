@@ -7,6 +7,7 @@ import os
 import logging
 import time
 import json
+from lib2to3.pgen2.tokenize import detect_encoding
 
 import boto3
 from botocore.exceptions import ClientError
@@ -137,21 +138,16 @@ class DiscoSSM(object):
                     import sys
                     print("Encoding")
                     print(sys.getdefaultencoding())
-                    print(type(exit_code))
-                    print(exit_code)
+                    print(u''.join(plugin.get('stdout', '-')).encode('utf-8'))
+                    print(u''.join(plugin.get('stderr', '-')).encode('utf-8'))
+                    print(u''.join(exit_code))
+                    print(unicode(plugin.get('stdout', '-'), encoding=detect_encoding(plugin.get('stdout', '-'))))
                 except:
-                    pass
-                print(
-                    u"Plugin: {}\n\n"
-                    u"STDOUT:\n{}\n\n"
-                    u"STDERR:\n{}\n\n"
-                    u"Exit Code: {}".format(
-                        plugin.get('name', '-'),
-                        u''.join(plugin.get('stdout', '-')).encode('utf-8'),
-                        u''.join(plugin.get('stderr', '-')).encode('utf-8'),
-                        u''.join(exit_code)
-                    )
-                )
+                    print("oooops")
+                print(u"Plugin: {}\n\n".format(plugin.get('name', '-')))
+                print(u"STDOUT:\n{}\n\n".format(plugin.get('stdout', '-')))
+                print(u"STDERR:\n{}\n\n".format(plugin.get('stderr', '-')))
+                print(u"Exit Code: {}".format(exit_code))
 
     def _wait_for_ssm_command(self, command_id, desired_status='Success', timeout=600):
         """
