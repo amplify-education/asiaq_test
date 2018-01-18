@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Manage AWS SSM document creation and execution
 """
@@ -130,17 +131,10 @@ class DiscoSSM(object):
         for instance, instance_output in output.iteritems():
             print("Output for instance: {}".format(instance))
             for plugin in instance_output:
-                print(
-                    u"Plugin: {}\n\n"
-                    u"STDOUT:\n{}\n\n"
-                    u"STDERR:\n{}\n\n"
-                    u"Exit Code: {}".format(
-                        plugin.get('name', '-'),
-                        plugin.get('stdout', '-'),
-                        plugin.get('stderr', '-'),
-                        plugin.get('exit_code')
-                    )
-                )
+                print(u"Plugin: {}\n\n".format(plugin.get('name', '-')))
+                print(u"STDOUT:\n{}\n\n".format(plugin.get('stdout', '-')))
+                print(u"STDERR:\n{}\n\n".format(plugin.get('stderr', '-')))
+                print(u"Exit Code: {}".format(plugin.get('exit_code', 1)))
 
     def _wait_for_ssm_command(self, command_id, desired_status='Success', timeout=600):
         """
