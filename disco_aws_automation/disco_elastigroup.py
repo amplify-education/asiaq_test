@@ -69,6 +69,10 @@ class DiscoElastigroup(BaseGroup):
         groups = []
         for group in self._get_spotinst_groups(hostclass, group_name):
             launch_spec = group['compute']['launchSpecification']
+
+            # Need this mess because loadBalancersConfig could be missing or might return None
+            load_balancer_configs = launch_spec.get('loadBalancersConfig', {}).get('loadBalancers', []) or []
+
             groups.append({
                 'name': group['name'],
                 'min_size': group['capacity']['minimum'],
@@ -79,10 +83,7 @@ class DiscoElastigroup(BaseGroup):
                 'vpc_zone_identifier': ','.join(
                     zone['subnetId'] for zone in group['compute']['availabilityZones']
                 ),
-                'load_balancers': [
-                    # loadBalancers will be None instead of a empty list if there is no ELB
-                    elb['name'] for elb in (launch_spec['loadBalancersConfig']['loadBalancers'] or [])
-                ],
+                'load_balancers': [elb['name'] for elb in load_balancer_configs],
                 'image_id': launch_spec['imageId'],
                 'id': group['id'],
                 'type': 'spot',
