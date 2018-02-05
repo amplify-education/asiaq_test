@@ -285,7 +285,7 @@ class DiscoElastigroup(BaseGroup):
                 group, desired_size=desired_size, min_size=min_size, max_size=max_size,
                 image_id=image_id, tags=tags, instance_profile_name=instance_profile_name,
                 block_device_mappings=block_device_mappings, spotinst_reserve=spotinst_reserve,
-                load_balancers=load_balancers, instance_type=instance_type
+                load_balancers=load_balancers, instance_type=instance_type, user_data=user_data
             )
 
             return {'name': group['name']}
@@ -347,7 +347,7 @@ class DiscoElastigroup(BaseGroup):
 
     def _modify_group(self, existing_group, desired_size=None, min_size=None, max_size=None,
                       image_id=None, tags=None, instance_profile_name=None, block_device_mappings=None,
-                      spotinst_reserve=None, load_balancers=None, instance_type=None):
+                      spotinst_reserve=None, load_balancers=None, instance_type=None, user_data=None):
         new_config = copy.deepcopy(existing_group)
 
         if min_size is not None:
@@ -372,6 +372,8 @@ class DiscoElastigroup(BaseGroup):
             }
         if instance_type is not None:
             new_config['compute']['instanceTypes'] = self._get_instance_type_config(instance_type)
+        if user_data is not None:
+            new_config['compute']['launchSpecification']['userData'] = b64encode(str(user_data))
 
         # remove fields that can't be updated
         new_config['capacity'].pop('unit', None)
