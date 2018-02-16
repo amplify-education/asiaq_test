@@ -90,7 +90,8 @@ class DiscoAutoscale(BaseGroup):
                     'termination_policies': group.termination_policies,
                     'vpc_zone_identifier': group.vpc_zone_identifier,
                     'load_balancers': group.load_balancers,
-                    'type': 'asg'
+                    'type': 'asg',
+                    'tags': {tag.key: tag.value for tag in group.tags}
                 }
             next_token = groups.next_token
             if not next_token:
@@ -418,14 +419,17 @@ class DiscoAutoscale(BaseGroup):
         grp_list = []
         for group in groups:
             launch_cfg = list(self.get_configs(names=[group['launch_config_name']]))
-            grp_dict = {'name': group['name'].ljust(35 + len(self.environment_name)),
-                        'image_id': launch_cfg[0].image_id if launch_cfg else '',
-                        'group_cnt': len([instance for instance in instances
-                                          if instance['group_name'] == group['name']]),
-                        'min_size': group['min_size'],
-                        'desired_capacity': group['desired_capacity'],
-                        'max_size': group['max_size'],
-                        'type': group['type']}
+            grp_dict = {
+                'name': group['name'].ljust(35 + len(self.environment_name)),
+                'image_id': launch_cfg[0].image_id if launch_cfg else '',
+                'group_cnt': len([instance for instance in instances
+                                  if instance['group_name'] == group['name']]),
+                'min_size': group['min_size'],
+                'desired_capacity': group['desired_capacity'],
+                'max_size': group['max_size'],
+                'type': group['type'],
+                'tags': group['tags']
+            }
             grp_list.append(grp_dict)
         return grp_list
 

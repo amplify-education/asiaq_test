@@ -89,7 +89,8 @@ class DiscoElastigroup(BaseGroup):
                 'type': 'spot',
                 # blockDeviceMappings will be None instead of a empty list if there is no ELB
                 'blockDeviceMappings': (launch_spec.get('blockDeviceMappings') or []),
-                'scheduling': group.get('scheduling', {'tasks': []})
+                'scheduling': group.get('scheduling', {'tasks': []}),
+                'tags': {tag['tagKey']: tag['tagValue'] for tag in launch_spec.get('tags', [])}
             })
         groups.sort(key=lambda grp: grp['name'], reverse=True)
         return groups
@@ -166,13 +167,19 @@ class DiscoElastigroup(BaseGroup):
     def list_groups(self):
         """Returns list of objects for display purposes for all groups"""
         groups = self.get_existing_groups()
-        return [{'name': group['name'],
-                 'image_id': group['image_id'],
-                 'group_cnt': len(self._get_group_instances(group['id'])),
-                 'min_size': group['min_size'],
-                 'desired_capacity': group['desired_capacity'],
-                 'max_size': group['max_size'],
-                 'type': group['type']} for group in groups]
+        return [
+            {
+                'name': group['name'],
+                'image_id': group['image_id'],
+                'group_cnt': len(self._get_group_instances(group['id'])),
+                'min_size': group['min_size'],
+                'desired_capacity': group['desired_capacity'],
+                'max_size': group['max_size'],
+                'type': group['type'],
+                'tags': group['tags']
+            }
+            for group in groups
+        ]
 
     def _create_elastigroup_config(self, desired_size, min_size, max_size, instance_type,
                                    subnets, load_balancers, security_groups, instance_monitoring,

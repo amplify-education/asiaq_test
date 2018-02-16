@@ -141,7 +141,8 @@ class DiscoElastigroupTests(TestCase):
                 'min_size': mock_group1['capacity']['minimum'],
                 'desired_capacity': mock_group1['capacity']['target'],
                 'max_size': mock_group1['capacity']['maximum'],
-                'type': 'spot'
+                'type': 'spot',
+                'tags': {}
             },
             {
                 'name': mock_group2['name'],
@@ -150,7 +151,8 @@ class DiscoElastigroupTests(TestCase):
                 'min_size': mock_group2['capacity']['minimum'],
                 'desired_capacity': mock_group2['capacity']['target'],
                 'max_size': mock_group2['capacity']['maximum'],
-                'type': 'spot'
+                'type': 'spot',
+                'tags': {}
             }
         ]
 
