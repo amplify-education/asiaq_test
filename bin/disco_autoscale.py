@@ -10,7 +10,7 @@ import sys
 
 from bin import print_table
 from disco_aws_automation import DiscoGroup
-from disco_aws_automation.disco_aws_util import run_gracefully
+from disco_aws_automation.disco_aws_util import run_gracefully, is_truthy
 from disco_aws_automation.disco_config import read_config
 from disco_aws_automation.disco_logging import configure_logging
 
@@ -158,15 +158,34 @@ def run():
 
     # Autoscaling group commands
     if args.mode == "listgroups":
-        format_str = "{0} {1:12} {2:3} {3:3} {4:3} {5:3} {6:4}"
+        format_str = "{0} {1:21} {2:3} {3:3} {4:3} {5:3} {6:4} {7:10}"
         groups = discogroup.list_groups()
         if args.debug:
-            print(format_str.format(
-                "Name".ljust(35 + len(environment_name)), "AMI", "min", "des", "max", "cnt", "type"))
+            print(
+                format_str.format(
+                    "Name".ljust(35 + len(environment_name)),
+                    "AMI",
+                    "min",
+                    "des",
+                    "max",
+                    "cnt",
+                    "type",
+                    "is_testing"
+                )
+            )
         for group in groups:
-            print (format_str.format(group['name'].ljust(35 + len(environment_name)),
-                                     group['image_id'], group['min_size'], group['desired_capacity'],
-                                     group['max_size'], group['group_cnt'], group['type']))
+            print(
+                format_str.format(
+                    group['name'].ljust(40 + len(environment_name)),
+                    group['image_id'],
+                    group['min_size'],
+                    group['desired_capacity'],
+                    group['max_size'],
+                    group['group_cnt'],
+                    group['type'],
+                    'y' if is_truthy(group['tags'].get('is_testing')) else 'n'
+                )
+            )
 
     elif args.mode == "cleangroups":
         discogroup.delete_groups()
