@@ -131,17 +131,20 @@ class DiscoSSM(object):
         for instance, instance_output in output.iteritems():
             print("Output for instance: {}".format(instance))
             for plugin in instance_output:
-                print(u"Plugin: {}\n\n".format(plugin.get('name', '-')))
-                print(u"STDOUT:\n{}\n\n".format(plugin.get('stdout', '-')))
-                print(u"STDERR:\n{}\n\n".format(plugin.get('stderr', '-')))
-                print(u"Exit Code: {}".format(plugin.get('exit_code', 1)))
+                try:
+                    print(u"Plugin: {}\n\n".format(plugin.get('name', '-')))
+                    print(u"STDOUT:\n{}\n\n".format(plugin.get('stdout', '-')))
+                    print(u"STDERR:\n{}\n\n".format(plugin.get('stderr', '-')))
+                    print(u"Exit Code: {}".format(plugin.get('exit_code', 1)))
+                except UnicodeEncodeError:
+                    logger.exception("Encountered error while printing SSM output")
 
-    def _wait_for_ssm_command(self, command_id, desired_status='Success', timeout=600):
+    def _wait_for_ssm_command(self, command_id, desired_status='Success'):
         """
         Method for waiting for the completion of a given command. Requires the command_id as well as an
-        optional desired_status and a timeout value in seconds.
+        optional desired_status.
 
-        Defaults to a desired status of 'Success' and a timeout of 600 seconds.
+        Defaults to a desired status of 'Success'.
 
         See http://docs.aws.amazon.com/ssm/latest/APIReference/API_Command.html#EC2-Type-Command-Status
         for the valid values of desired_status.
@@ -149,10 +152,9 @@ class DiscoSSM(object):
         Note that this method only waits for the desired status to NOT be 'Pending' or 'InProgress'. In other
         words, once the command terminates this method will either return True if the status of the command
         equals the desired status, or False otherwise. For example, the command could be cancelled before it
-        completes, it could timeout, or it could return a non-zero exit code.
+        completes, or it could return a non-zero exit code.
         """
-        stop_time = time.time() + timeout
-        while time.time() < stop_time:
+        while True:
             command = self._list_commands(
                 CommandId=command_id
             )
@@ -174,14 +176,6 @@ class DiscoSSM(object):
                 instance_ids
             )
             time.sleep(5)
-        raise TimeoutError(
-            "Timed out waiting for execution of document '{0}' against instances {1} after '{2}' "
-            "seconds".format(
-                document_name,
-                instance_ids,
-                timeout
-            )
-        )
 
     def get_ssm_command_output(self, command_id):
         """
