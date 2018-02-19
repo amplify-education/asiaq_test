@@ -131,10 +131,13 @@ class DiscoSSM(object):
         for instance, instance_output in output.iteritems():
             print("Output for instance: {}".format(instance))
             for plugin in instance_output:
-                print(u"Plugin: {}\n\n".format(plugin.get('name', '-')))
-                print(u"STDOUT:\n{}\n\n".format(plugin.get('stdout', '-')))
-                print(u"STDERR:\n{}\n\n".format(plugin.get('stderr', '-')))
-                print(u"Exit Code: {}".format(plugin.get('exit_code', 1)))
+                try:
+                    print(u"Plugin: {}\n\n".format(plugin.get('name', '-')))
+                    print(u"STDOUT:\n{}\n\n".format(plugin.get('stdout', '-')))
+                    print(u"STDERR:\n{}\n\n".format(plugin.get('stderr', '-')))
+                    print(u"Exit Code: {}".format(plugin.get('exit_code', 1)))
+                except UnicodeEncodeError:
+                    logger.exception("Encountered error while printing SSM output")
 
     def _wait_for_ssm_command(self, command_id, desired_status='Success', timeout=600):
         """
