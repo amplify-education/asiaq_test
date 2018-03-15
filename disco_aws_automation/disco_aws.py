@@ -198,11 +198,11 @@ class DiscoAWS(object):
             fixed_ip_hostclass['logforwarder'], ""
         )
         data["environment_name"] = self.vpc.environment_name
+        data["domain_name"] = self.hostclass_option_default(hostclass, "domain_name")
         data["owner"] = owner or getpass.getuser()
         data["credential_buckets"] = " ".join(self.vpc.get_credential_buckets(self._project_name))
-        data["zookeepers"] = "[\\\"{0}:2181\\\"]".format(
-            self._get_hostclass_ip_address(fixed_ip_hostclass['zookeeper'], "")
-        )
+        data["zookeepers"] = "[\\\"mhczookeeper-{0}.{1}:2181\\\"]".format(
+            data["environment_name"], data["domain_name"])
         data["eip"] = self.hostclass_option_default(hostclass, "eip")
         data["floating_ips"] = self._get_hostclass_ip_address(hostclass, "")
         data["floating_ip"] = data["floating_ips"].split()[0] if data["floating_ips"] else ""
