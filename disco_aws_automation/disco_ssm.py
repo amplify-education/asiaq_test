@@ -158,6 +158,21 @@ class DiscoSSM(object):
             command = self._list_commands(
                 CommandId=command_id
             )
+
+            # Apparently, SSM is eventually consistent. So we can kick off a command and it might not be
+            # immediately listed as having been invoked. So if our commands call is empty (as we filter for
+            # the specific command id), wait a few seconds and try again.
+            if not command["Commands"]:
+                logger.warning(
+                    "Could not find command id '%s', waiting a few seconds before looking again",
+                    command_id
+                )
+                time.sleep(5)
+                # Right now this is an infinite loop, but we'd never call this without a real command_id as
+                # its an internal function for DiscoSSM. If this loops forever with a proper command_id, that
+                # probably means AWS is having a bad day, and we've got bigger worries than a hanging command.
+                continue
+
             status = command["Commands"][0]["Status"]
             document_name = command["Commands"][0]["DocumentName"]
             instance_ids = command["Commands"][0]["InstanceIds"]
