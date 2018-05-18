@@ -369,8 +369,16 @@ class DiscoBake(object):
         # Pylint wants us to name the exceptions, but we want to ignore all of them
         # pylint: disable=W0702
         ssh_args = SSH_DEFAULT_OPTIONS + ["-tt"]
-        for user in ["ubuntu", "centos"]:
+        for user in ["ubuntu", "centos", "ec2-user"]:
             try:
+                if user == "ec2-user":
+                    self.remotecmd(
+                        instance,
+                        [
+                            "sudo sed -i 's/#PermitRootLogin/PermitRootLogin/' /etc/ssh/sshd_config; ",
+                            "sudo service sshd restart"
+                        ],
+                        user=user, ssh_options=ssh_args)
                 self.remotecmd(
                     instance,
                     [
