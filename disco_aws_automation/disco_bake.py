@@ -289,6 +289,10 @@ class DiscoBake(object):
             logger.warning("Permitting %s to be launched by prod account %s", ami.id, prod_account)
             ami.set_launch_permissions(prod_account)
 
+        throttled_call(ami.add_tags, {
+            'shared_with_account_ids': ','.join(self.option("prod_account_ids").split())
+        })
+
     def promote_latest_ami_to_production(self, hostclass):
         """
         Promote youngest ami of latest stage to production
@@ -369,8 +373,16 @@ class DiscoBake(object):
         # Pylint wants us to name the exceptions, but we want to ignore all of them
         # pylint: disable=W0702
         ssh_args = SSH_DEFAULT_OPTIONS + ["-tt"]
-        for user in ["ubuntu", "centos"]:
+        for user in ["ubuntu", "centos", "ec2-user"]:
             try:
+                if user == "ec2-user":
+                    self.remotecmd(
+                        instance,
+                        [
+                            "sudo sed -i 's/#PermitRootLogin/PermitRootLogin/' /etc/ssh/sshd_config; ",
+                            "sudo service sshd restart"
+                        ],
+                        user=user, ssh_options=ssh_args)
                 self.remotecmd(
                     instance,
                     [
