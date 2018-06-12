@@ -25,7 +25,7 @@ from .disco_alarm import DiscoAlarm
 from .disco_alarm_config import DiscoAlarmsConfig
 from .disco_group import DiscoGroup
 from .disco_config import read_config
-from .disco_constants import CREDENTIAL_BUCKET_TEMPLATE, NETWORKS, VPC_CONFIG_FILE
+from .disco_constants import CREDENTIAL_BUCKET_TEMPLATE, CREDENTIAL_BUCKET_TEMPLATE_NEW, NETWORKS, VPC_CONFIG_FILE
 from .disco_elasticache import DiscoElastiCache
 from .disco_elb import DiscoELB
 from .disco_log_metrics import DiscoLogMetrics
@@ -173,8 +173,14 @@ class DiscoVPC(object):
 
     def get_credential_buckets(self, project_name):
         """Returns list of buckets to locate credentials in"""
-        return [CREDENTIAL_BUCKET_TEMPLATE.format(region=self.region, project=project_name, postfix=postfix)
-                for postfix in self.get_config("credential_buckets", "").split()]
+        if self.region == 'us-west-2':
+            return [CREDENTIAL_BUCKET_TEMPLATE.format(region=self.region, project=project_name, postfix=postfix)
+                    for postfix in self.get_config("credential_buckets", "").split()]
+        else:
+            return [CREDENTIAL_BUCKET_TEMPLATE_NEW.format(region=self.region,
+                                                          project=project_name,
+                                                          postfix=postfix)
+                    for postfix in self.get_config("credential_buckets", "").split()]
 
     @classmethod
     def fetch_environment(cls, vpc_id=None, environment_name=None):

@@ -232,7 +232,7 @@ class DiscoMetaNetwork(object):
     def _instantiate_subnets(self, try_creating_aws_subnets=True):
         # FIXME needs to talk about and simplify this
         logger.debug("instantiating subnets")
-        zones = throttled_call(self._connection.get_all_zones)
+        zones = throttled_call(self._connection.get_all_zones)[:3]
         logger.debug("zones: %s", zones)
         # We'll need to split each subnet into smaller ones, one per zone
         # offset is how much we need to add to cidr divisor to create at least

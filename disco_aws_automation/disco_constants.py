@@ -13,6 +13,7 @@ DEPLOYMENT_STRATEGY_BLUE_GREEN = "blue_green"
 YES_LIST = ['true', 'yes', 't', 'y', 'aye', '1']
 NO_LIST = ['false', 'no', 'f', 'n', 'nay', '0']
 CREDENTIAL_BUCKET_TEMPLATE = "{region}.{project}.credentials.{postfix}"
+CREDENTIAL_BUCKET_TEMPLATE_NEW = "{region}--{project}--credentials--{postfix}"
 
 NETWORKS = {"intranet": "Inter host",
             "dmz": "Client facing",
