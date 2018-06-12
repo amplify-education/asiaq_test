@@ -3,6 +3,7 @@ import copy
 import logging
 import time
 import os
+import boto3
 
 from base64 import b64encode
 from itertools import groupby
@@ -57,11 +58,13 @@ class DiscoElastigroup(BaseGroup):
 
     def _get_spotinst_groups(self, hostclass=None, group_name=None):
         groups = self.spotinst_client.get_groups()
+        session = boto3.session.Session()
 
         return [group for group in groups
                 if group['name'].startswith(self.environment_name) and
                 (not group_name or group['name'] == group_name) and
-                (not hostclass or self._get_hostclass(group['name']) == hostclass)]
+                (not hostclass or self._get_hostclass(group['name']) == hostclass) and
+                session.region_name in group['compute']['availabilityZones'][0]['name']]
 
     def get_existing_groups(self, hostclass=None, group_name=None):
         # get a dict for each group that matches the structure that would be returned by DiscoAutoscale
