@@ -292,9 +292,10 @@ class DiscoSubnet(object):
     def _find_subnet(self):
         filters = self._resource_filter
         filters['Filters'].extend(create_filters({'availabilityZone': [self.name]}))
-        response = throttled_call(self.boto3_ec2.describe_subnets, **filters)['Subnets']
-        if response:
-            return response[0]
+        try:
+            return throttled_call(self.boto3_ec2.describe_subnets, **filters)['Subnets'][0]
+        except IndexError:
+            return None
 
     def _create_subnet(self):
         if not self.cidr:
