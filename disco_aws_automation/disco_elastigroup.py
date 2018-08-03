@@ -86,7 +86,8 @@ class DiscoElastigroup(BaseGroup):
                 'vpc_zone_identifier': ','.join(
                     zone['subnetId'] for zone in group['compute']['availabilityZones']
                 ),
-                'load_balancers': [elb['name'] for elb in load_balancer_configs],
+                'load_balancers': [elb['name'] for elb in load_balancer_configs
+                                   if elb['type'] == 'CLASSIC'],
                 'image_id': launch_spec['imageId'],
                 'id': group['id'],
                 'type': 'spot',
