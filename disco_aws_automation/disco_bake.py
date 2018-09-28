@@ -665,7 +665,7 @@ class DiscoBake(object):
                   state=None, hostclass=None):
         """
         Fetch all AMI's filtered by supplied args
-        :param amis:  AMI ids to filter by
+        :param ami_ids:  AMI ids to filter by
         :param instance_ids:  ID's of instances whose AMI's we should filter by
         :param stage: Stage to filter by
         :param product_line: Product line to filter by
