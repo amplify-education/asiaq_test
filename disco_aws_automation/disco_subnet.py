@@ -156,6 +156,7 @@ class DiscoSubnet(object):
                 self.delete_nat_gateway()
 
                 self.nat_eip_allocation_id = self.disco_eip.allocate().allocation_id
+                self.disco_eip.tag_dynamic(self.nat_eip_allocation_id)
                 self._nat_gateway = self._create_nat_gateway()
                 self._create_dyno_nat_tag()
 
