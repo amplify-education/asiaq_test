@@ -455,7 +455,7 @@ user credentials to an S3 bucket with the help of `disco_accounts.py`
 
 To add a new operator account:
 
-    disco_account.py adduser --name foo
+    disco_accounts.py adduser --name foo
 
 This will ask you to type a new password, it will then pre-generate a
 user configuration, and open it with your favorite `$EDITOR`. At this
@@ -467,16 +467,16 @@ file and close editor, configuration will now be uploaded to S3.
 
 Should any subsequent alterations be needed to account, just run:
 
-    disco_account.py edituser --name foo
+    disco_accounts.py edituser --name foo
 
 To disable a user account, open the config with edit and change `active`
 field value to no.
 
 To change your password, you need to paste in crypt(3) compatible hash,
 which you can conveniently generate with
-`disco_account.py hashpassword`.
+`disco_accounts.py hashpassword`.
 
-NOTE: `disco_account.py` only updates configuration in s3, these changes
+NOTE: `disco_accounts.py` only updates configuration in s3, these changes
 do not take immediate effect on any running instances. The instance
 needs to be rebooted or the `disco-add-operators` service is restarted.
 
