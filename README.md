@@ -429,7 +429,7 @@ For example:
 
 The best way to have Jenkins use Asiaq is to spin up jenkins in AWS and assign
 proper AWS instance role that can interact with AWS. Please see
-disco_aws.ini mhcdiscojenkins section for 'instance_profile_name'
+disco_aws.ini mhcastrojenkins section for 'instance_profile_name'
 attribute.
 
 ### Adding Operator AWS Account
@@ -554,9 +554,9 @@ found under no_repo_hostclasses option of disco_aws.ini. If you are
 planning on baking these no additional infrastructure needs to be up.
 
 For all other hostclasses the rpm server needs to be up, it lives on
-mhcdiscojenkins. Confirm that it's up:
+mhcastrojenkins. Confirm that it's up:
 
-    disco_aws.py --env build listhosts --hostclass mhcdiscojenkins
+    disco_aws.py --env build listhosts --hostclass mhcastrojenkins
 
 If it's not, start up the build pipeline:
 
@@ -1429,7 +1429,7 @@ these volumes are dynamically generated and discarded on mount. After volume
 is unmounted or machine is rebooted the data will be irretrievable.
 
 An example of how to make use of the sample scripts can be found here:
-`discoroot/etc/init.d/disco-tmp-storage~mhcdiscojenkins`
+`discoroot/etc/init.d/disco-tmp-storage~mhcastrojenkins`
 while the logic for encrypting
 `discoroot/etc/init.d/disco-storage-functions.sh`
 
