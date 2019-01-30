@@ -177,9 +177,9 @@ class DiscoAlarmTests(TestCase):
 
         alarm_configs = disco_alarms_config.get_alarms('mhcrasberi')
         self.assertEqual(1, len(alarm_configs))
-        self.assertEquals('AWS/EC2', alarm_configs[0].namespace)
-        self.assertEquals('CPU', alarm_configs[0].metric_name)
-        self.assertEquals(MOCK_GROUP_NAME, alarm_configs[0].autoscaling_group_name)
+        self.assertEqual('AWS/EC2', alarm_configs[0].namespace)
+        self.assertEqual('CPU', alarm_configs[0].metric_name)
+        self.assertEqual(MOCK_GROUP_NAME, alarm_configs[0].autoscaling_group_name)
 
     def test_get_alarm_config_log_pattern_metric(self):
         """Test DiscoAlarmsConfig get_alarms for log pattern metrics"""
@@ -198,8 +198,8 @@ class DiscoAlarmTests(TestCase):
 
         alarm_configs = disco_alarms_config.get_alarms('mhcrasberi')
         self.assertEqual(1, len(alarm_configs))
-        self.assertEquals('LogMetrics/' + ENVIRONMENT, alarm_configs[0].namespace)
-        self.assertEquals('mhcrasberi-ErrorCount', alarm_configs[0].metric_name)
+        self.assertEqual('LogMetrics/' + ENVIRONMENT, alarm_configs[0].namespace)
+        self.assertEqual('mhcrasberi-ErrorCount', alarm_configs[0].metric_name)
 
     def test_get_alarm_config_elb_metric(self):
         """Test DiscoAlarmsConfig get_alarms for ELB metrics"""
@@ -217,8 +217,8 @@ class DiscoAlarmTests(TestCase):
 
         alarm_configs = disco_alarms_config.get_alarms('mhcbanana')
         self.assertEqual(1, len(alarm_configs))
-        self.assertEquals({'LoadBalancerName': DiscoELB.get_elb_id('testenv', 'mhcbanana')},
-                          alarm_configs[0].dimensions)
+        self.assertEqual({'LoadBalancerName': DiscoELB.get_elb_id('testenv', 'mhcbanana')},
+                         alarm_configs[0].dimensions)
 
     def test_get_alarm_config_es_metric(self):
         """Test DiscoAlarmsConfig get_alarms for ES metrics"""
@@ -237,7 +237,7 @@ class DiscoAlarmTests(TestCase):
 
         alarm_configs = disco_alarms_config.get_alarms('logs')
         self.assertEqual(1, len(alarm_configs))
-        self.assertEquals({
+        self.assertEqual({
             'DomainName': ELASTICSEARCH_DOMAIN_NAME,
             'ClientId': ELASTICSEARCH_CLIENT_ID
         }, alarm_configs[0].dimensions)

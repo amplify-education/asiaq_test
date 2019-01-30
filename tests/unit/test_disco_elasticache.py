@@ -156,10 +156,10 @@ class DiscoElastiCacheTests(TestCase):
         """Test getting list of cache clusters"""
         clusters = self.elasticache.list()
 
-        self.assertEquals(len(clusters), 2)
+        self.assertEqual(len(clusters), 2)
 
         ids = [cluster['Description'] for cluster in clusters]
-        self.assertEquals(set(['unittest-old-cache', 'unittest-cache2']), set(ids))
+        self.assertEqual(set(['unittest-old-cache', 'unittest-cache2']), set(ids))
 
     def test_create_redis_cluster(self):
         """Test creating a redis cluster"""

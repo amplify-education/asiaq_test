@@ -50,9 +50,9 @@ class DiscoRoute53Tests(TestCase):
 
         zones = disco_route53.list_zones()
 
-        self.assertEquals(len(zones), 2)
-        self.assertEquals(zones[0].name, TEST_DOMAIN)
-        self.assertEquals(zones[1].name, TEST_DOMAIN2)
+        self.assertEqual(len(zones), 2)
+        self.assertEqual(zones[0].name, TEST_DOMAIN)
+        self.assertEqual(zones[1].name, TEST_DOMAIN2)
 
     @mock_sns
     @mock_route53
@@ -64,8 +64,8 @@ class DiscoRoute53Tests(TestCase):
 
         records = disco_route53.list_records(TEST_DOMAIN)
 
-        self.assertEquals(len(records), 1)
-        self.assertEquals(records[0].name, TEST_RECORD_NAME)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].name, TEST_RECORD_NAME)
 
     @mock_sns
     @mock_route53
@@ -78,7 +78,7 @@ class DiscoRoute53Tests(TestCase):
         disco_route53.delete_records_by_value(TEST_RECORD_TYPE, TEST_RECORD_VALUE)
 
         zone = disco_route53.route53.get_zones()[0]
-        self.assertEquals(len(disco_route53.route53.get_all_rrsets(zone.id)), 0)
+        self.assertEqual(len(disco_route53.route53.get_all_rrsets(zone.id)), 0)
 
     @mock_sns
     @mock_route53
@@ -97,4 +97,4 @@ class DiscoRoute53Tests(TestCase):
             'record_name': TEST_RECORD_NAME2
         }]
 
-        self.assertEquals(actual, expected)
+        self.assertEqual(actual, expected)

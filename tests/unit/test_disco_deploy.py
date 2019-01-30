@@ -999,7 +999,7 @@ class DiscoDeployTests(TestCase):
         instances = [inst1, inst2]
 
         self._disco_aws.instances = MagicMock(return_value=instances)
-        self.assertEquals(self._ci_deploy._get_new_instances(ami_id, now), [inst1])
+        self.assertEqual(self._ci_deploy._get_new_instances(ami_id, now), [inst1])
 
     def test_get_new_instances_no_launch_time(self):
         '''test get new instances without launch time'''
@@ -1013,7 +1013,7 @@ class DiscoDeployTests(TestCase):
         instances = [inst1, inst2]
 
         self._disco_aws.instances = MagicMock(return_value=instances)
-        self.assertEquals(self._ci_deploy._get_new_instances(ami_id), instances)
+        self.assertEqual(self._ci_deploy._get_new_instances(ami_id), instances)
 
     def test_get_old_instances_with_launch_time(self):
         '''test get old instances using launch time'''
@@ -1029,7 +1029,7 @@ class DiscoDeployTests(TestCase):
         instances = [inst1, inst2]
 
         self._disco_aws.instances = MagicMock(return_value=instances)
-        self.assertEquals(self._ci_deploy._get_old_instances(ami_id, now), [inst2])
+        self.assertEqual(self._ci_deploy._get_old_instances(ami_id, now), [inst2])
 
     def test_get_old_instances_no_launch_time(self):
         '''test get old instances without launch time'''
@@ -1046,7 +1046,7 @@ class DiscoDeployTests(TestCase):
         instances = [inst1, inst2]
 
         self._disco_aws.instances = MagicMock(return_value=instances)
-        self.assertEquals(self._ci_deploy._get_old_instances(ami_id1), [inst2])
+        self.assertEqual(self._ci_deploy._get_old_instances(ami_id1), [inst2])
 
     def test_pre_test_failure(self):
         '''Test that an exception is raised if the pre-test fails'''

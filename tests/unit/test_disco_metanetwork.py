@@ -73,16 +73,16 @@ class DiscoMetaNetworkTests(TestCase):
         self.mock_vpc_conn.\
             get_all_security_groups.assert_called_once_with(filters=MOCK_ROUTE_FILTER)
 
-        self.assertEquals(self.meta_network.centralized_route_table,
-                          MOCK_ROUTE_TABLE)
-        self.assertEquals(self.meta_network.security_group,
-                          self.mock_vpc_conn.get_all_security_groups.return_value[0])
+        self.assertEqual(self.meta_network.centralized_route_table,
+                         MOCK_ROUTE_TABLE)
+        self.assertEqual(self.meta_network.security_group,
+                         self.mock_vpc_conn.get_all_security_groups.return_value[0])
 
         calls = [call(MOCK_ZONE1.name, self.meta_network, "10.101.0.0/18", MOCK_ROUTE_TABLE.id),
                  call(MOCK_ZONE2.name, self.meta_network, "10.101.64.0/18", MOCK_ROUTE_TABLE.id),
                  call(MOCK_ZONE3.name, self.meta_network, "10.101.128.0/18", MOCK_ROUTE_TABLE.id)]
         mock_subnet_init.assert_has_calls(calls)
-        self.assertEquals(len(self.meta_network.disco_subnets.values()), len(MOCK_ZONES))
+        self.assertEqual(len(self.meta_network.disco_subnets.values()), len(MOCK_ZONES))
 
     @patch('disco_aws_automation.disco_subnet.DiscoSubnet.__init__', return_value=None)
     @patch('disco_aws_automation.disco_subnet.DiscoSubnet.recreate_route_table', return_value=None)

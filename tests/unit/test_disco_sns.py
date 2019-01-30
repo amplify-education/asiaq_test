@@ -55,7 +55,7 @@ class DiscoSNSTests(TestCase):
         """Ensure proper topic arn is constructed from a topic name"""
         disco_sns = DiscoSNS(account_id=ACCOUNT_ID)
         arn = disco_sns.topic_arn_from_name(TOPIC)
-        self.assertEquals(arn, "arn:aws:sns:{0}:{1}:{2}".format(self.get_region(), ACCOUNT_ID, TOPIC))
+        self.assertEqual(arn, "arn:aws:sns:{0}:{1}:{2}".format(self.get_region(), ACCOUNT_ID, TOPIC))
 
     @mock_sns
     def test_get_topics_to_delete(self):

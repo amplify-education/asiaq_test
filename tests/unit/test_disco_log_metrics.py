@@ -44,15 +44,15 @@ class DiscoLogMetricsTests(TestCase):
         """Test listing log groups"""
         log_groups = self.log_metrics.list_log_groups('mhcdummy')
 
-        self.assertEquals(len(log_groups), 1)
-        self.assertEquals(log_groups[0]['logGroupName'], 'test-env/mhcdummy/info_log')
+        self.assertEqual(len(log_groups), 1)
+        self.assertEqual(log_groups[0]['logGroupName'], 'test-env/mhcdummy/info_log')
 
     def test_list_metrics(self):
         """Test list log metric filters for hostclass"""
         metrics = self.log_metrics.list_metric_filters('mhcdummy')
 
-        self.assertEquals(len(metrics), 1)
-        self.assertEquals(metrics[0]['filterName'], 'mhcdummy_metric')
+        self.assertEqual(len(metrics), 1)
+        self.assertEqual(metrics[0]['filterName'], 'mhcdummy_metric')
 
     def test_delete_metrics(self):
         """Test delete metric filters for hostclass"""

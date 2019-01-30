@@ -84,7 +84,7 @@ class DiscoRemoteExecTests(unittest.TestCase):
                     TEST_ADDRESS,
                     TEST_COMMAND_STR]
 
-        self.assertEquals(command, expected)
+        self.assertEqual(command, expected)
 
     def test_arguments_with_jump_address(self):
         """test getting ssh arguments when using a jump box"""
@@ -105,7 +105,7 @@ class DiscoRemoteExecTests(unittest.TestCase):
                     '-oUserKnownHostsFile=/dev/null',
                     TEST_PROXY_HOP]
 
-        self.assertEquals(command, expected)
+        self.assertEqual(command, expected)
 
     def test_arguments_with_forward_agent(self):
         """test getting ssh arguments when forwarding ssh agent"""
@@ -125,7 +125,7 @@ class DiscoRemoteExecTests(unittest.TestCase):
                     TEST_ADDRESS,
                     TEST_COMMAND_STR]
 
-        self.assertEquals(command, expected)
+        self.assertEqual(command, expected)
 
     def test_arguments_with_ssh_options(self):
         """test getting ssh arguments when forwarding ssh agent"""
@@ -145,4 +145,4 @@ class DiscoRemoteExecTests(unittest.TestCase):
                     '-foo',
                     TEST_COMMAND_STR]
 
-        self.assertEquals(command, expected)
+        self.assertEqual(command, expected)
