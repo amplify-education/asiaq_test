@@ -74,7 +74,7 @@ class DiscoStorageTests(TestCase):
         self._create_snapshot('foo', 'otherenv')
         self._create_snapshot('foo', 'encryptedenv', True)
 
-        self.assertEquals(1, len(self.storage.get_snapshots()))
+        self.assertEqual(1, len(self.storage.get_snapshots()))
 
     @mock_ec2
     def test_get_snapshot_from_id(self):
@@ -93,11 +93,11 @@ class DiscoStorageTests(TestCase):
         snapshot = self._create_snapshot('foo', 'unittestenv')
         self.storage.delete_snapshot(snapshot['SnapshotId'])
 
-        self.assertEquals(0, len(self.storage.get_snapshots()))
+        self.assertEqual(0, len(self.storage.get_snapshots()))
 
         snapshot = self._create_snapshot('foo', 'otherenv')
         self.storage.delete_snapshot(snapshot['SnapshotId'])
-        self.assertEquals(1, len(DiscoStorage(environment_name='otherenv').get_snapshots()))
+        self.assertEqual(1, len(DiscoStorage(environment_name='otherenv').get_snapshots()))
 
     @mock_ec2
     def test_cleanup_ebs_snapshots(self):
@@ -114,8 +114,8 @@ class DiscoStorageTests(TestCase):
 
         self.storage.cleanup_ebs_snapshots(keep_last_n=2)
 
-        self.assertEquals(2, len(self.storage.get_snapshots()))
-        self.assertEquals(3, len(DiscoStorage(environment_name='otherenv').get_snapshots()))
+        self.assertEqual(2, len(self.storage.get_snapshots()))
+        self.assertEqual(3, len(DiscoStorage(environment_name='otherenv').get_snapshots()))
 
     @mock_ec2
     def test_create_ebs_snapshot(self):
@@ -124,9 +124,9 @@ class DiscoStorageTests(TestCase):
 
         snapshots = self.storage.get_snapshots('mhcfoo')
 
-        self.assertEquals(250, snapshots[0].volume_size)
-        self.assertEquals(True, snapshots[0].encrypted)
-        self.assertEquals('mock_productline', snapshots[0].tags['productline'])
+        self.assertEqual(250, snapshots[0].volume_size)
+        self.assertEqual(True, snapshots[0].encrypted)
+        self.assertEqual('mock_productline', snapshots[0].tags['productline'])
 
     @mock_ec2
     def test_create_ebs_snapshot_unencrypted(self):
@@ -135,9 +135,9 @@ class DiscoStorageTests(TestCase):
 
         snapshots = self.storage.get_snapshots('mhcfoo')
 
-        self.assertEquals(250, snapshots[0].volume_size)
-        self.assertEquals(False, snapshots[0].encrypted)
-        self.assertEquals('mock_productline', snapshots[0].tags['productline'])
+        self.assertEqual(250, snapshots[0].volume_size)
+        self.assertEqual(False, snapshots[0].encrypted)
+        self.assertEqual('mock_productline', snapshots[0].tags['productline'])
 
     def _create_volume(self):
         """Create the volume for the take_snapshot unit tests"""
@@ -168,10 +168,10 @@ class DiscoStorageTests(TestCase):
     def _validate_snapshot_fields(self, snapshot_id, tags):
         """Validate the take_snapshot unit tests"""
         snapshots = self.storage.get_snapshots('mhcmock')
-        self.assertEquals(len(snapshots), 1)
-        self.assertEquals(snapshots[0].id, snapshot_id)
-        self.assertEquals(snapshots[0].volume_size, 100)
-        self.assertEquals(snapshots[0].tags, tags)
+        self.assertEqual(len(snapshots), 1)
+        self.assertEqual(snapshots[0].id, snapshot_id)
+        self.assertEqual(snapshots[0].volume_size, 100)
+        self.assertEqual(snapshots[0].tags, tags)
 
     @mock_ec2
     def test_take_snapshot(self):

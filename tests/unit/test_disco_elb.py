@@ -125,7 +125,7 @@ class DiscoELBTests(TestCase):
     def test_get_elb_with_create(self):
         """Test creating a ELB"""
         self._create_elb()
-        self.assertEquals(
+        self.assertEqual(
             len(self.disco_elb.elb_client.describe_load_balancers()['LoadBalancerDescriptions']), 1)
 
     @mock_elb
@@ -133,7 +133,7 @@ class DiscoELBTests(TestCase):
         """Updating an ELB doesn't add create a new ELB"""
         self._create_elb()
         self._create_elb()
-        self.assertEquals(
+        self.assertEqual(
             len(self.disco_elb.elb_client.describe_load_balancers()['LoadBalancerDescriptions']), 1)
 
     @mock_elb
@@ -478,7 +478,7 @@ class DiscoELBTests(TestCase):
         self._create_elb()
         self.disco_elb.delete_elb(TEST_HOSTCLASS)
         load_balancers = self.disco_elb.elb_client.describe_load_balancers()['LoadBalancerDescriptions']
-        self.assertEquals(len(load_balancers), 0)
+        self.assertEqual(len(load_balancers), 0)
 
     @mock_elb
     def test_get_existing_elb(self):
@@ -491,14 +491,14 @@ class DiscoELBTests(TestCase):
         """Test getting the list of ELBs"""
         self._create_elb(hostclass='mhcbar')
         self._create_elb(hostclass='mhcfoo')
-        self.assertEquals(len(self.disco_elb.list()), 2)
+        self.assertEqual(len(self.disco_elb.list()), 2)
 
     @mock_elb
     def test_elb_delete(self):
         """Test deletion of ELBs"""
         self._create_elb(hostclass='mhcbar')
         self.disco_elb.delete_elb(hostclass='mhcbar')
-        self.assertEquals(len(self.disco_elb.list()), 0)
+        self.assertEqual(len(self.disco_elb.list()), 0)
 
     @mock_elb
     def test_destroy_all_elbs(self):
@@ -506,7 +506,7 @@ class DiscoELBTests(TestCase):
         self._create_elb(hostclass='mhcbar')
         self._create_elb(hostclass='mhcfoo')
         self.disco_elb.destroy_all_elbs()
-        self.assertEquals(len(self.disco_elb.list()), 0)
+        self.assertEqual(len(self.disco_elb.list()), 0)
 
     @mock_elb
     def test_wait_for_instance_health(self):
@@ -545,7 +545,7 @@ class DiscoELBTests(TestCase):
 
         elb_names = [listing['elb_name'] for listing in listings]
 
-        self.assertEquals(set(['unittestenv-mhcbar', 'unittestenv-mhcfoo-test']), set(elb_names))
+        self.assertEqual(set(['unittestenv-mhcbar', 'unittestenv-mhcfoo-test']), set(elb_names))
 
     @mock_elb
     def test_default_dns_alias(self):

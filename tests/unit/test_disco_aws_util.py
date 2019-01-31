@@ -89,4 +89,4 @@ class DiscoAWSUtilTests(TestCase):
         instance.id = "i-123123aa"
         instance.launch_time = str(now)
 
-        self.assertEquals(get_instance_launch_time(instance), now)
+        self.assertEqual(get_instance_launch_time(instance), now)

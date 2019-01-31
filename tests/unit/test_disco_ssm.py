@@ -341,11 +341,11 @@ class DiscoSSMTests(TestCase):
 
         # Begin verifications
         # Make sure the documents returned contain only the asiaq-managed ones
-        self.assertEquals(documents, MOCK_ASIAQ_DOCUMENTS)
+        self.assertEqual(documents, MOCK_ASIAQ_DOCUMENTS)
 
         expected_list_calls = [call(), call(NextToken=MOCK_NEXT_TOKEN)]
-        self.assertEquals(expected_list_calls,
-                          self._ssm.conn.list_documents.mock_calls)
+        self.assertEqual(expected_list_calls,
+                         self._ssm.conn.list_documents.mock_calls)
 
     @patch('boto3.client', mock_boto3_client)
     def test_get_document_content(self):
@@ -356,8 +356,8 @@ class DiscoSSMTests(TestCase):
         doc_content_2 = self._ssm.get_document_content('asiaq-ssm_document_2')
 
         # Verify result
-        self.assertEquals(doc_content_1, MOCK_ASIAQ_DOCUMENT_CONTENTS['asiaq-ssm_document_1'])
-        self.assertEquals(doc_content_2, MOCK_ASIAQ_DOCUMENT_CONTENTS['asiaq-ssm_document_2'])
+        self.assertEqual(doc_content_1, MOCK_ASIAQ_DOCUMENT_CONTENTS['asiaq-ssm_document_1'])
+        self.assertEqual(doc_content_2, MOCK_ASIAQ_DOCUMENT_CONTENTS['asiaq-ssm_document_2'])
 
     @patch('boto3.client', mock_boto3_client)
     def test_get_document_invalid_doc_name(self):
@@ -374,7 +374,7 @@ class DiscoSSMTests(TestCase):
         doc_content = self._ssm.get_document_content('asiaq-random_doc')
 
         # Verifying results
-        self.assertEquals(doc_content, None)
+        self.assertEqual(doc_content, None)
 
     @patch('boto3.client', mock_boto3_client)
     @patch('os.listdir')
@@ -397,12 +397,12 @@ class DiscoSSMTests(TestCase):
         self._ssm.update(wait=False)
 
         # Verify documents are created successfully
-        self.assertEquals(_standardize_json_str(mock_doc_content_1),
-                          _standardize_json_str(
-                              self._ssm.get_document_content('asiaq-ssm_document_3')))
-        self.assertEquals(_standardize_json_str(mock_doc_content_2),
-                          _standardize_json_str(
-                              self._ssm.get_document_content('asiaq-ssm_document_4')))
+        self.assertEqual(_standardize_json_str(mock_doc_content_1),
+                         _standardize_json_str(
+                             self._ssm.get_document_content('asiaq-ssm_document_3')))
+        self.assertEqual(_standardize_json_str(mock_doc_content_2),
+                         _standardize_json_str(
+                             self._ssm.get_document_content('asiaq-ssm_document_4')))
 
     @patch('boto3.client', mock_boto3_client)
     @patch('os.listdir')
@@ -421,9 +421,9 @@ class DiscoSSMTests(TestCase):
 
         # Verify only document_1 is deleted
         self.assertTrue(self._ssm.get_document_content('asiaq-ssm_document_1') is None)
-        self.assertEquals(_standardize_json_str(MOCK_ASIAQ_DOCUMENT_CONTENTS['asiaq-ssm_document_2']),
-                          _standardize_json_str(
-                              self._ssm.get_document_content('asiaq-ssm_document_2')))
+        self.assertEqual(_standardize_json_str(MOCK_ASIAQ_DOCUMENT_CONTENTS['asiaq-ssm_document_2']),
+                         _standardize_json_str(
+                             self._ssm.get_document_content('asiaq-ssm_document_2')))
 
     @patch('boto3.client', mock_boto3_client)
     @patch('os.listdir')
@@ -443,12 +443,12 @@ class DiscoSSMTests(TestCase):
         self._ssm.update(wait=False)
 
         # Verify only document_1 is modified
-        self.assertEquals(_standardize_json_str(new_doc_1_content),
-                          _standardize_json_str(
-                              self._ssm.get_document_content('asiaq-ssm_document_1')))
-        self.assertEquals(_standardize_json_str(MOCK_ASIAQ_DOCUMENT_CONTENTS['asiaq-ssm_document_2']),
-                          _standardize_json_str(
-                              self._ssm.get_document_content('asiaq-ssm_document_2')))
+        self.assertEqual(_standardize_json_str(new_doc_1_content),
+                         _standardize_json_str(
+                             self._ssm.get_document_content('asiaq-ssm_document_1')))
+        self.assertEqual(_standardize_json_str(MOCK_ASIAQ_DOCUMENT_CONTENTS['asiaq-ssm_document_2']),
+                         _standardize_json_str(
+                             self._ssm.get_document_content('asiaq-ssm_document_2')))
 
     @patch('boto3.client', mock_boto3_client)
     @patch('os.listdir')
@@ -473,21 +473,21 @@ class DiscoSSMTests(TestCase):
         describe_call = call(Name='asiaq-ssm_document_1')
         # Expecting describe_document() to be called four times: two for delete, two for create
         expected_describe_calls = [describe_call, describe_call, describe_call, describe_call]
-        self.assertEquals(expected_describe_calls,
-                          self._ssm.conn.describe_document.mock_calls)
+        self.assertEqual(expected_describe_calls,
+                         self._ssm.conn.describe_document.mock_calls)
 
-        self.assertEquals(_standardize_json_str(new_doc_1_content),
-                          _standardize_json_str(
-                              self._ssm.get_document_content('asiaq-ssm_document_1')))
-        self.assertEquals(_standardize_json_str(MOCK_ASIAQ_DOCUMENT_CONTENTS['asiaq-ssm_document_2']),
-                          _standardize_json_str(
-                              self._ssm.get_document_content('asiaq-ssm_document_2')))
+        self.assertEqual(_standardize_json_str(new_doc_1_content),
+                         _standardize_json_str(
+                             self._ssm.get_document_content('asiaq-ssm_document_1')))
+        self.assertEqual(_standardize_json_str(MOCK_ASIAQ_DOCUMENT_CONTENTS['asiaq-ssm_document_2']),
+                         _standardize_json_str(
+                             self._ssm.get_document_content('asiaq-ssm_document_2')))
 
     @patch('boto3.client', mock_boto3_client)
     def test_get_s3_bucket(self):
         """Verify that we get correct S3 bucket"""
 
-        self.assertEquals(
+        self.assertEqual(
             MOCK_S3_BUCKET_NAME,
             self._ssm.get_s3_bucket_name()
         )
@@ -505,11 +505,11 @@ class DiscoSSMTests(TestCase):
         command_id = mock_command['CommandId']
         command_output = self._ssm.get_ssm_command_output(command_id)
 
-        self.assertEquals(instance_ids, command_output.keys())
+        self.assertEqual(instance_ids, command_output.keys())
 
         for output in command_output.values():
-            self.assertEquals('stdout', output[0]['stdout'])
-            self.assertEquals('stderr', output[0]['stderr'])
+            self.assertEqual('stdout', output[0]['stdout'])
+            self.assertEqual('stderr', output[0]['stderr'])
 
     @patch('boto3.client', mock_boto3_client)
     def test_get_output_from_s3_bucket_with_no_stdout(self):
@@ -525,11 +525,11 @@ class DiscoSSMTests(TestCase):
         command_id = mock_command['CommandId']
         command_output = self._ssm.get_ssm_command_output(command_id)
 
-        self.assertEquals(instance_ids, command_output.keys())
+        self.assertEqual(instance_ids, command_output.keys())
 
         for output in command_output.values():
-            self.assertEquals('-', output[0]['stdout'])
-            self.assertEquals('stderr', output[0]['stderr'])
+            self.assertEqual('-', output[0]['stdout'])
+            self.assertEqual('stderr', output[0]['stderr'])
 
     @patch('boto3.client', mock_boto3_client)
     def test_get_output_from_s3_bucket_with_no_stderr(self):
@@ -545,11 +545,11 @@ class DiscoSSMTests(TestCase):
         command_id = mock_command['CommandId']
         command_output = self._ssm.get_ssm_command_output(command_id)
 
-        self.assertEquals(instance_ids, command_output.keys())
+        self.assertEqual(instance_ids, command_output.keys())
 
         for output in command_output.values():
-            self.assertEquals('stdout', output[0]['stdout'])
-            self.assertEquals('-', output[0]['stderr'])
+            self.assertEqual('stdout', output[0]['stdout'])
+            self.assertEqual('-', output[0]['stderr'])
 
     @patch('boto3.client', mock_boto3_client)
     def test_get_output_from_s3_bucket_with_no_output(self):
@@ -566,11 +566,11 @@ class DiscoSSMTests(TestCase):
         command_id = mock_command['CommandId']
         command_output = self._ssm.get_ssm_command_output(command_id)
 
-        self.assertEquals(instance_ids, command_output.keys())
+        self.assertEqual(instance_ids, command_output.keys())
 
         for output in command_output.values():
-            self.assertEquals('-', output[0]['stdout'])
-            self.assertEquals('-', output[0]['stderr'])
+            self.assertEqual('-', output[0]['stdout'])
+            self.assertEqual('-', output[0]['stderr'])
 
     @patch('boto3.client', mock_boto3_client)
     def test_get_output_from_ssm(self):
@@ -584,11 +584,11 @@ class DiscoSSMTests(TestCase):
 
         command_output = self._ssm.get_ssm_command_output(command_id)
 
-        self.assertEquals(instance_ids, command_output.keys())
+        self.assertEqual(instance_ids, command_output.keys())
 
         for output in command_output.values():
-            self.assertEquals('stdout', output[0]['stdout'])
-            self.assertEquals('stderr', output[0]['stderr'])
+            self.assertEqual('stdout', output[0]['stdout'])
+            self.assertEqual('stderr', output[0]['stderr'])
 
     @patch('boto3.client', mock_boto3_client)
     def test_get_output_from_ssm_bucket_with_no_stdout(self):
@@ -603,11 +603,11 @@ class DiscoSSMTests(TestCase):
 
         command_output = self._ssm.get_ssm_command_output(command_id)
 
-        self.assertEquals(instance_ids, command_output.keys())
+        self.assertEqual(instance_ids, command_output.keys())
 
         for output in command_output.values():
-            self.assertEquals('-', output[0]['stdout'])
-            self.assertEquals('stderr', output[0]['stderr'])
+            self.assertEqual('-', output[0]['stdout'])
+            self.assertEqual('stderr', output[0]['stderr'])
 
     @patch('boto3.client', mock_boto3_client)
     def test_get_output_from_ssm_bucket_with_no_stderr(self):
@@ -622,11 +622,11 @@ class DiscoSSMTests(TestCase):
 
         command_output = self._ssm.get_ssm_command_output(command_id)
 
-        self.assertEquals(instance_ids, command_output.keys())
+        self.assertEqual(instance_ids, command_output.keys())
 
         for output in command_output.values():
-            self.assertEquals('stdout', output[0]['stdout'])
-            self.assertEquals('-', output[0]['stderr'])
+            self.assertEqual('stdout', output[0]['stdout'])
+            self.assertEqual('-', output[0]['stderr'])
 
     @patch('boto3.client', mock_boto3_client)
     def test_get_output_from_ssm_bucket_with_no_output(self):
@@ -642,11 +642,11 @@ class DiscoSSMTests(TestCase):
 
         command_output = self._ssm.get_ssm_command_output(command_id)
 
-        self.assertEquals(instance_ids, command_output.keys())
+        self.assertEqual(instance_ids, command_output.keys())
 
         for output in command_output.values():
-            self.assertEquals('-', output[0]['stdout'])
-            self.assertEquals('-', output[0]['stderr'])
+            self.assertEqual('-', output[0]['stdout'])
+            self.assertEqual('-', output[0]['stderr'])
 
     @patch('boto3.client', mock_boto3_client)
     def test_execute_command(self):
@@ -664,8 +664,8 @@ class DiscoSSMTests(TestCase):
             parameters=parameters
         )
 
-        self.assertEquals(True, is_successful)
-        self.assertEquals(False, self._ssm.s3.get_object.called)
+        self.assertEqual(True, is_successful)
+        self.assertEqual(False, self._ssm.s3.get_object.called)
 
     @patch('boto3.client', mock_boto3_client)
     def test_execute_command_with_s3(self):
@@ -682,8 +682,8 @@ class DiscoSSMTests(TestCase):
             parameters=parameters
         )
 
-        self.assertEquals(True, is_successful)
-        self.assertEquals(True, self._ssm.s3.get_object.called)
+        self.assertEqual(True, is_successful)
+        self.assertEqual(True, self._ssm.s3.get_object.called)
 
     @patch('boto3.client', mock_boto3_client)
     def test_execute_command_with_bad_s3(self):
@@ -701,9 +701,9 @@ class DiscoSSMTests(TestCase):
             parameters=parameters
         )
 
-        self.assertEquals(True, is_successful)
-        self.assertEquals(True, self._ssm.s3.head_bucket.called)
-        self.assertEquals(False, self._ssm.s3.get_object.called)
+        self.assertEqual(True, is_successful)
+        self.assertEqual(True, self._ssm.s3.head_bucket.called)
+        self.assertEqual(False, self._ssm.s3.get_object.called)
 
     @patch('boto3.client', mock_boto3_client)
     def test_execute_command_fails_with_other_status(self):
@@ -722,7 +722,7 @@ class DiscoSSMTests(TestCase):
             desired_status='Failure'
         )
 
-        self.assertEquals(False, is_successful)
+        self.assertEqual(False, is_successful)
 
     @patch('boto3.client', mock_boto3_client)
     def test_execute_command_with_exception(self):
@@ -741,7 +741,7 @@ class DiscoSSMTests(TestCase):
             parameters=parameters
         )
 
-        self.assertEquals(False, is_successful)
+        self.assertEqual(False, is_successful)
 
     @patch('boto3.client', mock_boto3_client)
     def test_read_env_from_config(self):
@@ -749,4 +749,4 @@ class DiscoSSMTests(TestCase):
         config_aws = get_mock_config(MOCK_AWS_CONFIG_DEFINITION)
         self._ssm = DiscoSSM(config_aws=config_aws)
 
-        self.assertEquals(TEST_ENV_NAME, self._ssm.environment_name)
+        self.assertEqual(TEST_ENV_NAME, self._ssm.environment_name)

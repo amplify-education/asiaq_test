@@ -25,7 +25,7 @@ class TestNormalizePath(TestCase):
         "Normalize path thinks the path exists - path is returned"
         path_exists.return_value = True
         found = disco_config.normalize_path("yabba", "dabba")
-        self.assertEquals(found, "FAKE_CONFIG_DIR/yabba/dabba")
+        self.assertEqual(found, "FAKE_CONFIG_DIR/yabba/dabba")
         path_exists.assert_called_once_with(found)
 
     @patch('os.path.exists')
@@ -33,7 +33,7 @@ class TestNormalizePath(TestCase):
         "Normalize path works with a single list-typed argument"
         path_exists.return_value = True
         found = disco_config.normalize_path(["yabba", "dabba"])
-        self.assertEquals(found, "FAKE_CONFIG_DIR/yabba/dabba")
+        self.assertEqual(found, "FAKE_CONFIG_DIR/yabba/dabba")
         path_exists.assert_called_once_with(found)
 
     @patch('os.path.exists')
@@ -41,7 +41,7 @@ class TestNormalizePath(TestCase):
         "Normalize path with a single tuple-typed argument"
         path_exists.return_value = True
         found = disco_config.normalize_path(("yabba", "dabba"))
-        self.assertEquals(found, "FAKE_CONFIG_DIR/yabba/dabba")
+        self.assertEqual(found, "FAKE_CONFIG_DIR/yabba/dabba")
         path_exists.assert_called_once_with(found)
 
 
@@ -128,44 +128,44 @@ class TestAsiaqConfig(TestCase):
     def test__get_asiaq_option__no_env_options(self):
         "Option exists in desired section: found it"
         config = MockAsiaqConfig(deepcopy(self.BASE_CONFIG_DICT))
-        self.assertEquals('easy_answer', config.get_asiaq_option(option='easy_option', section='mhcfoobar'))
+        self.assertEqual('easy_answer', config.get_asiaq_option(option='easy_option', section='mhcfoobar'))
 
     def test__get_asiaq_option__default_env(self):
         "Env-specific option with default environment"
         config = MockAsiaqConfig(deepcopy(self.BASE_CONFIG_DICT))
-        self.assertEquals('default_env_answer',
-                          config.get_asiaq_option(option='envy_option', section='mhcfoobar'))
+        self.assertEqual('default_env_answer',
+                         config.get_asiaq_option(option='envy_option', section='mhcfoobar'))
 
     def test__get_asiaq_option__env_in_constructor(self):
         "Env-specific option with environment passed in at construction time"
         config = MockAsiaqConfig(deepcopy(self.BASE_CONFIG_DICT), environment='ci')
-        self.assertEquals('ci_answer',
-                          config.get_asiaq_option('envy_option', section='mhcfoobar'))
+        self.assertEqual('ci_answer',
+                         config.get_asiaq_option('envy_option', section='mhcfoobar'))
 
     def test__get_asiaq_option__env_in_call(self):
         "Env-specific option with environment passed in at call time"
         config = MockAsiaqConfig(deepcopy(self.BASE_CONFIG_DICT))
-        self.assertEquals('ci_answer',
-                          config.get_asiaq_option('envy_option', section='mhcfoobar', environment='ci'))
+        self.assertEqual('ci_answer',
+                         config.get_asiaq_option('envy_option', section='mhcfoobar', environment='ci'))
 
     def test__get_asiaq_option__env_in_constructor_and_call(self):
         "Env-specific option with environment passed in at call time"
         config = MockAsiaqConfig(deepcopy(self.BASE_CONFIG_DICT), environment="bad_env")
-        self.assertEquals('ci_answer',
-                          config.get_asiaq_option('envy_option', section='mhcfoobar', environment='ci'))
+        self.assertEqual('ci_answer',
+                         config.get_asiaq_option('envy_option', section='mhcfoobar', environment='ci'))
 
     def test__get_asiaq_option__bad_env_in_call(self):
         "Env-specific option with unused environment passed in at call time"
         config = MockAsiaqConfig(deepcopy(self.BASE_CONFIG_DICT))
-        self.assertEquals('fallback_answer',
-                          config.get_asiaq_option('envy_option', section='mhcfoobar', environment='nope'))
+        self.assertEqual('fallback_answer',
+                         config.get_asiaq_option('envy_option', section='mhcfoobar', environment='nope'))
 
     def test__get_asiaq_option__default_section(self):
         "Option found in defaults as fallback"
         config = MockAsiaqConfig(deepcopy(self.BASE_CONFIG_DICT))
-        self.assertEquals('fall-all-the-way-back', config.get_asiaq_option('unused_option'))
-        self.assertEquals('fall-all-the-way-back',
-                          config.get_asiaq_option('unused_option', section='mhcfoobar'))
+        self.assertEqual('fall-all-the-way-back', config.get_asiaq_option('unused_option'))
+        self.assertEqual('fall-all-the-way-back',
+                         config.get_asiaq_option('unused_option', section='mhcfoobar'))
 
     def test__get_asiaq_option__missing__exception(self):
         "Missing option with required=True"
@@ -176,9 +176,9 @@ class TestAsiaqConfig(TestCase):
     def test__get_asiaq_option__missing_not_required__default(self):
         "Missing option with required=False and default"
         config = MockAsiaqConfig(deepcopy(self.BASE_CONFIG_DICT))
-        self.assertEquals("passed-in-default",
-                          config.get_asiaq_option('nobody-cares-about-this', section='mhcfoobar',
-                                                  required=False, default="passed-in-default"))
+        self.assertEqual("passed-in-default",
+                         config.get_asiaq_option('nobody-cares-about-this', section='mhcfoobar',
+                                                 required=False, default="passed-in-default"))
 
     def test__get_asiaq_option__missing_not_required_no_default__none(self):
         "Missing option with required=False and default"
@@ -202,25 +202,25 @@ class TestAsiaqConfig(TestCase):
         config_dict = deepcopy(self.BASE_CONFIG_DICT)
         config_dict[disco_config.DEFAULT_CONFIG_SECTION]['s3_bucket_base'] = 'bucket-base'
         config = MockAsiaqConfig(config_dict)
-        self.assertEquals("bucket-base--foobar", config.get_asiaq_s3_bucket_name('foobar'))
+        self.assertEqual("bucket-base--foobar", config.get_asiaq_s3_bucket_name('foobar'))
 
     def test__get_asiaq_s3_bucket_name__defaults(self):
         "Base behavior of get_asiaq_s3_bucket_name works as expected."
         config_dict = deepcopy(self.BASE_CONFIG_DICT)
         config_dict[disco_config.DEFAULT_CONFIG_SECTION].update(self.S3_BUCKET_CONFIG)
         config = MockAsiaqConfig(config_dict)
-        self.assertEquals("bucket-base--foobar--blah", config.get_asiaq_s3_bucket_name('foobar'))
+        self.assertEqual("bucket-base--foobar--blah", config.get_asiaq_s3_bucket_name('foobar'))
 
     def test__get_asiaq_s3_bucket_name__real_env_specified(self):
         "Environment-specific behavior of get_asiaq_s3_bucket_name with a configured env works as expected"
         config_dict = deepcopy(self.BASE_CONFIG_DICT)
         config_dict[disco_config.DEFAULT_CONFIG_SECTION].update(self.S3_BUCKET_CONFIG)
         config = MockAsiaqConfig(config_dict, environment="production")
-        self.assertEquals("bucket-base--foobar--danger", config.get_asiaq_s3_bucket_name('foobar'))
+        self.assertEqual("bucket-base--foobar--danger", config.get_asiaq_s3_bucket_name('foobar'))
 
     def test__get_asiaq_s3_bucket_name__bad_env_specified(self):
         "Environment-specific behavior of get_asiaq_s3_bucket_name with a nonsense env works as expected"
         config_dict = deepcopy(self.BASE_CONFIG_DICT)
         config_dict[disco_config.DEFAULT_CONFIG_SECTION].update(self.S3_BUCKET_CONFIG)
         config = MockAsiaqConfig(config_dict, environment="nope")
-        self.assertEquals("bucket-base--foobar--blah", config.get_asiaq_s3_bucket_name('foobar'))
+        self.assertEqual("bucket-base--foobar--blah", config.get_asiaq_s3_bucket_name('foobar'))

@@ -102,8 +102,8 @@ class RDSTests(unittest.TestCase):
     @patch('disco_aws_automation.disco_rds.DiscoS3Bucket', return_value=_get_bucket_mock())
     def test_get_master_password(self, bucket_mock, vpc_mock):
         """test getting the master password for an instance using either the db name or id as the s3 key"""
-        self.assertEquals('database_name_key', self.rds.get_master_password(TEST_ENV_NAME, 'db-name'))
-        self.assertEquals('database-id-key', self.rds.get_master_password(TEST_ENV_NAME, 'db-id'))
+        self.assertEqual('database_name_key', self.rds.get_master_password(TEST_ENV_NAME, 'db-name'))
+        self.assertEqual('database-id-key', self.rds.get_master_password(TEST_ENV_NAME, 'db-id'))
 
     # pylint: disable=unused-argument
     @patch('disco_aws_automation.disco_vpc.DiscoVPC')
@@ -121,10 +121,10 @@ class RDSTests(unittest.TestCase):
 
     def test_get_db_parameter_group_family(self):
         """Tests that get_db_parameter_group_family handles all the expected cases"""
-        self.assertEquals("postgresql9.3", RDS.get_db_parameter_group_family("postgresql", "9.3.1"))
-        self.assertEquals("oracle-se2-12.1",
-                          RDS.get_db_parameter_group_family("oracle-se2", "12.1.0.2.v2"))
-        self.assertEquals("mysql123.5", RDS.get_db_parameter_group_family("MySQL", "123.5"))
+        self.assertEqual("postgresql9.3", RDS.get_db_parameter_group_family("postgresql", "9.3.1"))
+        self.assertEqual("oracle-se2-12.1",
+                         RDS.get_db_parameter_group_family("oracle-se2", "12.1.0.2.v2"))
+        self.assertEqual("mysql123.5", RDS.get_db_parameter_group_family("MySQL", "123.5"))
 
     # pylint: disable=unused-argument
     @patch('disco_aws_automation.disco_vpc.DiscoVPC')
@@ -236,7 +236,7 @@ class RDSTests(unittest.TestCase):
 
         actual = self.rds.client.restore_db_instance_from_db_snapshot.call_args[1]['DBSnapshotIdentifier']
 
-        self.assertEquals('foo-snapshot2', actual)
+        self.assertEqual('foo-snapshot2', actual)
 
     # pylint: disable=unused-argument
     @patch('disco_aws_automation.disco_vpc.DiscoVPC')

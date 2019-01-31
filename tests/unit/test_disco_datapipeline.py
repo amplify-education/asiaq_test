@@ -18,8 +18,8 @@ class DataPipelineTest(TestCase):
     def test__description_only_object__content_and_persisted_false(self):
         "AsiaqDataPipeline construction with only required args"
         pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
-        self.assertEquals(pipeline._name, "asdf")
-        self.assertEquals(pipeline._description, "qwerty")
+        self.assertEqual(pipeline._name, "asdf")
+        self.assertEqual(pipeline._description, "qwerty")
         self.assertFalse(pipeline._tags)
         self.assertFalse(pipeline.is_persisted())
         self.assertFalse(pipeline.has_content())
@@ -32,14 +32,14 @@ class DataPipelineTest(TestCase):
     def test__get_tag_dict__tags_dict_passed__correct_return(self):
         "AsiaqDataPipeline.get_tag_dict with tags passed as dict"
         pipeline = AsiaqDataPipeline(name="asdf", description="qwerty", tags={'template': 'silly'})
-        self.assertEquals({"template": "silly"}, pipeline.get_tag_dict())
+        self.assertEqual({"template": "silly"}, pipeline.get_tag_dict())
 
     def test__get_tag_dict__tags_list_passed__correct_return(self):
         "AsiaqDataPipeline.get_tag_dict with tags passed as list"
         pipeline = AsiaqDataPipeline(
             name="asdf", description="qwerty",
             tags=[{'key': 'template', 'value': 'silly'}, {'key': 'another', 'value': 'tag'}])
-        self.assertEquals({"template": "silly", "another": "tag"}, pipeline.get_tag_dict())
+        self.assertEqual({"template": "silly", "another": "tag"}, pipeline.get_tag_dict())
 
     def test__get_tag_dict__duplicate_tag__exception(self):
         "AsiaqDataPipeline.get_tag_dict with a duplicate tag definition"
@@ -70,11 +70,11 @@ class DataPipelineTest(TestCase):
         "AsiaqDataPipeline.last_run is a correct datetime"
         pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[
             {'key': '@latestRunTime', 'stringValue': '1978-08-05T08:00:00'}])
-        self.assertEquals(1978, pipeline.last_run.year)
-        self.assertEquals(8, pipeline.last_run.month)
-        self.assertEquals(5, pipeline.last_run.day)
-        self.assertEquals(8, pipeline.last_run.hour)
-        self.assertEquals(0, pipeline.last_run.utcoffset().total_seconds())
+        self.assertEqual(1978, pipeline.last_run.year)
+        self.assertEqual(8, pipeline.last_run.month)
+        self.assertEqual(5, pipeline.last_run.day)
+        self.assertEqual(8, pipeline.last_run.hour)
+        self.assertEqual(0, pipeline.last_run.utcoffset().total_seconds())
 
     def test__health__no_field__none_returned(self):
         "AsiaqDataPipeline.health is none if the field is absent"
@@ -85,7 +85,7 @@ class DataPipelineTest(TestCase):
         "AsiaqDataPipeline.health is found if set"
         pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[
             {'key': '@healthStatus', 'stringValue': 'SUPERHEALTHY'}])
-        self.assertEquals('SUPERHEALTHY', pipeline.health)
+        self.assertEqual('SUPERHEALTHY', pipeline.health)
 
     def test__pipeline_state__field_absent__exception(self):
         "AsiaqDataPipeline.pipeline_state causes an exception if not set"
@@ -97,7 +97,7 @@ class DataPipelineTest(TestCase):
         "AsiaqDataPipeline.pipeline_state is found if set"
         pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[
             {'key': '@pipelineState', 'stringValue': 'NIFTY'}])
-        self.assertEquals('NIFTY', pipeline.pipeline_state)
+        self.assertEqual('NIFTY', pipeline.pipeline_state)
 
     def test__create_date__field_absent__exception(self):
         "AsiaqDataPipeline.create_date causes an exception if not set"
@@ -109,11 +109,11 @@ class DataPipelineTest(TestCase):
         "AsiaqDataPipeline.create_date is a correct datetime"
         pipeline = AsiaqDataPipeline("TEST", "TESTY", metadata=[
             {'key': '@creationTime', 'stringValue': '2008-01-20T17:00:00'}])
-        self.assertEquals(2008, pipeline.create_date.year)
-        self.assertEquals(1, pipeline.create_date.month)
-        self.assertEquals(20, pipeline.create_date.day)
-        self.assertEquals(17, pipeline.create_date.hour)
-        self.assertEquals(0, pipeline.create_date.utcoffset().total_seconds())
+        self.assertEqual(2008, pipeline.create_date.year)
+        self.assertEqual(1, pipeline.create_date.month)
+        self.assertEqual(20, pipeline.create_date.day)
+        self.assertEqual(17, pipeline.create_date.hour)
+        self.assertEqual(0, pipeline.create_date.utcoffset().total_seconds())
 
     def test__get_param_value_dict__duplicate_value__exception(self):
         "AsiaqDataPipeline.get_param_value_dict with a duplicate value definition"
@@ -136,9 +136,9 @@ class DataPipelineTest(TestCase):
         self.assertFalse(pipeline.is_persisted())
         self.assertTrue(pipeline.has_content())
         # nasty cherry-pick:
-        self.assertEquals("SchedulePeriod", pipeline._objects[0]['id'])
-        self.assertEquals(pipeline._name, "asdf")
-        self.assertEquals(pipeline._description, "qwerty")
+        self.assertEqual("SchedulePeriod", pipeline._objects[0]['id'])
+        self.assertEqual(pipeline._name, "asdf")
+        self.assertEqual(pipeline._description, "qwerty")
 
     def test__from_template__backup_period_value(self):
         "AsiaqDataPipeline.from_template test if from_template contains myDDBSchedulePeriod."
@@ -147,7 +147,7 @@ class DataPipelineTest(TestCase):
             name="asdf", description="qwerty", template_name="dynamodb_backup")
         actual_pipeline_schedule = pipeline._objects[0]
         actual_schedule_fields = actual_pipeline_schedule['fields']
-        self.assertEquals(expected_period_value, actual_schedule_fields[0]['stringValue'])
+        self.assertEqual(expected_period_value, actual_schedule_fields[0]['stringValue'])
 
     def test__from_template__log_and_subnet_fields__fields_set(self):
         "AsiaqDataPipeline.from_template with a log location and subnet ID"
@@ -185,8 +185,8 @@ class DataPipelineTest(TestCase):
         pipeline_objects = Mock()
         param_defs = Mock()
         pipeline.update_content(pipeline_objects, param_defs, new_values)
-        self.assertEquals([{'id': 'foo', 'stringValue': 'bar'}, {'id': 'baz', 'stringValue': '1'}],
-                          pipeline._param_values)
+        self.assertEqual([{'id': 'foo', 'stringValue': 'bar'}, {'id': 'baz', 'stringValue': '1'}],
+                         pipeline._param_values)
 
     def test__update_content__old_values_not_new_ones__values_unchanged(self):
         "AsiaqDataPipeline.update_content does not overwrite parameter values when not appropriate"
@@ -195,7 +195,7 @@ class DataPipelineTest(TestCase):
         pipeline_objects = Mock()
         param_defs = Mock()
         pipeline.update_content(pipeline_objects, param_defs)
-        self.assertEquals(
+        self.assertEqual(
             [{'id': 'this', 'stringValue': 'will not'}, {'id': 'be', 'stringValue': 'overwritten'}],
             pipeline._param_values
         )
@@ -207,7 +207,7 @@ class DataPipelineTest(TestCase):
         pipeline_objects = Mock()
         param_defs = Mock()
         pipeline.update_content(pipeline_objects, param_defs, [])
-        self.assertEquals(
+        self.assertEqual(
             [],
             pipeline._param_values
         )
@@ -221,11 +221,11 @@ class DataPipelineTest(TestCase):
         pipeline.update_content(pipeline_objects, param_defs, param_values)
         self.assertIs(pipeline._objects, pipeline_objects)
         self.assertIs(pipeline._params, param_defs)
-        self.assertEquals(2, len(pipeline._param_values))
+        self.assertEqual(2, len(pipeline._param_values))
         self.assertIs(list, type(pipeline._param_values))
         self.assertIn({'id': 'foo', 'stringValue': 'bar'}, pipeline._param_values)
         self.assertIn({'id': 'baz', 'stringValue': '1'}, pipeline._param_values)
-        self.assertEquals({"foo": "bar", "baz": "1"}, pipeline.get_param_value_dict())
+        self.assertEqual({"foo": "bar", "baz": "1"}, pipeline.get_param_value_dict())
 
     def test__update_content__list_values__content_updated(self):
         "AsiaqDataPipeline.update_content with silly listed parameter values"
@@ -240,15 +240,15 @@ class DataPipelineTest(TestCase):
         pipeline.update_content(pipeline_objects, param_defs, param_values)
         self.assertIs(pipeline._objects, pipeline_objects)
         self.assertIs(pipeline._params, param_defs)
-        self.assertEquals(3, len(pipeline._param_values))
-        self.assertEquals({"foo": "bar", "bar": "baz", "simple": "string"}, pipeline.get_param_value_dict())
+        self.assertEqual(3, len(pipeline._param_values))
+        self.assertEqual({"foo": "bar", "bar": "baz", "simple": "string"}, pipeline.get_param_value_dict())
 
     def test__update_content__template__content_updated(self):
         "AsiaqDataPipeline.update_content with a template"
         pipeline = AsiaqDataPipeline(name="asdf", description="qwerty")
         pipeline.update_content(template_name="dynamodb_restore")
         self.assertTrue(pipeline.has_content())
-        self.assertEquals("DDBDestinationTable", pipeline._objects[1]['id'])
+        self.assertEqual("DDBDestinationTable", pipeline._objects[1]['id'])
 
     def test__update_content__log_location_and_subnet__fields_set(self):
         "AsiaqDataPipeline.update_content with log location and subnet ID"
@@ -312,7 +312,7 @@ class DataPipelineManagerTest(TestCase):
         objects = Mock()
         self.mock_client.get_pipeline_definition.return_value = {'pipelineObjects': objects}
         fetched = self.mgr.fetch("ab-cdef")
-        self.assertEquals(objects, fetched._objects)
+        self.assertEqual(objects, fetched._objects)
         self.assertIsNone(fetched._param_values)
         self.assertIsNone(fetched._params)
         self.mock_client.get_pipeline_definition.assert_called_once_with(pipelineId="ab-cdef",
@@ -327,9 +327,9 @@ class DataPipelineManagerTest(TestCase):
         self.mock_client.get_pipeline_definition.return_value = {
             'pipelineObjects': objects, 'parameterObjects': params, 'parameterValues': values}
         fetched = self.mgr.fetch("ab-cdef")
-        self.assertEquals(objects, fetched._objects)
-        self.assertEquals(values, fetched._param_values)
-        self.assertEquals(params, fetched._params)
+        self.assertEqual(objects, fetched._objects)
+        self.assertEqual(values, fetched._param_values)
+        self.assertEqual(params, fetched._params)
         self.mock_client.get_pipeline_definition.assert_called_once_with(pipelineId="ab-cdef",
                                                                          version="latest")
         self.mock_client.describe_pipelines.assert_called_once_with(pipelineIds=['ab-cdef'])
@@ -354,9 +354,9 @@ class DataPipelineManagerTest(TestCase):
             'pipelineObjects': objects, 'parameterObjects': params, 'parameterValues': values}
         self.mgr.fetch_content(pipeline)
         self.mock_client.get_pipeline_definition.assert_called_once_with(pipelineId="asdf", version="latest")
-        self.assertEquals(objects, pipeline._objects)
-        self.assertEquals(values, pipeline._param_values)
-        self.assertEquals(params, pipeline._params)
+        self.assertEqual(objects, pipeline._objects)
+        self.assertEqual(values, pipeline._param_values)
+        self.assertEqual(params, pipeline._params)
 
     def test__delete__unsaved__error(self):
         "AsiaqDataPipelineManager.delete on a detached object: error"
@@ -384,72 +384,72 @@ class DataPipelineManagerTest(TestCase):
         contents = Mock()
         pipeline = self._unpersisted_pipeline(contents)
         self.mgr.save(pipeline)
-        self.assertEquals(pipeline._id, 'qwerty')
-        self.assertEquals(self.mock_client.create_pipeline.call_count, 1)  # args are too much of a pain
+        self.assertEqual(pipeline._id, 'qwerty')
+        self.assertEqual(self.mock_client.create_pipeline.call_count, 1)  # args are too much of a pain
         self.mock_client.put_pipeline_definition.assert_called_once_with(
             pipelineId="qwerty", pipelineObjects=contents, parameterObjects=[], parameterValues=[])
-        self.assertEquals('test', self.mock_client.create_pipeline.call_args[1]['name'])
-        self.assertEquals('pipeline with no id', self.mock_client.create_pipeline.call_args[1]['description'])
-        self.assertEquals([], self.mock_client.create_pipeline.call_args[1]['tags'])
+        self.assertEqual('test', self.mock_client.create_pipeline.call_args[1]['name'])
+        self.assertEqual('pipeline with no id', self.mock_client.create_pipeline.call_args[1]['description'])
+        self.assertEqual([], self.mock_client.create_pipeline.call_args[1]['tags'])
 
     def test__search_descriptions__no_ids__no_results(self):
         "AsiaqDataPipelineManager.search_descriptions with empty results"
         self.mock_client.list_pipelines.return_value = {'hasMoreResults': False, 'pipelineIdList': []}
         self.mock_client.describe_pipelines.return_value = {'pipelineDescriptionList': []}
-        self.assertEquals([], self.mgr.search_descriptions())
+        self.assertEqual([], self.mgr.search_descriptions())
         self.mock_client.list_pipelines.assert_called_once_with()
         self.mock_client.describe_pipelines.assert_not_called()
 
     def test__search_descriptions__search_all__all_found(self):
         "AsiaqDataPipelineManager.search_descriptions without filtering"
         searched = self.mgr.search_descriptions()
-        self.assertEquals(4, len(searched))
+        self.assertEqual(4, len(searched))
         for i in range(4):
-            self.assertEquals(searched[i]._name, self.SEARCH_DESCRIPTIONS[i]['name'])
-            self.assertEquals(searched[i]._id, self.SEARCH_DESCRIPTIONS[i]['pipelineId'])
+            self.assertEqual(searched[i]._name, self.SEARCH_DESCRIPTIONS[i]['name'])
+            self.assertEqual(searched[i]._id, self.SEARCH_DESCRIPTIONS[i]['pipelineId'])
 
         # hand-assert special cases
         self.assertIsNone(searched[0]._tags, msg="Missing tags handled correctly")
         self.assertIsNone(searched[1]._description, msg="Missing description handled correctly")
-        self.assertEquals({'environment': 'build', 'extraneous': 'tag'}, searched[2].get_tag_dict())
+        self.assertEqual({'environment': 'build', 'extraneous': 'tag'}, searched[2].get_tag_dict())
 
     def test__search_descriptions__by_bad_name__nothing_found(self):
         "AsiaqDataPipelineManager.search_descriptions filtering for a non-existent pipeline name"
-        self.assertEquals([], self.mgr.search_descriptions(name="asdfasdfasdfasd"))
+        self.assertEqual([], self.mgr.search_descriptions(name="asdfasdfasdfasd"))
 
     def test__search_descriptions__by_good_name__pipeline_found(self):
         "AsiaqDataPipelineManager.search_descriptions filtering for a unique pipeline name"
         searched = self.mgr.search_descriptions(name="nodescpipeline")
-        self.assertEquals(1, len(searched))
-        self.assertEquals("nodescpipeline", searched[0]._name)
+        self.assertEqual(1, len(searched))
+        self.assertEqual("nodescpipeline", searched[0]._name)
         self.assertIsNone(searched[0]._description)
 
     def test__search_descriptions__by_dupe_name__pipelines_found(self):
         "AsiaqDataPipelineManager.search_descriptions filtering for a repeated pipeline name"
         searched = self.mgr.search_descriptions(name="mypipeline")
-        self.assertEquals(2, len(searched))
-        self.assertEquals("mypipeline", searched[0]._name)
-        self.assertEquals("buildit", searched[0]._id)
-        self.assertEquals("ciya", searched[1]._id)
+        self.assertEqual(2, len(searched))
+        self.assertEqual("mypipeline", searched[0]._name)
+        self.assertEqual("buildit", searched[0]._id)
+        self.assertEqual("ciya", searched[1]._id)
 
     def test__search_descriptions__by_bad_tag__nothing_found(self):
         "AsiaqDataPipelineManager.search_descriptions filtering for a non-existent tag"
         searched = self.mgr.search_descriptions(tags={'foo': 'bar'})
-        self.assertEquals([], searched)
+        self.assertEqual([], searched)
 
     def test__search_descriptions__by_good_tag__pipeline_found(self):
         "AsiaqDataPipelineManager.search_descriptions filtering for a unique tag"
         searched = self.mgr.search_descriptions(tags={'environment': 'ci'})
-        self.assertEquals(1, len(searched))
-        self.assertEquals("mypipeline", searched[0]._name)
-        self.assertEquals("pipeline in ci", searched[0]._description)
+        self.assertEqual(1, len(searched))
+        self.assertEqual("mypipeline", searched[0]._name)
+        self.assertEqual("pipeline in ci", searched[0]._description)
 
     def test__search_descriptions__by_dupe_name_and_tag__pipelines_found(self):
         "AsiaqDataPipelineManager.search_descriptions filtering for a tag/name combination"
         searched = self.mgr.search_descriptions(name="mypipeline", tags={'environment': 'build'})
-        self.assertEquals(1, len(searched))
-        self.assertEquals("mypipeline", searched[0]._name)
-        self.assertEquals("buildit", searched[0]._id)
+        self.assertEqual(1, len(searched))
+        self.assertEqual("mypipeline", searched[0]._name)
+        self.assertEqual("buildit", searched[0]._id)
 
     def test__start__unpersisted__error(self):
         "AsiaqDataPipelineManager.start on a detached object: error"
@@ -459,9 +459,9 @@ class DataPipelineManagerTest(TestCase):
     def test__start__persisted_without_params__started(self):
         "AsiaqDataPipelineManager.start with no parameter values anywhere"
         self.mgr.start(self._persisted_pipeline())
-        self.assertEquals(1, self.mock_client.activate_pipeline.call_count)
+        self.assertEqual(1, self.mock_client.activate_pipeline.call_count)
         activate_args = self.mock_client.activate_pipeline.call_args[1]
-        self.assertEquals("asdf", activate_args['pipelineId'])
+        self.assertEqual("asdf", activate_args['pipelineId'])
         self.assertIsNone(activate_args['parameterValues'])
         self.assertIn('startTimestamp', activate_args)
 
@@ -470,10 +470,10 @@ class DataPipelineManagerTest(TestCase):
         pipeline = self._persisted_pipeline()
         pipeline._param_values = Mock()
         self.mgr.start(pipeline)
-        self.assertEquals(1, self.mock_client.activate_pipeline.call_count)
+        self.assertEqual(1, self.mock_client.activate_pipeline.call_count)
         activate_args = self.mock_client.activate_pipeline.call_args[1]
-        self.assertEquals("asdf", activate_args['pipelineId'])
-        self.assertEquals(pipeline._param_values, activate_args['parameterValues'])
+        self.assertEqual("asdf", activate_args['pipelineId'])
+        self.assertEqual(pipeline._param_values, activate_args['parameterValues'])
         self.assertIn('startTimestamp', activate_args)
 
     def test__start__param_values_list__started_with_correct_param_values(self):
@@ -482,10 +482,10 @@ class DataPipelineManagerTest(TestCase):
         pipeline._param_values = Mock()  # this is the WRONG set of params
         real_params = [Mock(), Mock()]
         self.mgr.start(pipeline, params=real_params)
-        self.assertEquals(1, self.mock_client.activate_pipeline.call_count)
+        self.assertEqual(1, self.mock_client.activate_pipeline.call_count)
         activate_args = self.mock_client.activate_pipeline.call_args[1]
-        self.assertEquals("asdf", activate_args['pipelineId'])
-        self.assertEquals(real_params, activate_args['parameterValues'])
+        self.assertEqual("asdf", activate_args['pipelineId'])
+        self.assertEqual(real_params, activate_args['parameterValues'])
         self.assertIn('startTimestamp', activate_args)
 
     def test__start__param_values_dict__started_with_correct_param_values(self):
@@ -494,9 +494,9 @@ class DataPipelineManagerTest(TestCase):
         pipeline._param_values = Mock()  # this is the WRONG set of params
         real_params = {"foo": "bar", "qwerty": "asdf"}
         self.mgr.start(pipeline, params=real_params)
-        self.assertEquals(1, self.mock_client.activate_pipeline.call_count)
+        self.assertEqual(1, self.mock_client.activate_pipeline.call_count)
         activate_args = self.mock_client.activate_pipeline.call_args[1]
-        self.assertEquals("asdf", activate_args['pipelineId'])
+        self.assertEqual("asdf", activate_args['pipelineId'])
         self.assertIn({'id': 'foo', 'stringValue': 'bar'}, activate_args['parameterValues'])
         self.assertIn({'id': 'qwerty', 'stringValue': 'asdf'}, activate_args['parameterValues'])
         self.assertIn('startTimestamp', activate_args)
@@ -507,17 +507,17 @@ class DataPipelineManagerTest(TestCase):
         fake_now = Mock()
         datetime.utcnow = Mock(return_value=fake_now)
         self.mgr.start(self._persisted_pipeline())
-        self.assertEquals(1, self.mock_client.activate_pipeline.call_count)
+        self.assertEqual(1, self.mock_client.activate_pipeline.call_count)
         activate_args = self.mock_client.activate_pipeline.call_args[1]
-        self.assertEquals(fake_now, activate_args['startTimestamp'])
+        self.assertEqual(fake_now, activate_args['startTimestamp'])
 
     def test__start__time_passed__time_used(self):
         "AsiaqDataPipelineManager.start with passed-in start time uses passed-in value"
         start_time = Mock()
         self.mgr.start(self._persisted_pipeline(), start_time=start_time)
-        self.assertEquals(1, self.mock_client.activate_pipeline.call_count)
+        self.assertEqual(1, self.mock_client.activate_pipeline.call_count)
         activate_args = self.mock_client.activate_pipeline.call_args[1]
-        self.assertEquals(start_time, activate_args['startTimestamp'])
+        self.assertEqual(start_time, activate_args['startTimestamp'])
 
     def test__stop__unpersisted__error(self):
         "AsiaqDataPipelineManager.stop with a detached object: error"
@@ -544,8 +544,8 @@ class PipelineUtilityTest(TestCase):
     def test__template_to_boto__empty_values__empty_return(self):
         "template_to_boto: degenerate input succeeds."
         objects, parameter_defs = template_to_boto({'objects': [], 'parameters': []})
-        self.assertEquals([], objects)
-        self.assertEquals([], parameter_defs)
+        self.assertEqual([], objects)
+        self.assertEqual([], parameter_defs)
 
     def test__template_to_boto__only_conserved_fields__identical_return(self):
         "template_to_boto: conserved_fields conserved."
@@ -556,10 +556,10 @@ class PipelineUtilityTest(TestCase):
             ],
             'parameters': [{'id': '1234'}]
         })
-        self.assertEquals(
+        self.assertEqual(
             [{'id': 'asdf', 'name': 'George', 'fields': []}, {'id': 'qwerty', 'name': 'Fred', 'fields': []}],
             objects)
-        self.assertEquals([{'id': '1234', 'attributes': []}], parameter_defs)
+        self.assertEqual([{'id': '1234', 'attributes': []}], parameter_defs)
 
     def test__template_to_boto__object_simple_defs__fields_dict(self):
         "template_to_boto: string values translated."
@@ -570,7 +570,7 @@ class PipelineUtilityTest(TestCase):
             ],
             'parameters': []
         })
-        self.assertEquals(
+        self.assertEqual(
             [{'id': 'asdf', 'name': 'George', 'fields': [{'key': 'some_field', 'stringValue': 'some_value'}]},
              {'id': 'qwerty', 'name': 'Fred', 'fields': [{'key': 'my_field', 'stringValue': 'vaaalue'}]}],
             objects)
@@ -583,7 +583,7 @@ class PipelineUtilityTest(TestCase):
             ],
             'parameters': []
         })
-        self.assertEquals(
+        self.assertEqual(
             [{'id': 'asdf', 'name': 'George', 'fields': [
                 {'key': 'some_field', 'stringValue': 'val1'},
                 {'key': 'some_field', 'stringValue': 'val2'},
@@ -599,7 +599,7 @@ class PipelineUtilityTest(TestCase):
             ],
             'parameters': []
         })
-        self.assertEquals(
+        self.assertEqual(
             [{'id': 'asdf', 'name': 'George', 'fields': [
                 {'key': 'some_field', 'refValue': 'someIdGoesHere'}
             ]}],
@@ -617,8 +617,8 @@ class PipelineUtilityTest(TestCase):
                 "watermark": "us-east-1"
             }]
         })
-        self.assertEquals(1, len(parameter_defs))
-        self.assertEquals('myDDBRegion', parameter_defs[0]['id'])
+        self.assertEqual(1, len(parameter_defs))
+        self.assertEqual('myDDBRegion', parameter_defs[0]['id'])
         # These are not necessarily well-ordered, so we have to work around a little
         attrs_found = parameter_defs[0]['attributes']
         expected = [
@@ -639,7 +639,7 @@ class PipelineUtilityTest(TestCase):
         backup_list = copy.deepcopy(object_list)
         self.assertRaises(asiaq_exceptions.DataPipelineFormatException,
                           add_default_object_fields, object_list, added_fields)
-        self.assertEquals(backup_list, object_list)
+        self.assertEqual(backup_list, object_list)
 
     def test__add_default_object_fields__existing_value__update(self):
         "add_default_object_fields: existing log location gets updated"
@@ -654,8 +654,8 @@ class PipelineUtilityTest(TestCase):
         added_fields = {'pipelineLogUri': self.FAKE_S3_URL}
         backup_list = copy.deepcopy(object_list)
         add_default_object_fields(object_list, added_fields)
-        self.assertNotEquals(backup_list, object_list)
-        self.assertEquals(self.FAKE_S3_URL, object_list[1]['fields'][0]['stringValue'])
+        self.assertNotEqual(backup_list, object_list)
+        self.assertEqual(self.FAKE_S3_URL, object_list[1]['fields'][0]['stringValue'])
 
     def test__add_default_object_fields__no_value__insert(self):
         "add_default_object_fields: missing log location gets inserted"
@@ -669,9 +669,9 @@ class PipelineUtilityTest(TestCase):
         added_fields = {'fakeParam': self.FAKE_S3_URL}
         backup_list = copy.deepcopy(object_list)
         add_default_object_fields(object_list, added_fields)
-        self.assertNotEquals(backup_list, object_list)
-        self.assertEquals('fakeParam', object_list[1]['fields'][1]['key'])
-        self.assertEquals(self.FAKE_S3_URL, object_list[1]['fields'][1]['stringValue'])
+        self.assertNotEqual(backup_list, object_list)
+        self.assertEqual('fakeParam', object_list[1]['fields'][1]['key'])
+        self.assertEqual(self.FAKE_S3_URL, object_list[1]['fields'][1]['stringValue'])
 
     def test__add_default_object_fields__new_and_existing_values__insert_and_update(self):
         "add_default_object_fields: existing log location gets updated, new field gets added"
@@ -687,6 +687,6 @@ class PipelineUtilityTest(TestCase):
         added_fields = {'pipelineLogUri': self.FAKE_S3_URL, 'newThing': 'newValue'}
         backup_list = copy.deepcopy(object_list)
         add_default_object_fields(object_list, added_fields)
-        self.assertNotEquals(backup_list, object_list)
-        self.assertEquals(self.FAKE_S3_URL, default_fields[0]['stringValue'])
-        self.assertEquals('newValue', default_fields[2]['stringValue'])
+        self.assertNotEqual(backup_list, object_list)
+        self.assertEqual(self.FAKE_S3_URL, default_fields[0]['stringValue'])
+        self.assertEqual('newValue', default_fields[2]['stringValue'])

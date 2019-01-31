@@ -191,10 +191,10 @@ class DiscoVPCTests(unittest.TestCase):
                 # Get the create_tags argument
                 call_args_tags = resource_mock.Vpc.return_value.create_tags.call_args[1]
                 # Verify Option Name
-                self.assertEquals(['Tags'], call_args_tags.keys())
+                self.assertEqual(['Tags'], call_args_tags.keys())
                 call_tags_dict = call_args_tags['Tags']
                 # Verify the number of tag Dictionaries in the list
-                self.assertEquals(5, len(call_tags_dict))
+                self.assertEqual(5, len(call_tags_dict))
                 # Verify each tag options
                 for tag_option in call_tags_dict:
                     if tag_option['Key'] == 'create_date':
@@ -275,7 +275,7 @@ class DiscoVPCTests(unittest.TestCase):
             option['Values']
             for option in client_mock.create_dhcp_options.call_args[1]['DhcpConfigurations']
             if option['Key'] == 'ntp-servers'][0]
-        self.assertEquals(set(actual_ntp_servers), set(local_dict['ntp_servers_dict'].values()))
+        self.assertEqual(set(actual_ntp_servers), set(local_dict['ntp_servers_dict'].values()))
 
         client_mock.associate_dhcp_options.assert_has_calls(
             [call(DhcpOptionsId=local_dict['new_mock_dhcp_options_id'],
