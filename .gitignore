@@ -41,3 +41,6 @@ reports
 .ropeproject/
 *.iml
 tasks/lint/pylintrc_merged
+
+# pyenv
+.python-version

@@ -85,7 +85,7 @@ class DiscoACM(object):
                         cert_matches.append((alt_name, cert))
 
             # sort the matches by name, longest first
-            cert_matches.sort(key=lambda cert: len(cert[0]), reverse=True)
+            cert_matches.sort(key=lambda cert: (len(cert[0]), cert[1]['IssuedAt']), reverse=True)
 
             if not cert_matches:
                 logger.warning("No ACM certificates returned for %s", dns_name)
