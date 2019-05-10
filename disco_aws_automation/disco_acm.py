@@ -85,7 +85,7 @@ class DiscoACM(object):
                         # a tuple of the matching cert domain name and the actual cert
                         cert_matches.append((alt_name, cert))
 
-            # sort the matches by name, longest first
+            # sort the matches by name, longest first, then by issued date, newest first
             cert_matches.sort(key=lambda cert: (len(cert[0]), cert[1][CERT_ISSUED_DATE_KEY]), reverse=True)
 
             if not cert_matches:
