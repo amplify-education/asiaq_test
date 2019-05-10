@@ -1,6 +1,7 @@
 """
 Tests of disco_acm
 """
+from datetime import datetime, timedelta
 from unittest import TestCase
 from mock import MagicMock
 
@@ -10,7 +11,8 @@ from disco_aws_automation.disco_acm import (
     CERT_ARN_KEY,
     DOMAIN_NAME_KEY,
     CERT_ALT_NAMES_KEY,
-    CERT_KEY
+    CERT_KEY,
+    CERT_ISSUED_DATE_KEY
 )
 
 TEST_DOMAIN_NAME = 'test.example.com'
@@ -18,12 +20,14 @@ TEST_ALT_DOMAIN_NAME = 'test2.example.com'
 TEST_DEEP_DOMAIN_NAME = 'a.deeper.test.example.com'
 TEST_WILDCARD_DOMAIN_NAME = '*.example.com'
 TEST_CERTIFICATE_ARN_ACM_EXACT = 'arn:aws:acm::123:exact'
+TEST_CERTIFICATE_ARN_ACM_EXACT_OLDER = 'arn:aws:acm::123:exact_older'
 TEST_CERTIFICATE_ARN_ACM_WILDCARD = 'arn:aws:acm::123:wildcard'
 TEST_MULTI_CERT_ARN_ACM = 'arn:aws:acm::123:multi'
 TEST_MULTI_DOMAIN_NAME = 'multi.foo.com'
 TEST_MULTI_ALT_DOMAIN_NAME = 'foo.com'
 
 TEST_CERT = {CERT_ARN_KEY: TEST_CERTIFICATE_ARN_ACM_EXACT, DOMAIN_NAME_KEY: TEST_DOMAIN_NAME}
+TEST_CERT_OLDER = {CERT_ARN_KEY: TEST_CERTIFICATE_ARN_ACM_EXACT_OLDER, DOMAIN_NAME_KEY: TEST_DOMAIN_NAME}
 TEST_WILDCARD_CERT = {CERT_ARN_KEY: TEST_CERTIFICATE_ARN_ACM_WILDCARD,
                       DOMAIN_NAME_KEY: TEST_WILDCARD_DOMAIN_NAME}
 TEST_MULTI_CERT = {CERT_ARN_KEY: TEST_MULTI_CERT_ARN_ACM, DOMAIN_NAME_KEY: TEST_MULTI_DOMAIN_NAME}
@@ -37,7 +41,7 @@ class DiscoACMTests(TestCase):
         self.disco_acm = DiscoACM(self._acm)
 
         self._acm.list_certificates.return_value = {
-            CERT_SUMMARY_LIST_KEY: [TEST_CERT, TEST_WILDCARD_CERT, TEST_MULTI_CERT]
+            CERT_SUMMARY_LIST_KEY: [TEST_CERT_OLDER, TEST_CERT, TEST_WILDCARD_CERT, TEST_MULTI_CERT]
         }
 
         # pylint: disable=invalid-name
@@ -45,15 +49,23 @@ class DiscoACMTests(TestCase):
             cert_data = {
                 TEST_CERTIFICATE_ARN_ACM_WILDCARD: {
                     CERT_ARN_KEY: TEST_CERTIFICATE_ARN_ACM_WILDCARD,
-                    CERT_ALT_NAMES_KEY: [TEST_WILDCARD_DOMAIN_NAME]
+                    CERT_ALT_NAMES_KEY: [TEST_WILDCARD_DOMAIN_NAME],
+                    CERT_ISSUED_DATE_KEY: datetime.now(),
+                },
+                TEST_CERTIFICATE_ARN_ACM_EXACT_OLDER: {
+                    CERT_ARN_KEY: TEST_CERTIFICATE_ARN_ACM_EXACT_OLDER,
+                    CERT_ALT_NAMES_KEY: [TEST_DOMAIN_NAME],
+                    CERT_ISSUED_DATE_KEY: datetime.now() - timedelta(days=1),
                 },
                 TEST_CERTIFICATE_ARN_ACM_EXACT: {
                     CERT_ARN_KEY: TEST_CERTIFICATE_ARN_ACM_EXACT,
-                    CERT_ALT_NAMES_KEY: [TEST_DOMAIN_NAME]
+                    CERT_ALT_NAMES_KEY: [TEST_DOMAIN_NAME],
+                    CERT_ISSUED_DATE_KEY: datetime.now(),
                 },
                 TEST_MULTI_CERT_ARN_ACM: {
                     CERT_ARN_KEY: TEST_MULTI_CERT_ARN_ACM,
-                    CERT_ALT_NAMES_KEY: [TEST_MULTI_DOMAIN_NAME, TEST_MULTI_ALT_DOMAIN_NAME]
+                    CERT_ALT_NAMES_KEY: [TEST_MULTI_DOMAIN_NAME, TEST_MULTI_ALT_DOMAIN_NAME],
+                    CERT_ISSUED_DATE_KEY: datetime.now(),
                 }
             }
 
