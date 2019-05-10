@@ -14,6 +14,7 @@ CERT_ARN_KEY = 'CertificateArn'
 CERT_ALT_NAMES_KEY = 'SubjectAlternativeNames'
 DOMAIN_NAME_KEY = 'DomainName'
 CERT_KEY = 'Certificate'
+CERT_ISSUED_DATE_KEY = 'IssuedAt'
 
 
 class DiscoACM(object):
@@ -84,8 +85,8 @@ class DiscoACM(object):
                         # a tuple of the matching cert domain name and the actual cert
                         cert_matches.append((alt_name, cert))
 
-            # sort the matches by name, longest first
-            cert_matches.sort(key=lambda cert: len(cert[0]), reverse=True)
+            # sort the matches by name, longest first, then by issued date, newest first
+            cert_matches.sort(key=lambda cert: (len(cert[0]), cert[1][CERT_ISSUED_DATE_KEY]), reverse=True)
 
             if not cert_matches:
                 logger.warning("No ACM certificates returned for %s", dns_name)
