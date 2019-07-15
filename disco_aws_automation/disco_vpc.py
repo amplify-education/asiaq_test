@@ -49,14 +49,17 @@ class DiscoVPC(object):
     """
     This class contains all our VPC orchestration code
     """
-
+    # Pylint complains this function has too many arguments
+    # pylint: disable=R0913
     def __init__(self, environment_name, environment_type, vpc=None,
                  config_file=None, boto3_ec2=None, defer_creation=False,
-                 aws_config=None, skip_enis_pre_allocate=False, vpc_tags=None):
+                 aws_config=None, skip_enis_pre_allocate=False, vpc_tags=None,
+                 environment_class=None):
         self.config_file = config_file or VPC_CONFIG_FILE
 
         self.environment_name = environment_name
         self.environment_type = environment_type
+        self.environment_class = environment_class
 
         # Lazily initialized
         self._config = None
@@ -207,7 +210,8 @@ class DiscoVPC(object):
             return None
 
         tags = tag2dict(vpcs[0]['Tags'] if 'Tags' in vpcs[0] else None)
-        return cls(tags.get("Name", '-'), tags.get("type", '-'), vpcs[0])
+        return cls(tags.get("Name", '-'), tags.get("type", '-'), vpcs[0],
+                   environment_class=tags.get("environment_class"))
 
     @property
     def disco_vpc_endpoints(self):
