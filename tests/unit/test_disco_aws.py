@@ -125,6 +125,7 @@ class DiscoAWSTests(TestCase):
         mock_ami = self._get_image_mock(aws)
         aws.update_elb = MagicMock(return_value=None)
         aws.discogroup.elastigroup.spotinst_client = MagicMock()
+        aws.vpc.environment_class = None
 
         with patch("disco_aws_automation.DiscoAWS.get_meta_network", return_value=_get_meta_network_mock()):
             with patch("boto.ec2.connection.EC2Connection.get_all_snapshots", return_value=[]):
@@ -157,6 +158,7 @@ class DiscoAWSTests(TestCase):
         mock_ami = self._get_image_mock(aws)
         aws.update_elb = MagicMock(return_value=None)
         aws.discogroup.elastigroup.spotinst_client = MagicMock()
+        aws.vpc.environment_class = None
 
         with patch("disco_aws_automation.DiscoAWS.get_meta_network", return_value=_get_meta_network_mock()):
             with patch("boto.ec2.connection.EC2Connection.get_all_snapshots", return_value=[]):
@@ -193,6 +195,7 @@ class DiscoAWSTests(TestCase):
         mock_ami = self._get_image_mock(aws)
         aws.update_elb = MagicMock(return_value=None)
         aws.discogroup.elastigroup.spotinst_client = MagicMock()
+        aws.vpc.environment_class = None
 
         with patch("disco_aws_automation.DiscoAWS.get_meta_network", return_value=_get_meta_network_mock()):
             with patch("boto.ec2.connection.EC2Connection.get_all_snapshots", return_value=[]):
@@ -224,6 +227,7 @@ class DiscoAWSTests(TestCase):
         aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, log_metrics=MagicMock())
         aws.update_elb = MagicMock(return_value=None)
         aws.discogroup.elastigroup.spotinst_client = MagicMock()
+        aws.vpc.environment_class = None
 
         with patch("disco_aws_automation.DiscoAWS.get_meta_network", return_value=_get_meta_network_mock()):
             with patch("boto.ec2.connection.EC2Connection.get_all_snapshots", return_value=[]):
@@ -249,6 +253,7 @@ class DiscoAWSTests(TestCase):
         aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, log_metrics=MagicMock())
         aws.update_elb = MagicMock(return_value=None)
         aws.discogroup.elastigroup.spotinst_client = MagicMock()
+        aws.vpc.environment_class = None
 
         with patch("disco_aws_automation.DiscoAWS.get_meta_network", return_value=_get_meta_network_mock()):
             with patch("boto.ec2.connection.EC2Connection.get_all_snapshots", return_value=[]):
@@ -274,6 +279,7 @@ class DiscoAWSTests(TestCase):
         aws = DiscoAWS(config=mock_config, environment_name=TEST_ENV_NAME, log_metrics=MagicMock())
         aws.update_elb = MagicMock(return_value=None)
         aws.discogroup.elastigroup.spotinst_client = MagicMock()
+        aws.vpc.environment_class = None
 
         with patch("disco_aws_automation.DiscoAWS.get_meta_network", return_value=_get_meta_network_mock()):
             with patch("boto.ec2.connection.EC2Connection.get_all_snapshots", return_value=[]):
