@@ -211,7 +211,7 @@ class DiscoVPC(object):
 
         tags = tag2dict(vpcs[0]['Tags'] if 'Tags' in vpcs[0] else None)
         return cls(tags.get("Name", '-'), tags.get("type", '-'), vpcs[0],
-                   environment_class=tags.get("environment_class"))
+                   environment_class=tags.get("environment_class", 'development'))
 
     @property
     def disco_vpc_endpoints(self):
