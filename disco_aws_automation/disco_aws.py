@@ -394,6 +394,21 @@ class DiscoAWS(object):
 
         elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
 
+        tags = {
+            "hostclass": hostclass,
+            "owner": user_data["owner"],
+            "environment": self.environment_name,
+            "environment_class": self.vpc.environment_class,
+            "chaos": chaos,
+            "is_testing": "1" if testing else "0"
+        }
+
+        hostclass_option_tags = self.hostclass_option_default(hostclass, "tags")
+        if hostclass_option_tags:
+            for tag in hostclass_option_tags.split(','):
+                for key, value in [tag.split(':')]:
+                    tags[key.strip()] = value.strip()
+
         group = self.discogroup.create_or_update_group(
             hostclass=hostclass,
             image_id=ami.id,
@@ -405,11 +420,7 @@ class DiscoAWS(object):
             instance_profile_name=self.hostclass_option_default(hostclass, "instance_profile_name"),
             ebs_optimized=self.disco_storage.is_ebs_optimized(instance_type),
             security_groups=[meta_network.security_group.id],
-            tags={"hostclass": hostclass,
-                  "owner": user_data["owner"],
-                  "environment": self.environment_name,
-                  "chaos": chaos,
-                  "is_testing": "1" if testing else "0"},
+            tags=tags,
             user_data="\n".join(['{0}="{1}"'.format(key, value) for key, value in user_data.iteritems()]),
             associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")),
             instance_monitoring=monitoring_enabled,
