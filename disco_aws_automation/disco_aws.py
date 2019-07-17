@@ -394,23 +394,20 @@ class DiscoAWS(object):
 
         elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
 
-        tags = {"hostclass": hostclass,
-                "owner": user_data["owner"],
-                "environment": self.environment_name,
-                "chaos": chaos,
-                "is_testing": "1" if testing else "0"}
-
-        if self.vpc.environment_class:
-            tags['environment_class'] = self.vpc.environment_class
+        tags = {
+            "hostclass": hostclass,
+            "owner": user_data["owner"],
+            "environment": self.environment_name,
+            "environment_class": self.vpc.environment_class,
+            "chaos": chaos,
+            "is_testing": "1" if testing else "0"
+        }
 
         hostclass_option_tags = self.hostclass_option_default(hostclass, "tags")
         if hostclass_option_tags:
-            hostclass_tags = {k.strip(): v.strip() for k, v in
-                              [tag.split(':') for tag in hostclass_option_tags.split(',')]}
-        else:
-            hostclass_tags = {}
-
-        tags.update(hostclass_tags)
+            for tag in hostclass_option_tags.split(','):
+                for key, value in [tag.split(':')]:
+                    tags[key.strip()] = value.strip()
 
         group = self.discogroup.create_or_update_group(
             hostclass=hostclass,
