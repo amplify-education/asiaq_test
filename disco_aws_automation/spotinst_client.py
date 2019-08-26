@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 class SpotinstClient(object):
     """A client for the Spotinst REST API"""
 
-    def __init__(self, token):
+    def __init__(self, token, account_id):
         self.token = token
+        self.account_id = account_id
 
     def create_group(self, group_config):
         """
@@ -118,7 +119,7 @@ class SpotinstClient(object):
         try:
             response = requests.request(
                 method=method,
-                url='{0}/{1}'.format(SPOTINST_API_HOST, path),
+                url='{0}/{1}?accountId={2}'.format(SPOTINST_API_HOST, path, self.account_id),
                 params=params,
                 json=data,
                 headers={
