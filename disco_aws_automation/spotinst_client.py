@@ -3,6 +3,7 @@ import logging
 import requests
 from requests.exceptions import Timeout, ConnectionError
 
+from .disco_config import read_config
 from disco_aws_automation.exceptions import SpotinstApiException, SpotinstRateExceededException
 from disco_aws_automation.resource_helper import Jitter
 
@@ -13,9 +14,10 @@ logger = logging.getLogger(__name__)
 class SpotinstClient(object):
     """A client for the Spotinst REST API"""
 
-    def __init__(self, token, account_id):
+    def __init__(self, token, environment_name):
         self.token = token
-        self.account_id = account_id
+        self.config_aws = read_config(environment=environment_name)
+        self.account_id = self.config_aws.get_asiaq_option(option='account_id', environment=environment_name)
 
     def create_group(self, group_config):
         """
