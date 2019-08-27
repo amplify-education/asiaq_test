@@ -17,7 +17,10 @@ class SpotinstClient(object):
     def __init__(self, token, environment_name):
         self.token = token
         self.config_aws = read_config(environment=environment_name)
-        self.account_id = self.config_aws.get_asiaq_option(option='spotinst_account_id', environment=environment_name)
+        self.account_id = self.config_aws.get_asiaq_option(
+            option='spotinst_account_id',
+            environment=environment_name
+        )
 
     def create_group(self, group_config):
         """
