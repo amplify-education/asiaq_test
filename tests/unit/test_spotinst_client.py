@@ -12,10 +12,10 @@ from disco_aws_automation.spotinst_client import SpotinstClient
 class DiscoSpotinstClientTests(TestCase):
     """Test SpotinstClient class"""
 
-  #  @patch('disco_aws_automation.spotinst_client.read_config')
+    # @patch('disco_aws_automation.spotinst_client.read_config')
     def setUp(self, config_mock):
         """Pre-test setup"""
-     #   config_mock.get_asiaq_option.return_value = "fake_account_id"
+        # config_mock.get_asiaq_option.return_value = "fake_account_id"
     #    self.spotinst_client = SpotinstClient(token="fooabcd", environment="fakeenvironment")
 
     @requests_mock.mock()
