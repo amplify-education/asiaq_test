@@ -123,9 +123,14 @@ class SpotinstClient(object):
         :rtype: dict
         """
         try:
+            if params:
+                params['accountId'] = self.account_id
+            else:
+                params = {'accountId': self.account_id}
+
             response = requests.request(
                 method=method,
-                url='{0}/{1}?accountId={2}'.format(SPOTINST_API_HOST, path, self.account_id),
+                url='{0}/{1}'.format(SPOTINST_API_HOST, path),
                 params=params,
                 json=data,
                 headers={
