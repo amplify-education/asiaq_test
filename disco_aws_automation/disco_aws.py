@@ -403,6 +403,7 @@ class DiscoAWS(object):
         target_group = self.elb.get_target_group(group_name)
         tags = {
             "hostclass": hostclass,
+            "application": hostclass,
             "owner": user_data["owner"],
             "environment": self.environment_name,
             "environment_class": self.vpc.environment_class,
