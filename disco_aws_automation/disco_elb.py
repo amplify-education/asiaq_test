@@ -141,18 +141,25 @@ class DiscoELB(object):
                            'UnhealthyThreshold': 2,
                            'HealthyThreshold': 2})
 
-    def create_or_update_target_group(self, group_name, port_config, vpc_id, health_check_path):
-        port_config = port_config.port_mappings[0]
-        self.elb2_client.create_target_group(
-            Name=group_name,
-            Protocol=port_config.external_protocol,
-            Port=port_config.external_port,
-            VpcId=vpc_id,
-            HealthCheckProtocol=port_config.internal_protocol,
-            HealthCheckPort=port_config.internal_port,
-            HealthCheckEnabled=True,
-            HealthCheckPath=health_check_path
-        )
+    def get_target_group(self, group_name):
+        target_groups = self.elb2_client.describe_target_groups(Names=[group_name])
+        print(target_groups)
+        if target_groups:
+            return target_groups['TargetGroups'][0]
+        else:
+            return target_groups
+
+    def create_target_group(self, group_name, protocol, port, health_protocol, health_port, vpc_id, health_check_path):
+        return throttled_call(self.elb2_client.create_target_group,
+                              Name=group_name,
+                              Protocol=protocol,
+                              Port=port,
+                              VpcId=vpc_id,
+                              HealthCheckProtocol=health_protocol,
+                              HealthCheckPort=health_port,
+                              HealthCheckEnabled=True,
+                              HealthCheckPath=health_check_path
+                              )['TargetGroups'][0]['TargetGroupName']
 
     def _setup_sticky_cookies(self, elb_id, elb_ports, sticky_app_cookie, elb_name):
         policies = throttled_call(self.elb_client.describe_load_balancer_policies,
