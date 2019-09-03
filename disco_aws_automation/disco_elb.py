@@ -34,6 +34,7 @@ class DiscoELB(object):
     def __init__(self, vpc, elb=None, route53=None, acm=None, iam=None):
         self.vpc = vpc
         self._elb_client = elb
+        self.elb2_client = elb
         self.route53 = route53 or DiscoRoute53()
         self.acm = acm or DiscoACM()
         self.iam = iam or DiscoIAM()
@@ -45,6 +46,7 @@ class DiscoELB(object):
         """
         if not self._elb_client:
             self._elb_client = boto3.client('elb')
+            self.elb2_client = boto3.client('elbv2')
         return self._elb_client
 
     def get_certificate_arn(self, dns_name):
@@ -138,6 +140,19 @@ class DiscoELB(object):
                            'Timeout': 4,
                            'UnhealthyThreshold': 2,
                            'HealthyThreshold': 2})
+
+    def create_or_update_target_group(self, group_name, port_config, vpc_id, health_check_path):
+        port_config = port_config.port_mappings[0]
+        self.elb2_client.create_target_group(
+            Name=group_name,
+            Protocol=port_config.external_protocol,
+            Port=port_config.external_port,
+            VpcId=vpc_id,
+            HealthCheckProtocol=port_config.internal_protocol,
+            HealthCheckPort=port_config.internal_port,
+            HealthCheckEnabled=True,
+            HealthCheckPath=health_check_path
+        )
 
     def _setup_sticky_cookies(self, elb_id, elb_ports, sticky_app_cookie, elb_name):
         policies = throttled_call(self.elb_client.describe_load_balancer_policies,

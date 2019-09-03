@@ -393,7 +393,12 @@ class DiscoAWS(object):
         chaos = is_truthy(chaos or self.hostclass_option_default(hostclass, "chaos", "True"))
 
         elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
-
+        target_group = self.elb.create_or_update_target_group(
+            group_name=group_name,
+            port_config=DiscoELBPortConfig.from_config(self, hostclass),
+            vpc_id=self.vpc.get_vpc_id(),
+            health_check_path=self.hostclass_option_default(hostclass, "elb_health_check_url")
+        )
         tags = {
             "hostclass": hostclass,
             "owner": user_data["owner"],
@@ -425,7 +430,7 @@ class DiscoAWS(object):
             associate_public_ip_address=is_truthy(self.hostclass_option(hostclass, "public_ip")),
             instance_monitoring=monitoring_enabled,
             instance_type=instance_type,
-            load_balancers=[elb['LoadBalancerName']] if elb else [],
+            load_balancers=[elb['LoadBalancerName'], target_group['TargetGroups'][0]['TargetGroupName']] if elb else [target_group['TargetGroups'][0]['TargetGroupName']],
             block_device_mappings=block_device_mappings,
             create_if_exists=create_if_exists,
             termination_policies=termination_policies,
