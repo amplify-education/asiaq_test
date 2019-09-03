@@ -393,6 +393,7 @@ class DiscoAWS(object):
         chaos = is_truthy(chaos or self.hostclass_option_default(hostclass, "chaos", "True"))
 
         elb = self.update_elb(hostclass, update_autoscaling=False, testing=testing)
+        #create a function like update target group
         target_group = self.elb.create_or_update_target_group(
             group_name=group_name,
             port_config=DiscoELBPortConfig.from_config(self, hostclass),
