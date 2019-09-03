@@ -11,6 +11,8 @@ from collections import namedtuple
 
 import boto3
 import botocore
+from boto.exception import EC2ResponseError
+from botocore.exceptions import ClientError
 
 from .disco_aws_util import get_tag_value, is_truthy
 from .disco_route53 import DiscoRoute53
@@ -141,25 +143,39 @@ class DiscoELB(object):
                            'UnhealthyThreshold': 2,
                            'HealthyThreshold': 2})
 
-    def get_target_group(self, group_name):
-        target_groups = self.elb2_client.describe_target_groups(Names=[group_name])
-        print(target_groups)
-        if target_groups:
-            return target_groups['TargetGroups'][0]
-        else:
-            return target_groups
+    def get_or_create_target_group(self, group_name, port_config, vpc_id, health_check_path):
+        try:
+            target_groups = throttled_call(self.elb2_client.describe_target_groups, Names=[group_name])
+            print(target_groups)
+            return [target_groups['TargetGroups'][0]['TargetGroupArn']]
+        except (EC2ResponseError, ClientError) as err:
+            logger.info("Creating target group")
+            if port_config:
+                mapping = port_config.port_mappings[0]
+                protocol = mapping.external_protocol
+                port = mapping.external_port
+                health_protocol = mapping.internal_protocol
+                health_port = str(mapping.internal_port)
+            else:
+                protocol = 'HTTP'
+                port = 80
+                health_protocol = 'HTTP'
+                health_port = '80'
+            if health_check_path:
+                health_check_path = health_check_path
+            else:
+                health_check_path = '/'
 
-    def create_target_group(self, group_name, protocol, port, health_protocol, health_port, vpc_id, health_check_path):
-        return throttled_call(self.elb2_client.create_target_group,
-                              Name=group_name,
-                              Protocol=protocol,
-                              Port=port,
-                              VpcId=vpc_id,
-                              HealthCheckProtocol=health_protocol,
-                              HealthCheckPort=health_port,
-                              HealthCheckEnabled=True,
-                              HealthCheckPath=health_check_path
-                              )['TargetGroups'][0]['TargetGroupName']
+            return [throttled_call(self.elb2_client.create_target_group,
+                                  Name=group_name,
+                                  Protocol=protocol,
+                                  Port=port,
+                                  VpcId=vpc_id,
+                                  HealthCheckProtocol=health_protocol,
+                                  HealthCheckPort=health_port,
+                                  HealthCheckEnabled=True,
+                                  HealthCheckPath=health_check_path
+                                  )['TargetGroups'][0]['TargetGroupArn']]
 
     def _setup_sticky_cookies(self, elb_id, elb_ports, sticky_app_cookie, elb_name):
         policies = throttled_call(self.elb_client.describe_load_balancer_policies,

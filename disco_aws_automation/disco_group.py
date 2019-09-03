@@ -161,7 +161,7 @@ class DiscoGroup(BaseGroup):
 
     # pylint: disable=R0913, R0914
     def create_or_update_group(self, hostclass, desired_size=None, min_size=None, max_size=None,
-                               instance_type=None, load_balancers=None, subnets=None, security_groups=None,
+                               instance_type=None, load_balancers=None, target_groups=None, subnets=None, security_groups=None,
                                instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
                                associate_public_ip_address=None, user_data=None, tags=None,
                                instance_profile_name=None, block_device_mappings=None, group_name=None,
@@ -191,6 +191,7 @@ class DiscoGroup(BaseGroup):
             max_size=max_size,
             instance_type=instance_type,
             load_balancers=load_balancers,
+            target_groups=target_groups,
             subnets=subnets,
             security_groups=security_groups,
             instance_monitoring=instance_monitoring,

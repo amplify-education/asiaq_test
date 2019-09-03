@@ -89,6 +89,8 @@ class DiscoElastigroup(BaseGroup):
                 ),
                 'load_balancers': [elb['name'] for elb in load_balancer_configs
                                    if elb['type'] == 'CLASSIC'],
+                'target_groups': [tg['arn'] for tg in load_balancer_configs
+                                  if tg['type'] == 'TARGET_GROUP'],
                 'image_id': launch_spec['imageId'],
                 'id': group['id'],
                 'type': 'spot',
@@ -187,7 +189,7 @@ class DiscoElastigroup(BaseGroup):
         ]
 
     def _create_elastigroup_config(self, desired_size, min_size, max_size, instance_type,
-                                   subnets, load_balancers, security_groups, instance_monitoring,
+                                   subnets, load_balancers, target_groups, security_groups, instance_monitoring,
                                    ebs_optimized, image_id, key_name, associate_public_ip_address, user_data,
                                    tags, instance_profile_name, block_device_mappings, group_name,
                                    spotinst_reserve):
@@ -235,7 +237,7 @@ class DiscoElastigroup(BaseGroup):
         ] if associate_public_ip_address else None
 
         launch_specification = {
-            "loadBalancersConfig": self._get_load_balancer_config(load_balancers),
+            "loadBalancersConfig": self._get_load_balancer_config(load_balancers, target_groups),
             "securityGroupIds": security_groups,
             "monitoring": instance_monitoring,
             "ebsOptimized": ebs_optimized,
@@ -278,7 +280,7 @@ class DiscoElastigroup(BaseGroup):
         return spotinst_tags
 
     def create_or_update_group(self, hostclass, desired_size=None, min_size=None, max_size=None,
-                               instance_type=None, load_balancers=None, subnets=None, security_groups=None,
+                               instance_type=None, load_balancers=None, target_groups=None, subnets=None, security_groups=None,
                                instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
                                associate_public_ip_address=None, user_data=None, tags=None,
                                instance_profile_name=None, block_device_mappings=None, group_name=None,
@@ -297,7 +299,7 @@ class DiscoElastigroup(BaseGroup):
                 group, desired_size=desired_size, min_size=min_size, max_size=max_size,
                 image_id=image_id, tags=tags, instance_profile_name=instance_profile_name,
                 block_device_mappings=block_device_mappings, spotinst_reserve=spotinst_reserve,
-                load_balancers=load_balancers, instance_type=instance_type, user_data=user_data
+                load_balancers=load_balancers, target_groups=target_groups, instance_type=instance_type, user_data=user_data
             )
 
             return {'name': group['name']}
@@ -308,6 +310,7 @@ class DiscoElastigroup(BaseGroup):
             max_size=max_size,
             instance_type=instance_type,
             load_balancers=load_balancers,
+            target_groups=target_groups,
             subnets=subnets,
             security_groups=security_groups,
             instance_monitoring=instance_monitoring,
@@ -325,7 +328,7 @@ class DiscoElastigroup(BaseGroup):
 
     # pylint: disable=too-many-arguments, too-many-locals
     def _create_group(self, desired_size=None, min_size=None, max_size=None,
-                      instance_type=None, load_balancers=None, subnets=None, security_groups=None,
+                      instance_type=None, load_balancers=None, target_groups=None, subnets=None, security_groups=None,
                       instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
                       associate_public_ip_address=None, user_data=None, tags=None,
                       instance_profile_name=None, block_device_mappings=None, group_name=None,
@@ -337,6 +340,7 @@ class DiscoElastigroup(BaseGroup):
             max_size=max_size,
             instance_type=instance_type,
             load_balancers=load_balancers,
+            target_groups=target_groups,
             subnets=subnets,
             security_groups=security_groups,
             instance_monitoring=instance_monitoring,
@@ -359,7 +363,7 @@ class DiscoElastigroup(BaseGroup):
 
     def _modify_group(self, existing_group, desired_size=None, min_size=None, max_size=None,
                       image_id=None, tags=None, instance_profile_name=None, block_device_mappings=None,
-                      spotinst_reserve=None, load_balancers=None, instance_type=None, user_data=None):
+                      spotinst_reserve=None, load_balancers=None, target_groups=None, instance_type=None, user_data=None):
         new_config = copy.deepcopy(existing_group)
 
         if min_size is not None:
@@ -397,8 +401,8 @@ class DiscoElastigroup(BaseGroup):
 
         self.spotinst_client.update_group(group_id, {'group': new_config})
 
-        if load_balancers:
-            self.update_elb(load_balancers, group_name=existing_group['name'])
+        if load_balancers or target_groups:
+            self.update_elb(load_balancers, target_groups, group_name=existing_group['name'])
 
     def _delete_group(self, group_id):
         """Delete an elastigroup by group id"""
@@ -497,7 +501,7 @@ class DiscoElastigroup(BaseGroup):
 
             self.spotinst_client.update_group(existing_group['id'], group_config)
 
-    def update_elb(self, elb_names, hostclass=None, group_name=None):
+    def update_elb(self, elb_names, target_groups, hostclass=None, group_name=None):
         """Updates an existing autoscaling group to use a different set of load balancers"""
         existing_group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
 
@@ -510,9 +514,9 @@ class DiscoElastigroup(BaseGroup):
             return set(), set()
 
         new_lbs = set(elb_names) - set(existing_group['load_balancers'])
-        extras = set(existing_group['load_balancers']) - set(elb_names)
+        extra_lbs = set(existing_group['load_balancers']) - set(elb_names)
 
-        if new_lbs or extras:
+        if new_lbs or extra_lbs:
             logger.info(
                 "Updating ELBs for group %s from [%s] to [%s]",
                 existing_group['name'],
@@ -527,12 +531,33 @@ class DiscoElastigroup(BaseGroup):
             } for elb in elb_names
         ]
 
+        new_tgs = set(target_groups) - set(existing_group['target_groups'])
+        extra_tgs = set(existing_group['target_groups']) - set(target_groups)
+
+        if new_tgs or extra_tgs:
+            logger.info(
+                "Updating Target Groups for group %s from [%s] to [%s]",
+                existing_group['name'],
+                ", ".join(existing_group['target_groups']),
+                ", ".join(target_groups)
+            )
+        print("target groups +" + target_groups[0])
+       # target_group_name = hostclass+'-'+self.environment_name
+        target_group_configs = [
+            {
+                # 'name': hostclass+'-'+self.environment_name,
+                'arn': target_group,
+                'type': 'TARGET_GROUP'
+            } for target_group in target_groups
+        ]
+
+        new_configs = elb_configs + target_group_configs
         group_config = {
             'group': {
                 'compute': {
                     'launchSpecification': {
                         'loadBalancersConfig': {
-                            'loadBalancers': elb_configs
+                            'loadBalancers': new_configs
                         }
                     }
                 }
@@ -541,7 +566,7 @@ class DiscoElastigroup(BaseGroup):
 
         self.spotinst_client.update_group(existing_group['id'], group_config)
 
-        return new_lbs, extras
+        return new_lbs, extra_lbs, new_tgs, extra_tgs
 
     def get_launch_config(self, hostclass=None, group_name=None):
         """Return launch config info for a hostclass, None otherwise"""
@@ -696,10 +721,12 @@ class DiscoElastigroup(BaseGroup):
             "spot": instance_types.split(':')
         }
 
-    def _get_load_balancer_config(self, load_balancers):
+    def _get_load_balancer_config(self, load_balancers, target_groups):
+        lbs = [{"name": elb, "type": "CLASSIC"} for elb in load_balancers] if load_balancers else []
+        tgs = [{"arn": tg, "type": "TARGET_GROUP"} for tg in target_groups] if target_groups else []
         return {
-            "loadBalancers": [{"name": elb, "type": "CLASSIC"} for elb in load_balancers]
-        } if load_balancers else None
+            "loadBalancers": lbs + tgs
+        } if load_balancers or target_groups else None
 
     def _get_risk_config(self, spotinst_reserve):
         if not spotinst_reserve:
