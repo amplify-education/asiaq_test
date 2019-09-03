@@ -396,6 +396,7 @@ class DiscoAWS(object):
 
         tags = {
             "hostclass": hostclass,
+            "application": hostclass,
             "owner": user_data["owner"],
             "environment": self.environment_name,
             "environment_class": self.vpc.environment_class,
