@@ -54,17 +54,21 @@ class DiscoAutoscale(BaseGroup):
 
     def _filter_by_environment(self, items):
         """Filters autoscaling groups and launch configs by environment"""
-        return [
-            item for item in items
-            if item.name.startswith("{0}_".format(self.environment_name))
-        ]
+        for item in items:
+            try:
+                if item.name.startswith("{0}_".format(self.environment_name)):
+                    yield item
+            except AttributeError:
+                logger.warning("Skipping unparseable item=%s", vars(item))
 
     def _filter_instance_by_environment(self, items):
         """Filter instances by environment via their group_name"""
-        return [
-            item for item in items
-            if item.group_name.startswith("{0}_".format(self.environment_name))
-        ]
+        for item in items:
+            try:
+                if item.group_name.startswith("{0}_".format(self.environment_name)):
+                    yield item
+            except AttributeError:
+                logger.warning("Skipping unparseable item=%s", vars(item))
 
     def _get_hostclass(self, groupname):
         """Returns the hostclass when given an autoscaling group name"""
