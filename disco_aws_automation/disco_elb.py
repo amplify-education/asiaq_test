@@ -146,7 +146,6 @@ class DiscoELB(object):
     def get_or_create_target_group(self, group_name, port_config, vpc_id, health_check_path):
         try:
             target_groups = throttled_call(self.elb2_client.describe_target_groups, Names=[group_name])
-            print(target_groups)
             return [target_groups['TargetGroups'][0]['TargetGroupArn']]
         except (EC2ResponseError, ClientError) as err:
             logger.info("Creating target group")

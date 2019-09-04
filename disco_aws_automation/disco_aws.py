@@ -418,7 +418,6 @@ class DiscoAWS(object):
             vpc_id=self.vpc.get_vpc_id(),
             health_check_path=self.hostclass_option_default(hostclass, "elb_health_check_url")
         )
-
         group = self.discogroup.create_or_update_group(
             hostclass=hostclass,
             image_id=ami.id,
