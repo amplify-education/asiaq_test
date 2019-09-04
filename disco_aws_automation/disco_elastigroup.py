@@ -189,10 +189,10 @@ class DiscoElastigroup(BaseGroup):
         ]
 
     def _create_elastigroup_config(self, desired_size, min_size, max_size, instance_type,
-                                   subnets, load_balancers, target_groups, security_groups, instance_monitoring,
-                                   ebs_optimized, image_id, key_name, associate_public_ip_address, user_data,
-                                   tags, instance_profile_name, block_device_mappings, group_name,
-                                   spotinst_reserve):
+                                   subnets, load_balancers, target_groups, security_groups,
+                                   instance_monitoring, ebs_optimized, image_id, key_name,
+                                   associate_public_ip_address, user_data, tags, instance_profile_name,
+                                   block_device_mappings, group_name, spotinst_reserve):
         # Pylint thinks this function has too many arguments and too many local variables (it does)
         # pylint: disable=too-many-arguments, too-many-locals
         """Create new elastigroup configuration"""
@@ -280,12 +280,12 @@ class DiscoElastigroup(BaseGroup):
         return spotinst_tags
 
     def create_or_update_group(self, hostclass, desired_size=None, min_size=None, max_size=None,
-                               instance_type=None, load_balancers=None, target_groups=None, subnets=None, security_groups=None,
-                               instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
-                               associate_public_ip_address=None, user_data=None, tags=None,
-                               instance_profile_name=None, block_device_mappings=None, group_name=None,
-                               create_if_exists=False, termination_policies=None, spotinst=False,
-                               spotinst_reserve=None):
+                               instance_type=None, load_balancers=None, target_groups=None, subnets=None,
+                               security_groups=None, instance_monitoring=None, ebs_optimized=None,
+                               image_id=None, key_name=None, associate_public_ip_address=None, user_data=None,
+                               tags=None, instance_profile_name=None, block_device_mappings=None,
+                               group_name=None, create_if_exists=False, termination_policies=None,
+                               spotinst=False, spotinst_reserve=None):
         # Pylint thinks this function has too many arguments and too many local variables
         # pylint: disable=R0913, R0914
         """Updates an existing elastigroup if it exists, otherwise this creates a new elastigroup."""
@@ -299,7 +299,8 @@ class DiscoElastigroup(BaseGroup):
                 group, desired_size=desired_size, min_size=min_size, max_size=max_size,
                 image_id=image_id, tags=tags, instance_profile_name=instance_profile_name,
                 block_device_mappings=block_device_mappings, spotinst_reserve=spotinst_reserve,
-                load_balancers=load_balancers, target_groups=target_groups, instance_type=instance_type, user_data=user_data
+                load_balancers=load_balancers, target_groups=target_groups, instance_type=instance_type,
+                user_data=user_data
             )
 
             return {'name': group['name']}
@@ -328,9 +329,9 @@ class DiscoElastigroup(BaseGroup):
 
     # pylint: disable=too-many-arguments, too-many-locals
     def _create_group(self, desired_size=None, min_size=None, max_size=None,
-                      instance_type=None, load_balancers=None, target_groups=None, subnets=None, security_groups=None,
-                      instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
-                      associate_public_ip_address=None, user_data=None, tags=None,
+                      instance_type=None, load_balancers=None, target_groups=None, subnets=None,
+                      security_groups=None, instance_monitoring=None, ebs_optimized=None, image_id=None,
+                      key_name=None, associate_public_ip_address=None, user_data=None, tags=None,
                       instance_profile_name=None, block_device_mappings=None, group_name=None,
                       spotinst_reserve=None):
 
@@ -363,7 +364,8 @@ class DiscoElastigroup(BaseGroup):
 
     def _modify_group(self, existing_group, desired_size=None, min_size=None, max_size=None,
                       image_id=None, tags=None, instance_profile_name=None, block_device_mappings=None,
-                      spotinst_reserve=None, load_balancers=None, target_groups=None, instance_type=None, user_data=None):
+                      spotinst_reserve=None, load_balancers=None, target_groups=None, instance_type=None,
+                      user_data=None):
         new_config = copy.deepcopy(existing_group)
 
         if min_size is not None:
@@ -503,6 +505,7 @@ class DiscoElastigroup(BaseGroup):
 
     def update_elb(self, elb_names, target_groups, hostclass=None, group_name=None):
         """Updates an existing autoscaling group to use a different set of load balancers"""
+        # pylint: disable=arguments-differ
         existing_group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
 
         if not existing_group:
@@ -541,11 +544,9 @@ class DiscoElastigroup(BaseGroup):
                 ", ".join(existing_group['target_groups']),
                 ", ".join(target_groups)
             )
-        print("target groups +" + target_groups[0])
-       # target_group_name = hostclass+'-'+self.environment_name
+
         target_group_configs = [
             {
-                # 'name': hostclass+'-'+self.environment_name,
                 'arn': target_group,
                 'type': 'TARGET_GROUP'
             } for target_group in target_groups

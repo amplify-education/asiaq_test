@@ -77,9 +77,12 @@ class DiscoAutoscale(BaseGroup):
         parts = groupname.split('_')[1:-1]
         return '_'.join(parts)
 
-    def _get_group_generator(self, group_names=[None]):
+    def _get_group_generator(self, group_names=None):
         """Yields groups in current environment"""
         # paginator=self.boto3_autoscale.get_paginator("describe_auto_scaling_groups")
+        if group_names is None:
+            group_names = [None]
+
         if group_names[0] is not None:
             groups = get_boto3_paged_results(
                 self.boto3_autoscale.describe_auto_scaling_groups,
@@ -225,6 +228,7 @@ class DiscoAutoscale(BaseGroup):
                      termination_policies=None, tags=None,
                      load_balancers=None, target_groups=None):
         """Update an existing autoscaling group"""
+        # pylint: disable=R0913
         group['launch_config_name'] = launch_config
         changes = {'LaunchConfigurationName': launch_config}
         if vpc_zone_id:
@@ -272,6 +276,7 @@ class DiscoAutoscale(BaseGroup):
         The group must not already exist. Use get_group() instead if you want to update a group if it
         exits or create it if it does not.
         """
+        # pylint: disable=R0913, R0914
         _min_size = min_size or 0
         _max_size = max([min_size, max_size, desired_size, 0])
         _desired_capacity = desired_size or max_size
@@ -358,12 +363,12 @@ class DiscoAutoscale(BaseGroup):
         return group
 
     def create_or_update_group(self, hostclass, desired_size=None, min_size=None, max_size=None,
-                               instance_type=None, load_balancers=None, target_groups=None, subnets=None, security_groups=None,
-                               instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
-                               associate_public_ip_address=None, user_data=None, tags=None,
-                               instance_profile_name=None, block_device_mappings=None, group_name=None,
-                               create_if_exists=False, termination_policies=None, spotinst=False,
-                               spotinst_reserve=None):
+                               instance_type=None, load_balancers=None, target_groups=None, subnets=None,
+                               security_groups=None, instance_monitoring=None, ebs_optimized=None,
+                               image_id=None, key_name=None, associate_public_ip_address=None, user_data=None,
+                               tags=None, instance_profile_name=None, block_device_mappings=None,
+                               group_name=None, create_if_exists=False, termination_policies=None,
+                               spotinst=False, spotinst_reserve=None):
         """
         Create a new autoscaling group or update an existing one
         """

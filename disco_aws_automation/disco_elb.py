@@ -11,8 +11,8 @@ from collections import namedtuple
 
 import boto3
 import botocore
-from boto.exception import EC2ResponseError
 from botocore.exceptions import ClientError
+from boto.exception import EC2ResponseError
 
 from .disco_aws_util import get_tag_value, is_truthy
 from .disco_route53 import DiscoRoute53
@@ -144,10 +144,11 @@ class DiscoELB(object):
                            'HealthyThreshold': 2})
 
     def get_or_create_target_group(self, group_name, port_config, vpc_id, health_check_path):
+        """ Gets an existing target group using the group_name otherwise creates the target group"""
         try:
             target_groups = throttled_call(self.elb2_client.describe_target_groups, Names=[group_name])
             return [target_groups['TargetGroups'][0]['TargetGroupArn']]
-        except (EC2ResponseError, ClientError) as err:
+        except (EC2ResponseError, ClientError):
             logger.info("Creating target group")
             if port_config:
                 mapping = port_config.port_mappings[0]
@@ -165,16 +166,19 @@ class DiscoELB(object):
             else:
                 health_check_path = '/'
 
-            return [throttled_call(self.elb2_client.create_target_group,
-                                  Name=group_name,
-                                  Protocol=protocol,
-                                  Port=port,
-                                  VpcId=vpc_id,
-                                  HealthCheckProtocol=health_protocol,
-                                  HealthCheckPort=health_port,
-                                  HealthCheckEnabled=True,
-                                  HealthCheckPath=health_check_path
-                                  )['TargetGroups'][0]['TargetGroupArn']]
+            return [
+                throttled_call(
+                    self.elb2_client.create_target_group,
+                    Name=group_name,
+                    Protocol=protocol,
+                    Port=port,
+                    VpcId=vpc_id,
+                    HealthCheckProtocol=health_protocol,
+                    HealthCheckPort=health_port,
+                    HealthCheckEnabled=True,
+                    HealthCheckPath=health_check_path
+                )['TargetGroups'][0]['TargetGroupArn']
+            ]
 
     def _setup_sticky_cookies(self, elb_id, elb_ports, sticky_app_cookie, elb_name):
         policies = throttled_call(self.elb_client.describe_load_balancer_policies,
