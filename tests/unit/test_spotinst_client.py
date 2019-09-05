@@ -25,8 +25,9 @@ class DiscoSpotinstClientTests(TestCase):
         """Pre-test setup"""
         # config_mock.get_asiaq_option.return_value = "fake_account_id"
         config_aws = get_mock_config(MOCK_AWS_CONFIG_DEFINITION)
+        mock_token = "foo"
         self.spotinst_client = SpotinstClient(
-            token="fooabcd",
+            token=mock_token,
             environment_name="fakeenvironment",
             config_aws=config_aws
         )
