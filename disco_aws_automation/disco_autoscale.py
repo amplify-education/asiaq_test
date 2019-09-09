@@ -53,9 +53,22 @@ class DiscoAutoscale(BaseGroup):
         return '{0}_{1}_{2}'.format(self.environment_name, hostclass, str(random.randrange(0, 9999999)))
 
     def _filter_by_environment(self, items):
-        """Filters autoscaling groups and launch configs by environment"""
+        """Filters launch configs by environment"""
         for item in items:
             try:
+                # if item['AutoScalingGroupName'].startswith("{0}_".format(self.environment_name)):
+                #     yield item
+                if item.name.startswith("{0}_".format(self.environment_name)):
+                    yield item
+            except AttributeError:
+                logger.warning("Skipping unparseable item=%s", vars(item))
+
+    def _filter_autoscale_by_environment(self, items):
+        """Filters autoscaling groups by environment"""
+        for item in items:
+            try:
+                # if item['AutoScalingGroupName'].startswith("{0}_".format(self.environment_name)):
+                #     yield item
                 if item['AutoScalingGroupName'].startswith("{0}_".format(self.environment_name)):
                     yield item
             except AttributeError:
@@ -97,7 +110,7 @@ class DiscoAutoscale(BaseGroup):
                 next_token_key='NextToken'
             )
 
-        for group in self._filter_by_environment(groups):
+        for group in self._filter_autoscale_by_environment(groups):
             yield {
                 'name': group['AutoScalingGroupName'],
                 'min_size': group['MinSize'],
@@ -107,7 +120,7 @@ class DiscoAutoscale(BaseGroup):
                 'termination_policies': group['TerminationPolicies'],
                 'vpc_zone_identifier': group['VPCZoneIdentifier'],
                 'load_balancers': group['LoadBalancerNames'],
-                'target_groups': group['TargetGroupARNs'],
+                'target_groups': group.get('TargetGroupARNs'),
                 'type': 'asg',
                 'tags': {tag['Key']: tag['Value'] for tag in group['Tags']}
             }

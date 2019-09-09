@@ -132,9 +132,13 @@ class DiscoAWSTests(TestCase):
                 with patch("disco_aws_automation.DiscoAWS.create_scaling_schedule", return_value=None):
                     with patch("boto.ec2.autoscale.AutoScaleConnection.create_or_update_tags",
                                return_value=None):
-                        metadata = aws.provision(ami=mock_ami, hostclass="mhcunittest",
-                                                 owner="unittestuser",
-                                                 min_size=1, desired_size=1, max_size=1)
+                        with patch("disco_aws_automation.DiscoELB.get_or_create_target_group",
+                                   return_value="foobar"):
+                            with patch("disco_aws_automation.DiscoAutoscale.update_tg",
+                                       return_value=None):
+                                metadata = aws.provision(ami=mock_ami, hostclass="mhcunittest",
+                                                         owner="unittestuser",
+                                                         min_size=1, desired_size=1, max_size=1)
 
         self.assertEqual(metadata["hostclass"], "mhcunittest")
         self.assertFalse(metadata["no_destroy"])
@@ -165,10 +169,14 @@ class DiscoAWSTests(TestCase):
                 with patch("disco_aws_automation.DiscoAWS.create_scaling_schedule", return_value=None):
                     with patch("boto.ec2.autoscale.AutoScaleConnection.create_or_update_tags",
                                return_value=None):
-                        metadata = aws.provision(ami=mock_ami, hostclass="mhcunittest",
-                                                 owner="unittestuser",
-                                                 min_size=1, desired_size=1, max_size=1,
-                                                 chaos="False")
+                        with patch("disco_aws_automation.DiscoELB.get_or_create_target_group",
+                                   return_value="foobar"):
+                            with patch("disco_aws_automation.DiscoAutoscale.update_tg",
+                                       return_value=None):
+                                metadata = aws.provision(ami=mock_ami, hostclass="mhcunittest",
+                                                         owner="unittestuser",
+                                                         min_size=1, desired_size=1, max_size=1,
+                                                         chaos="False")
 
         self.assertEqual(metadata["hostclass"], "mhcunittest")
         self.assertFalse(metadata["no_destroy"])
@@ -202,9 +210,13 @@ class DiscoAWSTests(TestCase):
                 with patch("disco_aws_automation.DiscoAWS.create_scaling_schedule", return_value=None):
                     with patch("boto.ec2.autoscale.AutoScaleConnection.create_or_update_tags",
                                return_value=None):
-                        metadata = aws.provision(ami=mock_ami, hostclass="mhcunittest",
-                                                 owner="unittestuser",
-                                                 min_size=1, desired_size=1, max_size=1)
+                        with patch("disco_aws_automation.DiscoELB.get_or_create_target_group",
+                                   return_value="foobar"):
+                            with patch("disco_aws_automation.DiscoAutoscale.update_tg",
+                                       return_value=None):
+                                metadata = aws.provision(ami=mock_ami, hostclass="mhcunittest",
+                                                         owner="unittestuser",
+                                                         min_size=1, desired_size=1, max_size=1)
 
         self.assertEqual(metadata["hostclass"], "mhcunittest")
         self.assertFalse(metadata["no_destroy"])
@@ -234,11 +246,15 @@ class DiscoAWSTests(TestCase):
                 with patch("disco_aws_automation.DiscoAWS.create_scaling_schedule", return_value=None):
                     with patch("boto.ec2.autoscale.AutoScaleConnection.create_or_update_tags",
                                return_value=None):
-                        aws.provision(ami=self._get_image_mock(aws),
-                                      hostclass="mhcunittest", owner="unittestuser",
-                                      min_size="1@1 0 * * *:2@6 0 * * *",
-                                      desired_size="2@1 0 * * *:3@6 0 * * *",
-                                      max_size="6@1 0 * * *:9@6 0 * * *")
+                        with patch("disco_aws_automation.DiscoELB.get_or_create_target_group",
+                                   return_value="foobar"):
+                            with patch("disco_aws_automation.DiscoAutoscale.update_tg",
+                                       return_value=None):
+                                aws.provision(ami=self._get_image_mock(aws),
+                                              hostclass="mhcunittest", owner="unittestuser",
+                                              min_size="1@1 0 * * *:2@6 0 * * *",
+                                              desired_size="2@1 0 * * *:3@6 0 * * *",
+                                              max_size="6@1 0 * * *:9@6 0 * * *")
 
         _ag = aws.discogroup.get_existing_groups()[0]
         self.assertEqual(_ag['min_size'], 1)  # minimum of listed sizes
@@ -260,10 +276,14 @@ class DiscoAWSTests(TestCase):
                 with patch("disco_aws_automation.DiscoAWS.create_scaling_schedule", return_value=None):
                     with patch("boto.ec2.autoscale.AutoScaleConnection.create_or_update_tags",
                                return_value=None):
-                        aws.provision(ami=self._get_image_mock(aws),
-                                      hostclass="mhcunittest", owner="unittestuser",
-                                      min_size="",
-                                      desired_size="2@1 0 * * *:3@6 0 * * *", max_size="")
+                        with patch("disco_aws_automation.DiscoELB.get_or_create_target_group",
+                                   return_value="foobar"):
+                            with patch("disco_aws_automation.DiscoAutoscale.update_tg",
+                                       return_value=None):
+                                aws.provision(ami=self._get_image_mock(aws),
+                                              hostclass="mhcunittest", owner="unittestuser",
+                                              min_size="",
+                                              desired_size="2@1 0 * * *:3@6 0 * * *", max_size="")
 
         _ag = aws.discogroup.get_existing_groups()[0]
         print("({0}, {1}, {2})".format(_ag['min_size'], _ag['desired_capacity'], _ag['max_size']))
@@ -286,9 +306,13 @@ class DiscoAWSTests(TestCase):
                 with patch("disco_aws_automation.DiscoAWS.create_scaling_schedule", return_value=None):
                     with patch("boto.ec2.autoscale.AutoScaleConnection.create_or_update_tags",
                                return_value=None):
-                        aws.provision(ami=self._get_image_mock(aws),
-                                      hostclass="mhcunittest", owner="unittestuser",
-                                      min_size="", desired_size="", max_size="")
+                        with patch("disco_aws_automation.DiscoELB.get_or_create_target_group",
+                                   return_value="foobar"):
+                            with patch("disco_aws_automation.DiscoAutoscale.update_tg",
+                                       return_value=None):
+                                aws.provision(ami=self._get_image_mock(aws),
+                                              hostclass="mhcunittest", owner="unittestuser",
+                                              min_size="", desired_size="", max_size="")
 
         _ag0 = aws.discogroup.get_existing_groups()[0]
 
@@ -301,9 +325,13 @@ class DiscoAWSTests(TestCase):
                 with patch("disco_aws_automation.DiscoAWS.create_scaling_schedule", return_value=None):
                     with patch("boto.ec2.autoscale.AutoScaleConnection.create_or_update_tags",
                                return_value=None):
-                        aws.provision(ami=self._get_image_mock(aws),
-                                      hostclass="mhcunittest", owner="unittestuser",
-                                      min_size="3", desired_size="6", max_size="9")
+                        with patch("disco_aws_automation.DiscoELB.get_or_create_target_group",
+                                   return_value="foobar"):
+                            with patch("disco_aws_automation.DiscoAutoscale.update_tg",
+                                       return_value=None):
+                                aws.provision(ami=self._get_image_mock(aws),
+                                              hostclass="mhcunittest", owner="unittestuser",
+                                              min_size="3", desired_size="6", max_size="9")
 
         _ag1 = aws.discogroup.get_existing_groups()[0]
 
@@ -316,9 +344,13 @@ class DiscoAWSTests(TestCase):
                 with patch("disco_aws_automation.DiscoAWS.create_scaling_schedule", return_value=None):
                     with patch("boto.ec2.autoscale.AutoScaleConnection.create_or_update_tags",
                                return_value=None):
-                        aws.provision(ami=self._get_image_mock(aws),
-                                      hostclass="mhcunittest", owner="unittestuser",
-                                      min_size="", desired_size="", max_size="")
+                        with patch("disco_aws_automation.DiscoELB.get_or_create_target_group",
+                                   return_value="foobar"):
+                            with patch("disco_aws_automation.DiscoAutoscale.update_tg",
+                                       return_value=None):
+                                aws.provision(ami=self._get_image_mock(aws),
+                                              hostclass="mhcunittest", owner="unittestuser",
+                                              min_size="", desired_size="", max_size="")
 
         _ag2 = aws.discogroup.get_existing_groups()[0]
 

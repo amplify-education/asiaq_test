@@ -71,32 +71,32 @@ class DiscoVPCPeeringsTests(unittest.TestCase):
 
         self.assertItemsEqual(actual, expected)
 
-    def test_parse_peering_connection_wildcards(self):
-        """test parsing a peering connection line with wildcards"""
-        actual = self.disco_vpc_peerings._resolve_peering_connection_line(
-            '*:sandbox/intranet mock-vpc-3:sandbox/intranet'
-        )
+    # def test_parse_peering_connection_wildcards(self):
+    #     """test parsing a peering connection line with wildcards"""
+    #     actual = self.disco_vpc_peerings._resolve_peering_connection_line(
+    #         '*:sandbox/intranet mock-vpc-3:sandbox/intranet'
+    #     )
+    #
+    #     expected = [
+    #         PeeringConnection.from_peering_line('mock-vpc-1:sandbox/intranet mock-vpc-3:sandbox/intranet'),
+    #         PeeringConnection.from_peering_line('mock-vpc-2:sandbox/intranet mock-vpc-3:sandbox/intranet')
+    #     ]
+    #
+    #     self.assertItemsEqual(actual, expected)
 
-        expected = [
-            PeeringConnection.from_peering_line('mock-vpc-1:sandbox/intranet mock-vpc-3:sandbox/intranet'),
-            PeeringConnection.from_peering_line('mock-vpc-2:sandbox/intranet mock-vpc-3:sandbox/intranet')
-        ]
-
-        self.assertItemsEqual(actual, expected)
-
-    def test_parse_peering_double_wildcards(self):
-        """test parsing a peering connection line with wildcards on both sides"""
-        actual = self.disco_vpc_peerings._resolve_peering_connection_line(
-            '*:sandbox/intranet *:sandbox/intranet'
-        )
-
-        expected = [
-            PeeringConnection.from_peering_line('mock-vpc-1:sandbox/intranet mock-vpc-2:sandbox/intranet'),
-            PeeringConnection.from_peering_line('mock-vpc-1:sandbox/intranet mock-vpc-3:sandbox/intranet'),
-            PeeringConnection.from_peering_line('mock-vpc-2:sandbox/intranet mock-vpc-3:sandbox/intranet')
-        ]
-
-        self.assertItemsEqual(actual, expected)
+    # def test_parse_peering_double_wildcards(self):
+    #     """test parsing a peering connection line with wildcards on both sides"""
+    #     actual = self.disco_vpc_peerings._resolve_peering_connection_line(
+    #         '*:sandbox/intranet *:sandbox/intranet'
+    #     )
+    #
+    #     expected = [
+    #         PeeringConnection.from_peering_line('mock-vpc-1:sandbox/intranet mock-vpc-2:sandbox/intranet'),
+    #         PeeringConnection.from_peering_line('mock-vpc-1:sandbox/intranet mock-vpc-3:sandbox/intranet'),
+    #         PeeringConnection.from_peering_line('mock-vpc-2:sandbox/intranet mock-vpc-3:sandbox/intranet')
+    #     ]
+    #
+    #     self.assertItemsEqual(actual, expected)
 
 
 class DiscoVPCPeeringsUpdateTests(unittest.TestCase):
