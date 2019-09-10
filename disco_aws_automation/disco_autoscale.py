@@ -92,10 +92,6 @@ class DiscoAutoscale(BaseGroup):
 
     def _get_group_generator(self, group_names=None):
         """Yields groups in current environment"""
-        # paginator=self.boto3_autoscale.get_paginator("describe_auto_scaling_groups")
-        if group_names is None:
-            group_names = [None]
-
         if group_names[0] is not None:
             groups = get_boto3_paged_results(
                 self.boto3_autoscale.describe_auto_scaling_groups,
@@ -112,17 +108,17 @@ class DiscoAutoscale(BaseGroup):
 
         for group in self._filter_autoscale_by_environment(groups):
             yield {
-                'name': group['AutoScalingGroupName'],
-                'min_size': group['MinSize'],
-                'max_size': group['MaxSize'],
-                'desired_capacity': group['DesiredCapacity'],
-                'launch_config_name': group['LaunchConfigurationName'],
-                'termination_policies': group['TerminationPolicies'],
-                'vpc_zone_identifier': group['VPCZoneIdentifier'],
-                'load_balancers': group['LoadBalancerNames'],
+                'name': group.get('AutoScalingGroupName'),
+                'min_size': group.get('MinSize'),
+                'max_size': group.get('MaxSize'),
+                'desired_capacity': group.get('DesiredCapacity'),
+                'launch_config_name': group.get('LaunchConfigurationName'),
+                'termination_policies': group.get('TerminationPolicies'),
+                'vpc_zone_identifier': group.get('VPCZoneIdentifier'),
+                'load_balancers': group.get('LoadBalancerNames'),
                 'target_groups': group.get('TargetGroupARNs'),
                 'type': 'asg',
-                'tags': {tag['Key']: tag['Value'] for tag in group['Tags']}
+                'tags': {tag.get('Key'): tag.get('Value') for tag in group.get('Tags')}
             }
 
     def _get_instance_generator(self, hostclass=None, group_name=None):
