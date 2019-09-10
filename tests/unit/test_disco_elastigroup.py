@@ -48,7 +48,7 @@ class DiscoElastigroupTests(TestCase):
                             "name": "elb-1234",
                             "type": "CLASSIC"
                         }, {
-                            'arn': 'tg_arn',
+                            'arn': 'tg_1234',
                             'type': 'TARGET_GROUP'
                         }]
                     },
@@ -351,7 +351,7 @@ class DiscoElastigroupTests(TestCase):
 
     @patch("boto3.session.Session")
     def test_update_elb(self, session_mock):
-        """Verifies ELBs for a Elastigroup are updated"""
+        """Verifies ELBs and TGs for a Elastigroup are updated"""
         group = self.mock_elastigroup(hostclass='mhcfoo')
         self.elastigroup.spotinst_client.get_groups.return_value = [group]
         session_mock.return_value.region_name = 'us-moon'
@@ -385,11 +385,11 @@ class DiscoElastigroupTests(TestCase):
         str(extra_tgs)
         self.assertEqual({'elb-newelb'}, new_elbs)
         self.assertEqual({'elb-1234'}, extras)
-        # self.assertEqual({'tg_arn'}, new_tgs)
-        # self.assertEqual({}, extra_tgs)
+        self.assertEqual({'tg_arn'}, new_tgs)
+        self.assertEqual({'tg_1234'}, extra_tgs)
 
     def test_update_elb_missing_group(self):
-        """Test updating ELB for group that doesn't exist"""
+        """Test updating ELB and Target Group for group that doesn't exist"""
         self.elastigroup.spotinst_client.get_groups.return_value = []
 
         new_elbs, extras = self.elastigroup.update_elb(
@@ -403,7 +403,7 @@ class DiscoElastigroupTests(TestCase):
 
     @patch("boto3.session.Session")
     def test_update_group_update_elb(self, session_mock):
-        """Verifies updating group also updates ELB"""
+        """Verifies updating group also updates ELB and TG"""
         group = self.mock_elastigroup(hostclass='mhcfoo')
         self.elastigroup.spotinst_client.get_groups.return_value = [group]
         session_mock.return_value.region_name = 'us-moon'

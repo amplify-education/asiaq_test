@@ -1,6 +1,6 @@
 """Tests of disco_elb"""
 from unittest import TestCase
-from mock import MagicMock, ANY
+from mock import MagicMock, ANY, patch
 from moto import mock_elb
 from disco_aws_automation import DiscoELB
 from disco_aws_automation.disco_elb import DiscoELBPortConfig, DiscoELBPortMapping
@@ -565,3 +565,26 @@ class DiscoELBTests(TestCase):
         self.route53.create_record.assert_any_call(
             TEST_DOMAIN_NAME,
             'mhcfunky-' + TEST_ENV_NAME + '.' + TEST_DOMAIN_NAME, 'CNAME', MOCK_ELB_ADDRESS)
+
+    @patch("disco_aws_automation.boto3")
+    def test_get_target_grouo(self, mock_boto):
+        """Test getting a target group"""
+        mock_boto.client.describe_target_groups = MagicMock(return_value='hello')
+        group = self.disco_elb.get_or_create_target_group
+        self.assertEqual(group, "hello")
+
+    # @mock_elb
+    # def test_create_target_group_with_port_config(self):
+    #     pass
+    #
+    # @mock_elb
+    # def test_create_target_group_without_port_config(self):
+    #     pass
+    #
+    # @mock_elb
+    # def test_create_target_group_with_health_check(self):
+    #     pass
+    #
+    # @mock_elb
+    # def test_create_target_group_without_health_check(self):
+    #     pass

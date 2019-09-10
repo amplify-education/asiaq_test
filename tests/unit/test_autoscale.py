@@ -50,6 +50,7 @@ class DiscoAutoscaleTests(TestCase):
         group_mock['MaxSize'] = 1
         group_mock['DesiredCapacity'] = 1
         group_mock['LoadBalancerNames'] = []
+        group_mock['TargetGroupARNs'] = []
         group_mock['Tags'] = [{"Key": "Fake", "Value": "Fake"}]
         if launch_config_name is not None:
             group_mock['LaunchConfigurationName'] = launch_config_name
@@ -151,6 +152,20 @@ class DiscoAutoscaleTests(TestCase):
             self._mock_boto3_connection.attach_load_balancers.assert_called_with(
                 AutoScalingGroupName=group['name'],
                 LoadBalancerNames=['fake_elb'])
+
+    def test_get_group_attach_tg(self):
+        """Test getting a group and attaching a target group"""
+        with patch("disco_aws_automation.disco_autoscale.get_boto3_paged_results",
+                   MagicMock(return_value=[self.mock_group_dictionary("mhcdummy")])):
+
+            group = self._autoscale.get_group(
+                hostclass="mhcdummy",
+                launch_config="launch_config-X", vpc_zone_id="zone-X",
+                target_groups=['fake_tg'])
+
+            self._mock_boto3_connection.attach_load_balancer_target_groups.assert_called_with(
+                AutoScalingGroupName=group['name'],
+                TargetGroupARNs=['fake_tg'])
 
     @patch("boto.ec2.autoscale.group.AutoScalingGroup")
     def test_get_fresh_group_with_none_min(self, mock_group_init):
@@ -415,6 +430,36 @@ class DiscoAutoscaleTests(TestCase):
 
             ret = self._autoscale.update_elb([], hostclass="mhcfoo")
             self.assertEqual(ret, (set([]), set(["old_lb1", "old_lb2"])))
+
+    def test_update_tg_with_new_lb(self):
+        '''update_tg will add new tg and remove old when there is no overlap in sets'''
+        grp = self.mock_group_dictionary("mhcfoo")
+        grp['TargetGroupARNs'] = ["old_tg1", "old_tg2"]
+        with patch("disco_aws_automation.disco_autoscale.get_boto3_paged_results",
+                   MagicMock(return_value=[grp])):
+
+            ret = self._autoscale.update_tg(["new_tg"], hostclass="mhcfoo")
+            self.assertEqual(ret, (set(["new_tg"]), set(["old_tg1", "old_tg2"])))
+
+    def test_update_tg_with_new_lb_and_old_lb(self):
+        '''update_tg will not churn a tg that is in both the existing config and new config'''
+        grp = self.mock_group_dictionary("mhcfoo")
+        grp['TargetGroupARNs'] = ["old_tg", "both_tg"]
+        with patch("disco_aws_automation.disco_autoscale.get_boto3_paged_results",
+                   MagicMock(return_value=[grp])):
+
+            ret = self._autoscale.update_tg(["new_tg", "both_tg"], hostclass="mhcfoo")
+            self.assertEqual(ret, (set(["new_tg"]), set(["old_tg"])))
+
+    def test_update_tg_without_new_lb(self):
+        '''update_tg will remove all target groups when none are configured'''
+        grp = self.mock_group_dictionary("mhcfoo")
+        grp['TargetGroupARNs'] = ["old_tg1", "old_tg2"]
+        with patch("disco_aws_automation.disco_autoscale.get_boto3_paged_results",
+                   MagicMock(return_value=[grp])):
+
+            ret = self._autoscale.update_tg([], hostclass="mhcfoo")
+            self.assertEqual(ret, (set([]), set(["old_tg1", "old_tg2"])))
 
     def test_gg_filters_env_correctly(self):
         '''group_generator correctly filters based on the environment'''
