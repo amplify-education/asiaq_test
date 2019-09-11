@@ -36,7 +36,6 @@ class DiscoELB(object):
     def __init__(self, vpc, elb=None, route53=None, acm=None, iam=None):
         self.vpc = vpc
         self._elb_client = elb
-        self.elb2_client = elb
         self.route53 = route53 or DiscoRoute53()
         self.acm = acm or DiscoACM()
         self.iam = iam or DiscoIAM()

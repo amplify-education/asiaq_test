@@ -56,8 +56,6 @@ class DiscoAutoscale(BaseGroup):
         """Filters launch configs by environment"""
         for item in items:
             try:
-                # if item['AutoScalingGroupName'].startswith("{0}_".format(self.environment_name)):
-                #     yield item
                 if item.name.startswith("{0}_".format(self.environment_name)):
                     yield item
             except AttributeError:
@@ -67,8 +65,6 @@ class DiscoAutoscale(BaseGroup):
         """Filters autoscaling groups by environment"""
         for item in items:
             try:
-                # if item['AutoScalingGroupName'].startswith("{0}_".format(self.environment_name)):
-                #     yield item
                 if item['AutoScalingGroupName'].startswith("{0}_".format(self.environment_name)):
                     yield item
             except AttributeError:
