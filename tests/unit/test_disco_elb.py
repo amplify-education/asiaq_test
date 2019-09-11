@@ -2,6 +2,7 @@
 from unittest import TestCase
 from mock import MagicMock, ANY, patch
 from moto import mock_elb
+from boto.exception import EC2ResponseError
 from disco_aws_automation import DiscoELB
 from disco_aws_automation.disco_elb import DiscoELBPortConfig, DiscoELBPortMapping
 
@@ -566,25 +567,97 @@ class DiscoELBTests(TestCase):
             TEST_DOMAIN_NAME,
             'mhcfunky-' + TEST_ENV_NAME + '.' + TEST_DOMAIN_NAME, 'CNAME', MOCK_ELB_ADDRESS)
 
-    @patch("disco_aws_automation.boto3")
-    def test_get_target_grouo(self, mock_boto):
+    @patch("disco_aws_automation.disco_elb.boto3")
+    def test_get_target_group(self, mock_boto):
         """Test getting a target group"""
-        mock_boto.client.describe_target_groups = MagicMock(return_value='hello')
-        group = self.disco_elb.get_or_create_target_group
-        self.assertEqual(group, "hello")
+        describe_call = {
+            "TargetGroups": [
+                {"TargetGroupArn": "mock_target_group"},
+            ]
+        }
+        mock_boto.client.return_value.describe_target_groups.return_value = describe_call
+        group = self.disco_elb.get_or_create_target_group(
+            group_name="target_group_name",
+            vpc_id=TEST_VPC_ID,
+        )
+        self.assertEqual(group, ["mock_target_group"])
 
-    # @mock_elb
-    # def test_create_target_group_with_port_config(self):
-    #     pass
-    #
-    # @mock_elb
-    # def test_create_target_group_without_port_config(self):
-    #     pass
-    #
-    # @mock_elb
-    # def test_create_target_group_with_health_check(self):
-    #     pass
-    #
-    # @mock_elb
-    # def test_create_target_group_without_health_check(self):
-    #     pass
+    @patch("disco_aws_automation.disco_elb.boto3")
+    def test_create_tg_without_port_or_health(self, mock_boto):
+        """Test creating a group without port config or health check"""
+        mock_boto.client.return_value.describe_target_groups.side_effect = EC2ResponseError(
+            status="mockstatus",
+            reason="mockreason"
+        )
+        self.disco_elb.get_or_create_target_group(
+            group_name="target_group_name",
+            vpc_id=TEST_VPC_ID,
+        )
+        mock_boto.client.return_value.create_target_group.assert_called_with(
+            Name="target_group_name",
+            Protocol='HTTP',
+            Port=80,
+            VpcId=TEST_VPC_ID,
+            HealthCheckProtocol="HTTP",
+            HealthCheckPort="80",
+            HealthCheckEnabled=True,
+            HealthCheckPath="/"
+        )
+
+    @patch("disco_aws_automation.disco_elb.boto3")
+    def test_create_tg_with_health_check(self, mock_boto):
+        """Test creating a group without port config or health check"""
+        mock_boto.client.return_value.describe_target_groups.side_effect = EC2ResponseError(
+            status="mockstatus",
+            reason="mockreason"
+        )
+        self.disco_elb.get_or_create_target_group(
+            group_name="target_group_name",
+            vpc_id=TEST_VPC_ID,
+            health_check_path="/mockpath"
+        )
+        mock_boto.client.return_value.create_target_group.assert_called_with(
+            Name="target_group_name",
+            Protocol='HTTP',
+            Port=80,
+            VpcId=TEST_VPC_ID,
+            HealthCheckProtocol="HTTP",
+            HealthCheckPort="80",
+            HealthCheckEnabled=True,
+            HealthCheckPath="/mockpath"
+        )
+
+    @patch("disco_aws_automation.disco_elb.boto3")
+    def test_create_target_group_with_port_config(self, mock_boto):
+        """Test creating a group using port config"""
+        mock_boto.client.return_value.describe_target_groups.side_effect = EC2ResponseError(
+            status="mockstatus",
+            reason="mockreason"
+        )
+
+        instance_protocols = ('HTTP',)
+        instance_ports = (80,)
+        elb_protocols = ('HTTP',)
+        elb_ports = (80,)
+
+        self.disco_elb.get_or_create_target_group(
+            group_name="target_group_name",
+            vpc_id=TEST_VPC_ID,
+            port_config=DiscoELBPortConfig(
+                [
+                    DiscoELBPortMapping(internal_port, internal_protocol, external_port, external_protocol)
+                    for (internal_port, internal_protocol), (external_port, external_protocol) in zip(
+                        zip(instance_ports, instance_protocols), zip(elb_ports, elb_protocols))
+                ]
+            )
+        )
+        mock_boto.client.return_value.create_target_group.assert_called_with(
+            Name="target_group_name",
+            Protocol='HTTP',
+            Port=80,
+            VpcId=TEST_VPC_ID,
+            HealthCheckProtocol="HTTP",
+            HealthCheckPort="80",
+            HealthCheckEnabled=True,
+            HealthCheckPath="/"
+        )

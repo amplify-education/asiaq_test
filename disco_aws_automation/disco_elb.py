@@ -48,7 +48,6 @@ class DiscoELB(object):
         """
         if not self._elb_client:
             self._elb_client = boto3.client('elb')
-            self.elb2_client = boto3.client('elbv2')
         return self._elb_client
 
     def get_certificate_arn(self, dns_name):
@@ -143,10 +142,11 @@ class DiscoELB(object):
                            'UnhealthyThreshold': 2,
                            'HealthyThreshold': 2})
 
-    def get_or_create_target_group(self, group_name, port_config, vpc_id, health_check_path):
+    def get_or_create_target_group(self, group_name, vpc_id=None, port_config=None, health_check_path=None):
         """ Gets an existing target group using the group_name otherwise creates the target group"""
+        elb2_client = boto3.client("elbv2")
         try:
-            target_groups = throttled_call(self.elb2_client.describe_target_groups, Names=[group_name])
+            target_groups = throttled_call(elb2_client.describe_target_groups, Names=[group_name])
             return [target_groups['TargetGroups'][0]['TargetGroupArn']]
         except (EC2ResponseError, ClientError):
             logger.info("Creating target group")
@@ -168,7 +168,7 @@ class DiscoELB(object):
 
             return [
                 throttled_call(
-                    self.elb2_client.create_target_group,
+                    elb2_client.create_target_group,
                     Name=group_name,
                     Protocol=protocol,
                     Port=port,
