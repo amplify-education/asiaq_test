@@ -58,7 +58,7 @@ def get_default_config_dict():
                           "default_smoketest_termination": "True",
                           "default_environment": "auto-vpc-type",
                           "default_domain_name": "example.com",
-                          "default_spotinst_account_id": "foo"},
+                          "default_spotinst_account_id": "fake_spotinst_account_id"},
             "mhczookeeper": {"ip_address": "10.0.0.1"}}
 
 
