@@ -518,10 +518,10 @@ class DiscoElastigroupTests(TestCase):
         self.assertFalse(self.elastigroup.is_spotinst_enabled())
 
     @patch('disco_aws_automation.spotinst_client.read_config')
-    @patch('os.environ.get', MagicMock(return_value="foo"), MagicMock(return_value="foo"))
+    @patch('os.environ.get', MagicMock(return_value="Fake_Spotinst_Token"))
     def test_is_spotinst_enabled(self, mock_config):
         """Verify that if spotinst token is set, spotinst is enabled"""
-        mock_config.get_asiaq_option.return_value = "foo"
+        mock_config.get_asiaq_option.return_value = "Fake_Spotinst_Token"
         self.elastigroup = DiscoElastigroup(ENVIRONMENT_NAME)
 
         self.assertTrue(self.elastigroup.is_spotinst_enabled())
