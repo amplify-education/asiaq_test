@@ -78,8 +78,8 @@ class DiscoVPCPeeringsTests(unittest.TestCase):
         )
 
         expected = [
-            PeeringConnection.from_peering_line('mock-vpc-2:sandbox/intranet mock-vpc-3:sandbox/intranet'),
-            PeeringConnection.from_peering_line('mock-vpc-1:sandbox/intranet mock-vpc-3:sandbox/intranet')
+            PeeringConnection.from_peering_line('mock-vpc-1:sandbox/intranet mock-vpc-3:sandbox/intranet'),
+            PeeringConnection.from_peering_line('mock-vpc-2:sandbox/intranet mock-vpc-3:sandbox/intranet')
         ]
 
         self.assertItemsEqual(actual, expected)
