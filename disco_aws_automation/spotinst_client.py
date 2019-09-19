@@ -124,12 +124,10 @@ class SpotinstClient(object):
         """
         try:
             if not params:
-                params = {}
-            
-            params['accountId'] = self.account_id
+                params = dict()
                 params['accountId'] = self.account_id
             else:
-                params = {'accountId': self.account_id}
+                params['accountId'] = self.account_id
 
             response = requests.request(
                 method=method,
