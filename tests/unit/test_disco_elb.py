@@ -1,6 +1,6 @@
 """Tests of disco_elb"""
 from unittest import TestCase
-from mock import MagicMock, ANY, patch
+from mock import MagicMock, ANY
 from moto import mock_elb
 from boto.exception import EC2ResponseError
 from disco_aws_automation import DiscoELB
@@ -45,7 +45,10 @@ class DiscoELBTests(TestCase):
         self.route53 = MagicMock()
         self.acm = MagicMock()
         self.iam = MagicMock()
-        self.disco_elb = DiscoELB(_get_vpc_mock(), route53=self.route53, acm=self.acm, iam=self.iam)
+        self.elb2 = MagicMock()
+        self.disco_elb = DiscoELB(
+            _get_vpc_mock(), route53=self.route53, acm=self.acm, iam=self.iam, elb2=self.elb2
+        )
         self.acm.get_certificate_arn.return_value = TEST_CERTIFICATE_ARN_ACM
         self.iam.get_certificate_arn.return_value = TEST_CERTIFICATE_ARN_IAM
 
@@ -567,25 +570,23 @@ class DiscoELBTests(TestCase):
             TEST_DOMAIN_NAME,
             'mhcfunky-' + TEST_ENV_NAME + '.' + TEST_DOMAIN_NAME, 'CNAME', MOCK_ELB_ADDRESS)
 
-    @patch("disco_aws_automation.disco_elb.boto3")
-    def test_get_target_group(self, mock_boto):
+    def test_get_target_group(self):
         """Test getting a target group"""
         describe_call = {
             "TargetGroups": [
                 {"TargetGroupArn": "mock_target_group"},
             ]
         }
-        mock_boto.client.return_value.describe_target_groups.return_value = describe_call
+        self.elb2.describe_target_groups.return_value = describe_call
         group = self.disco_elb.get_or_create_target_group(
             group_name="target_group_name",
             vpc_id=TEST_VPC_ID,
         )
         self.assertEqual(group, ["mock_target_group"])
 
-    @patch("disco_aws_automation.disco_elb.boto3")
-    def test_create_tg_without_port_or_health(self, mock_boto):
+    def test_create_tg_without_port_or_health(self):
         """Test creating a group without port config or health check"""
-        mock_boto.client.return_value.describe_target_groups.side_effect = EC2ResponseError(
+        self.elb2.describe_target_groups.side_effect = EC2ResponseError(
             status="mockstatus",
             reason="mockreason"
         )
@@ -593,7 +594,7 @@ class DiscoELBTests(TestCase):
             group_name="target_group_name",
             vpc_id=TEST_VPC_ID,
         )
-        mock_boto.client.return_value.create_target_group.assert_called_with(
+        self.elb2.create_target_group.assert_called_with(
             Name="target_group_name",
             Protocol='HTTP',
             Port=80,
@@ -604,10 +605,9 @@ class DiscoELBTests(TestCase):
             HealthCheckPath="/"
         )
 
-    @patch("disco_aws_automation.disco_elb.boto3")
-    def test_create_tg_with_health_check(self, mock_boto):
+    def test_create_tg_with_health_check(self):
         """Test creating a group without port config or health check"""
-        mock_boto.client.return_value.describe_target_groups.side_effect = EC2ResponseError(
+        self.elb2.describe_target_groups.side_effect = EC2ResponseError(
             status="mockstatus",
             reason="mockreason"
         )
@@ -616,7 +616,7 @@ class DiscoELBTests(TestCase):
             vpc_id=TEST_VPC_ID,
             health_check_path="/mockpath"
         )
-        mock_boto.client.return_value.create_target_group.assert_called_with(
+        self.elb2.create_target_group.assert_called_with(
             Name="target_group_name",
             Protocol='HTTP',
             Port=80,
@@ -627,10 +627,9 @@ class DiscoELBTests(TestCase):
             HealthCheckPath="/mockpath"
         )
 
-    @patch("disco_aws_automation.disco_elb.boto3")
-    def test_create_target_group_with_port_config(self, mock_boto):
+    def test_create_target_group_with_port_config(self):
         """Test creating a group using port config"""
-        mock_boto.client.return_value.describe_target_groups.side_effect = EC2ResponseError(
+        self.elb2.describe_target_groups.side_effect = EC2ResponseError(
             status="mockstatus",
             reason="mockreason"
         )
@@ -651,7 +650,7 @@ class DiscoELBTests(TestCase):
                 ]
             )
         )
-        mock_boto.client.return_value.create_target_group.assert_called_with(
+        self.elb2.create_target_group.assert_called_with(
             Name="target_group_name",
             Protocol='HTTP',
             Port=80,
@@ -660,4 +659,71 @@ class DiscoELBTests(TestCase):
             HealthCheckPort="80",
             HealthCheckEnabled=True,
             HealthCheckPath="/"
+        )
+
+    def test_tags_transformation(self):
+        """Tests if tags are converted to the right format"""
+        tags = {
+            "application": "fake-app-tag",
+            "environment": "fake-environment"
+        }
+        expected_tags = [
+            {
+                'Value': "fake-app-tag",
+                'Key': "application"
+            },
+            {
+                'Value': "fake-environment",
+                'Key': "environment"
+            }
+        ]
+        actual_tags = self.disco_elb.add_tags_to_target_groups(
+            target_groups=["mock_target_group"],
+            tags=tags
+        )
+        self.assertEqual(sorted(actual_tags), sorted(expected_tags))
+
+    def test_add_tags_existing_tg(self):
+        """ Tests if add tags is called for existing tg"""
+        describe_call = {
+            "TargetGroups": [
+                {"TargetGroupArn": "mock_target_group"},
+            ]
+        }
+        self.elb2.describe_target_groups.return_value = describe_call
+        self.disco_elb.get_or_create_target_group(
+            group_name="target_group_name",
+            vpc_id=TEST_VPC_ID,
+            tags={"fake-key": "fake-value"}
+        )
+        self.elb2.add_tags.assert_called_with(
+            ResourceArns=["mock_target_group"],
+            Tags=[{'Key': "fake-key", 'Value': "fake-value"}]
+        )
+
+    def test_add_tags_created_tg(self):
+        """ Tests if add tags is called for new tg"""
+        self.elb2.describe_target_groups.side_effect = EC2ResponseError(
+            status="mockstatus",
+            reason="mockreason"
+        )
+        self.elb2.create_target_group.return_value = {'TargetGroups': [{'TargetGroupArn': "fake-tg-arn"}]}
+        self.disco_elb.get_or_create_target_group(
+            group_name="target_group_name",
+            vpc_id=TEST_VPC_ID,
+            tags={"fake-key": "fake-value"}
+        )
+        self.elb2.create_target_group.assert_called_with(
+            Name="target_group_name",
+            Protocol='HTTP',
+            Port=80,
+            VpcId=TEST_VPC_ID,
+            HealthCheckProtocol="HTTP",
+            HealthCheckPort="80",
+            HealthCheckEnabled=True,
+            HealthCheckPath="/"
+        )
+        self.elb2.add_tags.assert_called_with(
+            ResourceArns=["fake-tg-arn"],
+            Tags=[{'Key': "fake-key", 'Value': "fake-value"}]
         )

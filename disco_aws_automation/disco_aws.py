@@ -416,8 +416,14 @@ class DiscoAWS(object):
             group_name=target_group_name,
             port_config=DiscoELBPortConfig.from_config(self, hostclass),
             vpc_id=self.vpc.get_vpc_id(),
-            health_check_path=self.hostclass_option_default(hostclass, "elb_health_check_url")
+            health_check_path=self.hostclass_option_default(hostclass, "elb_health_check_url"),
+            tags=tags
         )
+        # self.elb.add_tags_to_target_groups(
+        #     target_groups=target_groups,
+        #     tags=tags
+        # )
+
         group = self.discogroup.create_or_update_group(
             hostclass=hostclass,
             image_id=ami.id,

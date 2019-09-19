@@ -33,9 +33,10 @@ class DiscoELB(object):
     A simple class to manage ELBs
     """
 
-    def __init__(self, vpc, elb=None, route53=None, acm=None, iam=None):
+    def __init__(self, vpc, elb=None, route53=None, acm=None, iam=None, elb2=None):
         self.vpc = vpc
         self._elb_client = elb
+        self.elb2_client = elb2 or boto3.client("elbv2")
         self.route53 = route53 or DiscoRoute53()
         self.acm = acm or DiscoACM()
         self.iam = iam or DiscoIAM()
@@ -141,12 +142,19 @@ class DiscoELB(object):
                            'UnhealthyThreshold': 2,
                            'HealthyThreshold': 2})
 
-    def get_or_create_target_group(self, group_name, vpc_id=None, port_config=None, health_check_path=None):
+    def get_or_create_target_group(self, group_name, vpc_id=None,
+                                   port_config=None, health_check_path=None, tags=None):
         """ Gets an existing target group using the group_name otherwise creates the target group"""
-        elb2_client = boto3.client("elbv2")
         try:
-            target_groups = throttled_call(elb2_client.describe_target_groups, Names=[group_name])
-            return [target_groups['TargetGroups'][0]['TargetGroupArn']]
+            target_groups = [
+                throttled_call(self.elb2_client.describe_target_groups,
+                               Names=[group_name])['TargetGroups'][0]['TargetGroupArn']
+            ]
+            if tags:
+                self.add_tags_to_target_groups(target_groups=target_groups, tags=tags)
+
+            return target_groups
+
         except (EC2ResponseError, ClientError):
             logger.info("Creating target group")
             if port_config:
@@ -165,19 +173,28 @@ class DiscoELB(object):
             else:
                 health_check_path = '/'
 
-            return [
-                throttled_call(
-                    elb2_client.create_target_group,
-                    Name=group_name,
-                    Protocol=protocol,
-                    Port=port,
-                    VpcId=vpc_id,
-                    HealthCheckProtocol=health_protocol,
-                    HealthCheckPort=health_port,
-                    HealthCheckEnabled=True,
-                    HealthCheckPath=health_check_path
-                )['TargetGroups'][0]['TargetGroupArn']
-            ]
+            target_groups = [throttled_call(
+                self.elb2_client.create_target_group,
+                Name=group_name,
+                Protocol=protocol,
+                Port=port,
+                VpcId=vpc_id,
+                HealthCheckProtocol=health_protocol,
+                HealthCheckPort=health_port,
+                HealthCheckEnabled=True,
+                HealthCheckPath=health_check_path
+            )['TargetGroups'][0]['TargetGroupArn']]
+            if tags:
+                self.add_tags_to_target_groups(target_groups=target_groups, tags=tags)
+
+            return target_groups
+
+    def add_tags_to_target_groups(self, target_groups, tags):
+        """ Adds proper tagging to target groups """
+        logger.info("Tagging Target Groups")
+        list_of_tags = [{'Key': key, 'Value': str(tags[key])} for key in tags.keys()]
+        throttled_call(self.elb2_client.add_tags, ResourceArns=target_groups, Tags=list_of_tags)
+        return list_of_tags
 
     def _setup_sticky_cookies(self, elb_id, elb_ports, sticky_app_cookie, elb_name):
         policies = throttled_call(self.elb_client.describe_load_balancer_policies,
