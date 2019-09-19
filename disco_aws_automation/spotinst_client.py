@@ -123,7 +123,8 @@ class SpotinstClient(object):
         :rtype: dict
         """
         try:
-            if not params:
+            params = params or dict()
+            params['accountId'] = self.account_id
                 params = dict()
                 params['accountId'] = self.account_id
             else:
