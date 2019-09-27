@@ -20,7 +20,8 @@ class SpotinstClient(object):
         self.config_aws = config_aws or read_config(environment=environment_name)
         self.account_id = self.config_aws.get_asiaq_option(
             option='spotinst_account_id',
-            environment=environment_name
+            environment=environment_name,
+            required=False
         )
 
     def create_group(self, group_config):
@@ -124,7 +125,8 @@ class SpotinstClient(object):
         """
         try:
             params = params or dict()
-            params['accountId'] = self.account_id
+            if self.account_id:
+                params['accountId'] = self.account_id
 
             response = requests.request(
                 method=method,
