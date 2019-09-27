@@ -7,14 +7,30 @@ from requests.exceptions import ReadTimeout, ConnectTimeout, ConnectionError
 
 from disco_aws_automation.exceptions import SpotinstRateExceededException
 from disco_aws_automation.spotinst_client import SpotinstClient
+from tests.helpers.patch_disco_aws import get_mock_config
+
+MOCK_AWS_CONFIG_DEFINITION = {
+    "disco_aws": {
+        "default_spotinst_account_id": "fake-id",
+        "default_environment": "fake-ci",
+    }
+}
 
 
 class DiscoSpotinstClientTests(TestCase):
     """Test SpotinstClient class"""
 
+    # @patch('disco_aws_automation.spotinst_client.read_config')
     def setUp(self):
         """Pre-test setup"""
-        self.spotinst_client = SpotinstClient("fooabcd")
+        # config_mock.get_asiaq_option.return_value = "fake_account_id"
+        config_aws = get_mock_config(MOCK_AWS_CONFIG_DEFINITION)
+        mock_token = "foo"
+        self.spotinst_client = SpotinstClient(
+            token=mock_token,
+            environment_name="fakeenvironment",
+            config_aws=config_aws
+        )
 
     @requests_mock.mock()
     def test_create_group(self, requests):

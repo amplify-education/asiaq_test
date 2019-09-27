@@ -6,6 +6,8 @@ from requests.exceptions import Timeout, ConnectionError
 from disco_aws_automation.exceptions import SpotinstApiException, SpotinstRateExceededException
 from disco_aws_automation.resource_helper import Jitter
 
+from .disco_config import read_config
+
 SPOTINST_API_HOST = 'https://api.spotinst.io'
 logger = logging.getLogger(__name__)
 
@@ -13,8 +15,13 @@ logger = logging.getLogger(__name__)
 class SpotinstClient(object):
     """A client for the Spotinst REST API"""
 
-    def __init__(self, token):
+    def __init__(self, token, environment_name, config_aws=None):
         self.token = token
+        self.config_aws = config_aws or read_config(environment=environment_name)
+        self.account_id = self.config_aws.get_asiaq_option(
+            option='spotinst_account_id',
+            environment=environment_name
+        )
 
     def create_group(self, group_config):
         """
@@ -116,6 +123,9 @@ class SpotinstClient(object):
         :rtype: dict
         """
         try:
+            params = params or dict()
+            params['accountId'] = self.account_id
+
             response = requests.request(
                 method=method,
                 url='{0}/{1}'.format(SPOTINST_API_HOST, path),
