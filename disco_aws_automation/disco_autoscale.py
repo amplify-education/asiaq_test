@@ -88,7 +88,8 @@ class DiscoAutoscale(BaseGroup):
 
     def _get_group_generator(self, group_names=None):
         """Yields groups in current environment"""
-        if group_names:
+        if group_names and group_names[0] is not None:
+            logger.info("groupnames %s", group_names)
             groups = get_boto3_paged_results(
                 self.boto3_autoscale.describe_auto_scaling_groups,
                 results_key='AutoScalingGroups',
