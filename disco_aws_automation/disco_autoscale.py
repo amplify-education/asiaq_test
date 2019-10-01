@@ -12,7 +12,7 @@ from boto.exception import BotoServerError
 import boto3
 
 from .base_group import BaseGroup
-from .resource_helper import throttled_call, get_boto3_paged_results
+from .resource_helper import throttled_call, get_boto3_paged_results, tag2dict
 from .exceptions import TooManyAutoscalingGroups
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class DiscoAutoscale(BaseGroup):
                 logger.warning("Skipping unparseable item=%s", vars(item))
 
     def _filter_autoscale_by_environment(self, items):
-        """Filters autoscaling groups by environment"""
+        """Filters autoscaling groups by environment ONLY BOTO3"""
         for item in items:
             try:
                 if item['AutoScalingGroupName'].startswith("{0}_".format(self.environment_name)):
@@ -88,7 +88,7 @@ class DiscoAutoscale(BaseGroup):
 
     def _get_group_generator(self, group_names=None):
         """Yields groups in current environment"""
-        if group_names[0] is not None:
+        if group_names:
             groups = get_boto3_paged_results(
                 self.boto3_autoscale.describe_auto_scaling_groups,
                 results_key='AutoScalingGroups',
@@ -114,7 +114,7 @@ class DiscoAutoscale(BaseGroup):
                 'load_balancers': group.get('LoadBalancerNames'),
                 'target_groups': group.get('TargetGroupARNs'),
                 'type': 'asg',
-                'tags': {tag.get('Key'): tag.get('Value') for tag in group.get('Tags')}
+                'tags': tag2dict(group.get('Tags'))
             }
 
     def _get_instance_generator(self, hostclass=None, group_name=None):
