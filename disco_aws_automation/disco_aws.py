@@ -410,6 +410,17 @@ class DiscoAWS(object):
                 for key, value in [tag.split(':')]:
                     tags[key.strip()] = value.strip()
 
+        #  Target groups do not allow "_" so we replace all with "-"
+        target_group_name = self.environment_name + "-" + hostclass
+        target_group_name = target_group_name.replace("_", "-")
+        target_groups = self.elb.get_or_create_target_group(
+            group_name=target_group_name,
+            port_config=DiscoELBPortConfig.from_config(self, hostclass),
+            vpc_id=self.vpc.get_vpc_id(),
+            health_check_path=self.hostclass_option_default(hostclass, "elb_health_check_url"),
+            tags=tags
+        )
+
         group = self.discogroup.create_or_update_group(
             hostclass=hostclass,
             image_id=ami.id,
@@ -427,6 +438,7 @@ class DiscoAWS(object):
             instance_monitoring=monitoring_enabled,
             instance_type=instance_type,
             load_balancers=[elb['LoadBalancerName']] if elb else [],
+            target_groups=target_groups,
             block_device_mappings=block_device_mappings,
             create_if_exists=create_if_exists,
             termination_policies=termination_policies,

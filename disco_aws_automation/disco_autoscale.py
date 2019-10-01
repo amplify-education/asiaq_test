@@ -12,7 +12,7 @@ from boto.exception import BotoServerError
 import boto3
 
 from .base_group import BaseGroup
-from .resource_helper import throttled_call
+from .resource_helper import throttled_call, get_boto3_paged_results, tag2dict
 from .exceptions import TooManyAutoscalingGroups
 
 logger = logging.getLogger(__name__)
@@ -53,10 +53,19 @@ class DiscoAutoscale(BaseGroup):
         return '{0}_{1}_{2}'.format(self.environment_name, hostclass, str(random.randrange(0, 9999999)))
 
     def _filter_by_environment(self, items):
-        """Filters autoscaling groups and launch configs by environment"""
+        """Filters launch configs by environment"""
         for item in items:
             try:
                 if item.name.startswith("{0}_".format(self.environment_name)):
+                    yield item
+            except AttributeError:
+                logger.warning("Skipping unparseable item=%s", vars(item))
+
+    def _filter_autoscale_by_environment(self, items):
+        """Filters autoscaling groups by environment ONLY BOTO3"""
+        for item in items:
+            try:
+                if item['AutoScalingGroupName'].startswith("{0}_".format(self.environment_name)):
                     yield item
             except AttributeError:
                 logger.warning("Skipping unparseable item=%s", vars(item))
@@ -79,27 +88,34 @@ class DiscoAutoscale(BaseGroup):
 
     def _get_group_generator(self, group_names=None):
         """Yields groups in current environment"""
-        next_token = None
-        while True:
-            groups = throttled_call(self.connection.get_all_groups,
-                                    names=group_names,
-                                    next_token=next_token)
-            for group in self._filter_by_environment(groups):
-                yield {
-                    'name': group.name,
-                    'min_size': group.min_size,
-                    'max_size': group.max_size,
-                    'desired_capacity': group.desired_capacity,
-                    'launch_config_name': group.launch_config_name,
-                    'termination_policies': group.termination_policies,
-                    'vpc_zone_identifier': group.vpc_zone_identifier,
-                    'load_balancers': group.load_balancers,
-                    'type': 'asg',
-                    'tags': {tag.key: tag.value for tag in group.tags}
-                }
-            next_token = groups.next_token
-            if not next_token:
-                break
+        if group_names and group_names[0] is not None:
+            groups = get_boto3_paged_results(
+                self.boto3_autoscale.describe_auto_scaling_groups,
+                results_key='AutoScalingGroups',
+                next_token_key='NextToken',
+                AutoScalingGroupNames=group_names
+            )
+        else:
+            groups = get_boto3_paged_results(
+                self.boto3_autoscale.describe_auto_scaling_groups,
+                results_key='AutoScalingGroups',
+                next_token_key='NextToken'
+            )
+
+        for group in self._filter_autoscale_by_environment(groups):
+            yield {
+                'name': group.get('AutoScalingGroupName'),
+                'min_size': group.get('MinSize'),
+                'max_size': group.get('MaxSize'),
+                'desired_capacity': group.get('DesiredCapacity'),
+                'launch_config_name': group.get('LaunchConfigurationName'),
+                'termination_policies': group.get('TerminationPolicies'),
+                'vpc_zone_identifier': group.get('VPCZoneIdentifier'),
+                'load_balancers': group.get('LoadBalancerNames'),
+                'target_groups': group.get('TargetGroupARNs'),
+                'type': 'asg',
+                'tags': tag2dict(group.get('Tags'))
+            }
 
     def _get_instance_generator(self, hostclass=None, group_name=None):
         """Yields autoscaled instances in current environment"""
@@ -215,8 +231,9 @@ class DiscoAutoscale(BaseGroup):
     def modify_group(self, group, launch_config, vpc_zone_id=None,
                      min_size=None, max_size=None, desired_size=None,
                      termination_policies=None, tags=None,
-                     load_balancers=None):
+                     load_balancers=None, target_groups=None):
         """Update an existing autoscaling group"""
+        # pylint: disable=R0913
         group['launch_config_name'] = launch_config
         changes = {'LaunchConfigurationName': launch_config}
         if vpc_zone_id:
@@ -246,20 +263,25 @@ class DiscoAutoscale(BaseGroup):
                 self.connection.create_or_update_tags,
                 DiscoAutoscale.create_autoscale_tags(group['name'], tags)
             )
+        if target_groups:
+            self.update_tg(target_groups=target_groups, group_name=group['name'])
+
         if load_balancers:
             self.update_elb(elb_names=load_balancers, group_name=group['name'])
+
         return group
 
     def create_group(self, hostclass, launch_config, vpc_zone_id,
                      min_size=None, max_size=None, desired_size=None,
                      termination_policies=None, tags=None,
-                     load_balancers=None):
+                     load_balancers=None, target_groups=None):
         """
         Create an autoscaling group.
 
         The group must not already exist. Use get_group() instead if you want to update a group if it
         exits or create it if it does not.
         """
+        # pylint: disable=R0913, R0914
         _min_size = min_size or 0
         _max_size = max([min_size, max_size, desired_size, 0])
         _desired_capacity = desired_size or max_size
@@ -284,6 +306,9 @@ class DiscoAutoscale(BaseGroup):
         )
         throttled_call(self.connection.create_auto_scaling_group, boto2_group)
 
+        if target_groups:
+            self.update_tg(target_groups=target_groups, group_name=boto2_group.name)
+
         return {
             'name': boto2_group.name,
             'min_size': boto2_group.min_size,
@@ -299,7 +324,7 @@ class DiscoAutoscale(BaseGroup):
     def get_group(self, hostclass, launch_config, vpc_zone_id=None,
                   min_size=None, max_size=None, desired_size=None,
                   termination_policies=None, tags=None,
-                  load_balancers=None, create_if_exists=False,
+                  load_balancers=None, target_groups=None, create_if_exists=False,
                   group_name=None):
         """
         Returns autoscaling group.
@@ -314,12 +339,14 @@ class DiscoAutoscale(BaseGroup):
             group = self.create_group(
                 hostclass=hostclass, launch_config=launch_config, vpc_zone_id=vpc_zone_id,
                 min_size=min_size, max_size=max_size, desired_size=desired_size,
-                termination_policies=termination_policies, tags=tags, load_balancers=load_balancers)
+                termination_policies=termination_policies, tags=tags, load_balancers=load_balancers,
+                target_groups=target_groups)
         else:
             group = self.modify_group(
                 group=existing_group, launch_config=launch_config,
                 vpc_zone_id=vpc_zone_id, min_size=min_size, max_size=max_size, desired_size=desired_size,
-                termination_policies=termination_policies, tags=tags, load_balancers=load_balancers)
+                termination_policies=termination_policies, tags=tags, load_balancers=load_balancers,
+                target_groups=target_groups)
 
         # Create default scaling policies
         self.create_policy(
@@ -341,12 +368,12 @@ class DiscoAutoscale(BaseGroup):
         return group
 
     def create_or_update_group(self, hostclass, desired_size=None, min_size=None, max_size=None,
-                               instance_type=None, load_balancers=None, subnets=None, security_groups=None,
-                               instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
-                               associate_public_ip_address=None, user_data=None, tags=None,
-                               instance_profile_name=None, block_device_mappings=None, group_name=None,
-                               create_if_exists=False, termination_policies=None, spotinst=False,
-                               spotinst_reserve=None):
+                               instance_type=None, load_balancers=None, target_groups=None, subnets=None,
+                               security_groups=None, instance_monitoring=None, ebs_optimized=None,
+                               image_id=None, key_name=None, associate_public_ip_address=None, user_data=None,
+                               tags=None, instance_profile_name=None, block_device_mappings=None,
+                               group_name=None, create_if_exists=False, termination_policies=None,
+                               spotinst=False, spotinst_reserve=None):
         """
         Create a new autoscaling group or update an existing one
         """
@@ -381,6 +408,7 @@ class DiscoAutoscale(BaseGroup):
             termination_policies=termination_policies,
             tags=tags,
             load_balancers=load_balancers,
+            target_groups=target_groups,
             create_if_exists=create_if_exists,
             group_name=group_name
         )
@@ -674,3 +702,27 @@ class DiscoAutoscale(BaseGroup):
                            AutoScalingGroupName=group['name'],
                            LoadBalancerNames=list(extras))
         return (new_lbs, extras)
+
+    def update_tg(self, target_groups, hostclass=None, group_name=None):
+        """Updates an existing autoscaling group to use a different set of target_groups"""
+        group = self.get_existing_group(hostclass=hostclass, group_name=group_name)
+        if not group:
+            logger.warning("Auto Scaling group %s does not exist. Cannot change %s Target Groups(s)",
+                           hostclass or group_name, ', '.join(target_groups))
+            return (set(), set())
+        new_tgs = set(target_groups) - set(group['target_groups'])
+        extras = set(group['target_groups']) - set(target_groups)
+
+        if new_tgs or extras:
+            logger.info("Updating Target Groups for group %s from [%s] to [%s]",
+                        group['name'], ", ".join(group['target_groups']), ", ".join(target_groups))
+        if new_tgs:
+            throttled_call(self.boto3_autoscale.attach_load_balancer_target_groups,
+                           AutoScalingGroupName=group['name'],
+                           TargetGroupARNs=list(new_tgs))
+        if extras:
+            throttled_call(self.boto3_autoscale.detach_load_balancer_target_groups,
+                           AutoScalingGroupName=group['name'],
+                           TargetGroupARNs=list(extras))
+
+        return (new_tgs, extras)

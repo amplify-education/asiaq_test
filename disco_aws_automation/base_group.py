@@ -82,12 +82,12 @@ class BaseGroup(object):
     # pylint: disable=R0913, R0914
     @abstractmethod
     def create_or_update_group(self, hostclass, desired_size=None, min_size=None, max_size=None,
-                               instance_type=None, load_balancers=None, subnets=None, security_groups=None,
-                               instance_monitoring=None, ebs_optimized=None, image_id=None, key_name=None,
-                               associate_public_ip_address=None, user_data=None, tags=None,
-                               instance_profile_name=None, block_device_mappings=None, group_name=None,
-                               create_if_exists=False, termination_policies=None, spotinst=False,
-                               spotinst_reserve=None):
+                               instance_type=None, load_balancers=None, target_groups=None, subnets=None,
+                               security_groups=None, instance_monitoring=None, ebs_optimized=None,
+                               image_id=None, key_name=None, associate_public_ip_address=None, user_data=None,
+                               tags=None, instance_profile_name=None, block_device_mappings=None,
+                               group_name=None, create_if_exists=False, termination_policies=None,
+                               spotinst=False, spotinst_reserve=None):
         """
         Create a new autoscaling group or update an existing one
         """
