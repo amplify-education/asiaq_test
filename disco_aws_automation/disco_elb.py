@@ -19,7 +19,7 @@ from .disco_route53 import DiscoRoute53
 from .disco_acm import DiscoACM
 from .disco_iam import DiscoIAM
 from .exceptions import CommandError, TimeoutError
-from .resource_helper import throttled_call
+from .resource_helper import throttled_call, key_values_to_tags
 from .disco_aws_util import chunker
 
 logger = logging.getLogger(__name__)
@@ -192,7 +192,7 @@ class DiscoELB(object):
     def add_tags_to_target_groups(self, target_groups, tags):
         """ Adds proper tagging to target groups """
         logger.info("Tagging Target Groups")
-        list_of_tags = [{'Key': key, 'Value': str(tags[key])} for key in tags.keys()]
+        list_of_tags = key_values_to_tags(tags)
         throttled_call(self.elb2_client.add_tags, ResourceArns=target_groups, Tags=list_of_tags)
         return list_of_tags
 
