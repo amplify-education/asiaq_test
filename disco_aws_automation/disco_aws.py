@@ -410,6 +410,7 @@ class DiscoAWS(object):
                 for key, value in [tag.split(':')]:
                     tags[key.strip()] = value.strip()
 
+        #  Target groups do not allow "_" so we replace all with "-"
         target_group_name = self.environment_name + "-" + hostclass
         target_group_name = target_group_name.replace("_", "-")
         target_groups = self.elb.get_or_create_target_group(
@@ -419,10 +420,6 @@ class DiscoAWS(object):
             health_check_path=self.hostclass_option_default(hostclass, "elb_health_check_url"),
             tags=tags
         )
-        # self.elb.add_tags_to_target_groups(
-        #     target_groups=target_groups,
-        #     tags=tags
-        # )
 
         group = self.discogroup.create_or_update_group(
             hostclass=hostclass,
