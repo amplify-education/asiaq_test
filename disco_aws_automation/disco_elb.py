@@ -168,10 +168,14 @@ class DiscoELB(object):
                 port = 80
                 health_protocol = 'HTTP'
                 health_port = '80'
-            if health_check_path:
-                health_check_path = health_check_path
-            else:
-                health_check_path = '/'
+
+            health_check_path = health_check_path or '/'
+
+            health_args = dict()
+            health_args['HealthCheckProtocol'] = health_protocol
+            if health_protocol in ('HTTP', 'HTTPS'):
+                health_args['HealthCheckPort'] = health_port
+                health_args['HealthCheckPath'] = health_check_path
 
             target_groups = [throttled_call(
                 self.elb2_client.create_target_group,
@@ -179,10 +183,7 @@ class DiscoELB(object):
                 Protocol=protocol,
                 Port=port,
                 VpcId=vpc_id,
-                HealthCheckProtocol=health_protocol,
-                HealthCheckPort=health_port,
-                HealthCheckEnabled=True,
-                HealthCheckPath=health_check_path
+                **health_args
             )['TargetGroups'][0]['TargetGroupArn']]
             if tags:
                 self.add_tags_to_target_groups(target_groups=target_groups, tags=tags)
