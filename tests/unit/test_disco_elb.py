@@ -601,12 +601,11 @@ class DiscoELBTests(TestCase):
             VpcId=TEST_VPC_ID,
             HealthCheckProtocol="HTTP",
             HealthCheckPort="80",
-            HealthCheckEnabled=True,
             HealthCheckPath="/"
         )
 
     def test_create_tg_with_health_check(self):
-        """Test creating a group without port config or health check"""
+        """Test creating a group with health check"""
         self.elb2.describe_target_groups.side_effect = EC2ResponseError(
             status="mockstatus",
             reason="mockreason"
@@ -623,7 +622,6 @@ class DiscoELBTests(TestCase):
             VpcId=TEST_VPC_ID,
             HealthCheckProtocol="HTTP",
             HealthCheckPort="80",
-            HealthCheckEnabled=True,
             HealthCheckPath="/mockpath"
         )
 
@@ -657,8 +655,39 @@ class DiscoELBTests(TestCase):
             VpcId=TEST_VPC_ID,
             HealthCheckProtocol="HTTP",
             HealthCheckPort="80",
-            HealthCheckEnabled=True,
             HealthCheckPath="/"
+        )
+
+    def test_create_target_group_tcp(self):
+        """Test creating a group non http/https"""
+        self.elb2.describe_target_groups.side_effect = EC2ResponseError(
+            status="mockstatus",
+            reason="mockreason"
+        )
+
+        instance_protocols = ('TCP',)
+        instance_ports = (80,)
+        elb_protocols = ('TCP',)
+        elb_ports = (80,)
+
+        self.disco_elb.get_or_create_target_group(
+            group_name="target_group_name",
+            vpc_id=TEST_VPC_ID,
+            port_config=DiscoELBPortConfig(
+                [
+                    DiscoELBPortMapping(internal_port, internal_protocol, external_port, external_protocol)
+                    for (internal_port, internal_protocol), (external_port, external_protocol) in zip(
+                        zip(instance_ports, instance_protocols), zip(elb_ports, elb_protocols))
+                ]
+            )
+        )
+        self.elb2.create_target_group.assert_called_with(
+            Name="target_group_name",
+            Protocol='TCP',
+            Port=80,
+            VpcId=TEST_VPC_ID,
+            HealthCheckProtocol="TCP",
+            HealthCheckPort="80"
         )
 
     def test_tags_transformation(self):
@@ -720,7 +749,6 @@ class DiscoELBTests(TestCase):
             VpcId=TEST_VPC_ID,
             HealthCheckProtocol="HTTP",
             HealthCheckPort="80",
-            HealthCheckEnabled=True,
             HealthCheckPath="/"
         )
         self.elb2.add_tags.assert_called_with(
