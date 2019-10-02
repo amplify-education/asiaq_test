@@ -686,7 +686,8 @@ class DiscoELBTests(TestCase):
             Protocol='TCP',
             Port=80,
             VpcId=TEST_VPC_ID,
-            HealthCheckProtocol="TCP"
+            HealthCheckProtocol="TCP",
+            HealthCheckPort="80"
         )
 
     def test_tags_transformation(self):

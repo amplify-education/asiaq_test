@@ -172,9 +172,9 @@ class DiscoELB(object):
             health_check_path = health_check_path or '/'
 
             health_args = dict()
+            health_args['HealthCheckPort'] = health_port
             if health_protocol in ('HTTP', 'HTTPS'):
                 health_args['HealthCheckProtocol'] = health_protocol
-                health_args['HealthCheckPort'] = health_port
                 health_args['HealthCheckPath'] = health_check_path
 
             else:
