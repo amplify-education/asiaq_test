@@ -160,7 +160,10 @@ class DiscoELB(object):
             logger.info("Creating target group")
             if port_config:
                 mapping = port_config.port_mappings[0]
-                protocol = mapping.external_protocol
+                if mapping.external_protocol == 'SSL':
+                    protocol = 'TLS'
+                else:
+                    protocol = mapping.external_protocol
                 port = mapping.external_port
                 health_protocol = mapping.internal_protocol
                 health_port = str(mapping.internal_port)
