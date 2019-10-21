@@ -695,6 +695,39 @@ class DiscoELBTests(TestCase):
             HealthCheckPort="80"
         )
 
+    def test_create_target_group_ssl(self):
+        """Test creating a group that is SSL"""
+        self.elb2.describe_target_groups.side_effect = EC2ResponseError(
+            status="mockstatus",
+            reason="mockreason"
+        )
+
+        instance_protocols = ('SSL',)
+        instance_ports = (80,)
+        elb_protocols = ('SSL',)
+        elb_ports = (80,)
+
+        self.disco_elb.get_or_create_target_group(
+            environment=TEST_ENV_NAME,
+            hostclass=TEST_HOSTCLASS,
+            vpc_id=TEST_VPC_ID,
+            port_config=DiscoELBPortConfig(
+                [
+                    DiscoELBPortMapping(internal_port, internal_protocol, external_port, external_protocol)
+                    for (internal_port, internal_protocol), (external_port, external_protocol) in zip(
+                        zip(instance_ports, instance_protocols), zip(elb_ports, elb_protocols))
+                ]
+            )
+        )
+        self.elb2.create_target_group.assert_called_with(
+            Name="unittestenv-mhcunit",
+            Protocol='TLS',
+            Port=80,
+            VpcId=TEST_VPC_ID,
+            HealthCheckProtocol="TCP",
+            HealthCheckPort="80"
+        )
+
     def test_tags_transformation(self):
         """Tests if tags are converted to the right format"""
         tags = {
