@@ -59,7 +59,7 @@ namespace "setup" do
     Dir.mktmpdir do |tmpdir|
       Setup.setup %|sdist -d "#{tmpdir}" upload -r local|
       version = Setup.get_package_version
-      good("Published egg version #{version} to artifactory #{Project[:INDEX_URL]}")
+      good("Published egg version #{version} to artifactory")
     end
   end
 end
