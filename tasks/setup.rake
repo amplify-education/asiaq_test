@@ -48,11 +48,10 @@ namespace "setup" do
   task :pynest => ["virtualenv:verify", "version:inject_git", "version:inject_build_number"] do
     publish_files_to(Project[:INDEX_URL]) do |tmpdir|
       if Project[:USE_PYPIRC]
-        print "using pypirc for upload"
+        notice("Using pypirc for upload")
         Setup.setup %|sdist -d "#{tmpdir}" upload -r local|
       else
         Setup.setup %|sdist -d "#{tmpdir}"|
-        print "not using pypirc"
         print Project[:USE_PYPIRC]
       end
     end
