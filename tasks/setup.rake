@@ -59,6 +59,13 @@ namespace "setup" do
     version = Setup.get_package_version
     good("Published egg version #{version} to index #{Project[:INDEX_URL]}")
   end
+
+  desc "Publish the egg to the artifactory, make sure a there is a .pypirc"
+  task :artifactory => ["virtualenv:verify", "version:inject_git", "version:inject_build_number"] do
+    Setup.setup %|sdist -d "#{tmpdir}" upload -r local|
+    version = Setup.get_package_version
+    good("Published egg version #{version} to artifactory #{Project[:INDEX_URL]}")
+  end
 end
 
 include FileUtils

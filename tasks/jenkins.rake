@@ -230,10 +230,10 @@ namespace "jenkins" do
   end
 
   desc "Run a local build"
-  task :build => ["setup:install", :test, "setup:pynest", :component_rpmbuild, "doc:publish"]
+  task :build => ["setup:install", :test, "setup:artifactory", :component_rpmbuild, "doc:publish"]
 
   desc "Run a local build, without publishing docs"
-  task :build_no_docs => ["setup:install", :test, "setup:pynest", :component_rpmbuild]
+  task :build_no_docs => ["setup:install", :test, "setup:artifactory", :component_rpmbuild]
 
   desc "If this is a component, build an RPM, otherwise do nothing"
   task :component_rpmbuild do
