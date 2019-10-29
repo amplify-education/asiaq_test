@@ -52,6 +52,8 @@ namespace "setup" do
         Setup.setup %|sdist -d "#{tmpdir}" upload -r local|
       else
         Setup.setup %|sdist -d "#{tmpdir}"|
+        print "not using pypirc"
+        print Project[:USE_PYPIRC]
       end
     end
 
