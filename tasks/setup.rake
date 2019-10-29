@@ -52,6 +52,7 @@ namespace "setup" do
         Setup.setup %|sdist -d "#{tmpdir}" upload -r local|
       else
         Setup.setup %|sdist -d "#{tmpdir}"|
+      end
     end
 
     version = Setup.get_package_version
