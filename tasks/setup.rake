@@ -47,7 +47,7 @@ namespace "setup" do
   desc "Publish the egg to the index (set INDEX_URL in your environment to override the default target)"
   task :pynest => ["virtualenv:verify", "version:inject_git", "version:inject_build_number"] do
     publish_files_to(Project[:INDEX_URL]) do |tmpdir|
-      if Project[:USE_PYPIRC] == "true"
+      if Project[:USE_PYPIRC]
         print "using pypirc for upload"
         Setup.setup %|sdist -d "#{tmpdir}" upload -r local|
       else
