@@ -1,7 +1,6 @@
 """Tests of disco_subnet"""
-from unittest import TestCase
 import copy
-
+from unittest import TestCase
 from mock import MagicMock, call
 
 from disco_aws_automation.disco_subnet import (
@@ -9,7 +8,6 @@ from disco_aws_automation.disco_subnet import (
     DYNO_NAT_TAG_KEY
 )
 from tests.helpers.patch_disco_aws import TEST_ENV_NAME
-
 
 MOCK_SUBNET_NAME = 'availability_zone_1'
 MOCK_CIDR = '10.101.0.0/16'
@@ -43,12 +41,16 @@ MOCK_NAT_GATEWAY = {'VpcId': MOCK_VPC_ID,
                     'NatGatewayAddresses': [{'AllocationId': MOCK_ALLOCATION_ID,
                                              'PublicIp': MOCK_PUBLIC_IP}]}
 MOCK_ROUTE = {'RouteId': 'route_id'}
-MOCK_TAG = [{'Value': "{0}_{1}_{2}".format(TEST_ENV_NAME,
-                                           MOCK_VPC_NAME,
-                                           MOCK_SUBNET_NAME),
-             'Key': 'Name'},
-            {'Value': 'mock_vpc_name', 'Key': 'meta_network'},
-            {'Value': 'availability_zone_1', 'Key': 'subnet'}]
+MOCK_TAG = [
+    {'Key': 'environment', 'Value': 'unittestenv'},
+    {'Key': 'application', 'Value': 'test'},
+    {'Key': 'meta_network', 'Value': 'mock_vpc_name', },
+    {
+        'Key': 'Name',
+        'Value': "{0}_{1}_{2}".format(TEST_ENV_NAME, MOCK_VPC_NAME, MOCK_SUBNET_NAME),
+    },
+    {'Key': 'subnet', 'Value': 'availability_zone_1'}
+]
 
 
 def _get_metanetwork_mock():
@@ -57,6 +59,14 @@ def _get_metanetwork_mock():
     ret.vpc = MagicMock()
     ret.vpc.environment_name = TEST_ENV_NAME
     ret.vpc.vpc = {'VpcId': MOCK_VPC_ID}
+
+    def _get_vpc_tags_mock():
+        return {
+            'application': 'test',
+            'environment': 'unittestenv'
+        }
+
+    ret.vpc.get_vpc_tags.side_effect = _get_vpc_tags_mock
     return ret
 
 
@@ -172,8 +182,10 @@ class DiscoSubnetTests(TestCase):
                      {'Values': [MOCK_VPC_ID], 'Name': 'vpc-id'},
                      {'Values': [MOCK_SUBNET_NAME], 'Name': 'availabilityZone'}])
 
-        self.mock_ec2_conn.create_tags.assert_called_once_with(Resources=[MOCK_SUBNET_ID],
-                                                               Tags=MOCK_TAG)
+        self.mock_ec2_conn.create_tags.assert_called_once_with(
+            Resources=[MOCK_SUBNET_ID],
+            Tags=MOCK_TAG
+        )
 
     def test_create_brand_new_subnet(self):
         """ Verify that a brand new subnet is properly created """
