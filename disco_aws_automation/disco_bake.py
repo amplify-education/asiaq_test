@@ -236,10 +236,6 @@ class DiscoBake(object):
         kwargs["user"] = kwargs.get("user", "root")
         return self.disco_remote_exec.remotecmd(address, *args, **kwargs)
 
-    def is_repo_ready(self):
-        """ True if repo is up"""
-        return self.repo_instance()
-
     def init_phase(self, phase, instance, hostclass):
         """
         Runs the init script for a particular phase
@@ -432,10 +428,6 @@ class DiscoBake(object):
                         base_image_name, source_ami_id)
 
         image_name = "{0} {1}".format(base_image_name, int(time.time()))
-
-        if hostclass not in self.option("no_repo_hostclasses").split() and not self.is_repo_ready():
-            raise Exception("A {0} must be running to bake {1}"
-                            .format(self.option("repo_hostclass"), hostclass))
 
         interfaces = self.vpc.networks["tunnel"].create_interfaces_specification(public_ip=True)
 
