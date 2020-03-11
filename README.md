@@ -461,7 +461,13 @@ This will ask you to type a new password, it will then pre-generate a
 user configuration, and open it with your favorite `$EDITOR`. At this
 point you can make any alterations to the account, including pasting in
 you ssh key into the `ssh_key_0` (without which you will not be able to
-ssh to this account). Multiple ssh_keys are supported by adding more
+ssh to this account).
+* NOTE: paste the entire contents of your ssh public key into the 
+`ssh_key_0` field. This usually includes a prefix of "ssh-rsa" before 
+the key and a suffix email after the key, so be sure to include those
+as well.
+
+Multiple ssh_keys are supported by adding more
 `ssh_key_X` fields where X is a number. When satisfied with changes save
 file and close editor, configuration will now be uploaded to S3.
 
