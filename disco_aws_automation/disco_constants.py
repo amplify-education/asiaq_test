@@ -5,7 +5,7 @@ HOSTCLASS_PREFIX = "mhc"
 DEFAULT_INSTANCE_TYPE = "m3.large"
 SMOKETEST_POLL_INTERVAL = 15  # seconds
 # we shouldn't have to go higher than this; instead do a shorter interval and terminate/reprovision on timeout
-SMOKETEST_TIMEOUT = 600
+SMOKETEST_TIMEOUT = 1200
 AUTOSCALE_POLL_INTERVAL = 15  # seconds
 AUTOSCALE_TIMEOUT = 300
 DEPLOYMENT_STRATEGY_BLUE_GREEN = "blue_green"
