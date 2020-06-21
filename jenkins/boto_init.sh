@@ -50,6 +50,8 @@ function boto_init_activate {
 
     # Set exit trap to cleanup on success or failure
     trap boto_init_deactivate EXIT
+    
+    set -x
 
     create_boto_config "$boto_tmp_dir"
 
@@ -59,7 +61,7 @@ function boto_init_activate {
     export PATH=/opt/wgen-3p/python27/bin:$PATH
     virtualenv $boto_tmp_dir > /dev/null
     source $boto_tmp_dir/bin/activate > /dev/null
-    pip install -U pip
+    pip install --upgrade pip
     pip install ${SELF_DIR}/.. > /dev/null  # installs asiaq
 }
 
