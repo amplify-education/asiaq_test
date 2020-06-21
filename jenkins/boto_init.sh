@@ -50,8 +50,6 @@ function boto_init_activate {
 
     # Set exit trap to cleanup on success or failure
     trap boto_init_deactivate EXIT
-    
-    set -x
 
     create_boto_config "$boto_tmp_dir"
 
