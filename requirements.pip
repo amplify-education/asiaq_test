@@ -13,3 +13,7 @@ requests_aws4auth<2
 requests>=2.14.2,<3
 # Since aws ES is 1.5 we must pin elasticsearch-py as follows:
 elasticsearch>=1.0.0,<2.0.0
+# Zipp is required by netaddr, but looks like theres a bug with the most recent version for python2,
+# so let's pin it back until that issue is resolved properly:
+# https://github.com/jaraco/zipp/issues/50
+zipp>=1.2.0,<2
