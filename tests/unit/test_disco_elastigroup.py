@@ -63,8 +63,8 @@ class DiscoElastigroupTests(TestCase):
                     }]
                 },
                 "availabilityZones": [{
-                    "name": 'us-moon-1a',
-                    "subnetId": "subnet-abcd1234"
+                    "name": "us-moon-1a",
+                    "subnetIds": ["subnet-abcd1234"]
                 }]
             },
             "scheduling": {
