@@ -17,3 +17,5 @@ elasticsearch>=1.0.0,<2.0.0
 # so let's pin it back until that issue is resolved properly:
 # https://github.com/jaraco/zipp/issues/50
 zipp>=1.2.0,<2
+# highest versions throw an error as has dropping python 2.7 support
+importlib-resources<=3.3.1
