@@ -39,20 +39,20 @@ class SocifyHelper(object):
             self._config = config
         else:
             self._config = read_config()
+
+        # Setup Requests Session for retries
+        self.request_session = requests.Session()
+
         # Init the socify base url
         self._set_socify_base_url()
-
-        self.request_session = requests.Session()
-        http_adapter = requests.adapters.HTTPAdapter(max_retries=Retry(10))
-        try:
-            if self._socify_url:
-                self.request_session.mount(prefix=self._socify_url, adapter=http_adapter)
-        except AttributeError:
-            self.request_session.mount(prefix='http', adapter=http_adapter)
 
     def _set_socify_base_url(self):
         try:
             self._socify_url = self._config.get("socify", "socify_baseurl")
+
+            # mount HTTP Adapter to the Request session for the socify url
+            http_adapter = requests.adapters.HTTPAdapter(max_retries=Retry(total=10))
+            self.request_session.mount(prefix=self._socify_url, adapter=http_adapter)
         except (NoOptionError, NoSectionError):
             logger.warning("The property socify_baseurl is not set in your disco_aws.ini file. The "
                            "deploy action won't be logged in your ticket. Please make sure to add the "
