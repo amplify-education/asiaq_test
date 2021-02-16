@@ -5,6 +5,7 @@ import logging
 from ConfigParser import NoOptionError, NoSectionError
 
 import requests
+from urllib3.util import Retry
 from .disco_config import read_config
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,14 @@ class SocifyHelper(object):
             self._config = read_config()
         # Init the socify base url
         self._set_socify_base_url()
+
+        self.request_session = requests.Session()
+        http_adapter = requests.adapters.HTTPAdapter(max_retries=Retry(10))
+        try:
+            if self._socify_url:
+                self.request_session.mount(prefix=self._socify_url, adapter=http_adapter)
+        except AttributeError:
+            self.request_session.mount(prefix='http', adapter=http_adapter)
 
     def _set_socify_base_url(self):
         try:
@@ -110,7 +119,7 @@ class SocifyHelper(object):
         data = self._build_json(status, **kwargs)
         logger.debug("calling Socify with data : %s", data)
         headers = {'Content-Type': 'application/json'}
-        return requests.post(url=url, headers=headers, json=data)
+        return self.request_session.post(url=url, headers=headers, json=data, timeout=10)
 
     def send_event(self, status, ami_id, **kwargs):
         """
