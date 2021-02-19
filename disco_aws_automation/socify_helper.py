@@ -34,6 +34,8 @@ class SocifyHelper(object):
         self._sub_command = sub_command
         self._ami_id = None
         self._environment = env
+        self._time_out = 60
+        self._retry_amount = 10
 
         if config:
             self._config = config
@@ -51,7 +53,7 @@ class SocifyHelper(object):
             self._socify_url = self._config.get("socify", "socify_baseurl")
 
             # mount HTTP Adapter to the Request session for the socify url
-            http_adapter = requests.adapters.HTTPAdapter(max_retries=Retry(total=10))
+            http_adapter = requests.adapters.HTTPAdapter(max_retries=Retry(total=self._retry_amount))
             self.request_session.mount(prefix=self._socify_url, adapter=http_adapter)
         except (NoOptionError, NoSectionError):
             logger.warning("The property socify_baseurl is not set in your disco_aws.ini file. The "
@@ -119,7 +121,7 @@ class SocifyHelper(object):
         data = self._build_json(status, **kwargs)
         logger.debug("calling Socify with data : %s", data)
         headers = {'Content-Type': 'application/json'}
-        return self.request_session.post(url=url, headers=headers, json=data, timeout=10)
+        return self.request_session.post(url=url, headers=headers, json=data, timeout=self._time_out)
 
     def send_event(self, status, ami_id, **kwargs):
         """
