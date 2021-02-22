@@ -5,6 +5,7 @@ import logging
 from ConfigParser import NoOptionError, NoSectionError
 
 import requests
+from urllib3.util import Retry
 from .disco_config import read_config
 
 logger = logging.getLogger(__name__)
@@ -33,17 +34,27 @@ class SocifyHelper(object):
         self._sub_command = sub_command
         self._ami_id = None
         self._environment = env
+        self._time_out = 60
+        self._retry_amount = 10
 
         if config:
             self._config = config
         else:
             self._config = read_config()
+
+        # Setup Requests Session for retries
+        self.request_session = requests.Session()
+
         # Init the socify base url
         self._set_socify_base_url()
 
     def _set_socify_base_url(self):
         try:
             self._socify_url = self._config.get("socify", "socify_baseurl")
+
+            # mount HTTP Adapter to the Request session for the socify url
+            http_adapter = requests.adapters.HTTPAdapter(max_retries=Retry(total=self._retry_amount))
+            self.request_session.mount(prefix=self._socify_url, adapter=http_adapter)
         except (NoOptionError, NoSectionError):
             logger.warning("The property socify_baseurl is not set in your disco_aws.ini file. The "
                            "deploy action won't be logged in your ticket. Please make sure to add the "
@@ -110,7 +121,7 @@ class SocifyHelper(object):
         data = self._build_json(status, **kwargs)
         logger.debug("calling Socify with data : %s", data)
         headers = {'Content-Type': 'application/json'}
-        return requests.post(url=url, headers=headers, json=data)
+        return self.request_session.post(url=url, headers=headers, json=data, timeout=self._time_out)
 
     def send_event(self, status, ami_id, **kwargs):
         """
