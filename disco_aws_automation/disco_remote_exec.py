@@ -197,7 +197,17 @@ class DiscoRemoteExec(object):
     @staticmethod
     def _call_rsync(command):
         if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-            return subprocess.call(command)
+            with tempfile.TemporaryFile() as output:
+                process = subprocess.Popen(
+                    command,
+                    stdout=output,
+                    stderr=subprocess.STDOUT
+                )
+                process.communicate()
+                output.seek(0)
+                stdout = output.read()
+                logger.debug(stdout)
+                return process.returncode
         else:
             with open("/dev/null", "w") as devnull:
                 return subprocess.call(command, stdout=devnull, stderr=devnull)
