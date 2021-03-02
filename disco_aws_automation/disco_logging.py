@@ -1,6 +1,5 @@
 '''Utility function for logging'''
 import logging
-import logging.handlers as handlers
 import sys
 
 
@@ -24,12 +23,12 @@ def configure_logging(debug, silent=False):
         logger.setLevel(logging.DEBUG)
         boto_logger.setLevel(logging.INFO)
         botocore_logger.setLevel(logging.DEBUG)
-        file_handler = handlers.RotatingFileHandler('debug.log', maxBytes=1048576, backupCount=1)
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s'))
-        logger.addHandler(file_handler)
-        boto_logger.addHandler(file_handler)
-        botocore_logger.addHandler(file_handler)
+        debug_stream_handler = logging.StreamHandler(sys.__stderr__)
+        debug_stream_handler.setLevel(logging.DEBUG)
+        debug_stream_handler.setFormatter(logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s'))
+        logger.addHandler(debug_stream_handler)
+        boto_logger.addHandler(debug_stream_handler)
+        botocore_logger.addHandler(debug_stream_handler)
     else:
         logger.setLevel(logging.INFO)
         boto_logger.setLevel(logging.CRITICAL)
