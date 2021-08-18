@@ -1,5 +1,7 @@
 FROM ubuntu:latest
 
+WORKDIR /root
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
@@ -28,14 +30,14 @@ RUN apt-get install -y rake rsync
 
 ## Copy over asiaq files
 WORKDIR /project/asiaq
-ADD ./ /project/asiaq
+COPY ./ /project/asiaq
 
 ## Actually install asiaq
 RUN rake setup:develop
 
 # Copy over AWS configs that Asiaq needs
-ADD ./jenkins/base_boto.cfg /root/.aws/config
-ADD ./jenkins/base_boto.cfg /root/.boto
+COPY ./jenkins/base_boto.cfg /root/.aws/config
+COPY ./jenkins/base_boto.cfg /root/.boto
 
 # Set our working directory to be the config directory, which we will mount at runtime
 WORKDIR /project/asiaq_config
