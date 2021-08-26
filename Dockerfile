@@ -26,7 +26,7 @@ RUN mkdir -p /project/asiaq_config
 
 # Install Asiaq
 ## Asiaq Dependencies
-RUN apt-get install -y rake rsync
+RUN apt-get install -y rake rsync vim
 
 ## Copy over asiaq files
 WORKDIR /project/asiaq
