@@ -208,7 +208,7 @@ class DiscoElastigroupTests(TestCase):
                 },
                 'strategy': {
                     'onDemandCount': None,
-                    'availabilityVsCost': 'availabilityOriented',
+                    'availabilityVsCost': 'equalAzDistribution',
                     'fallbackToOd': True,
                     'risk': 100,
                     'utilizeReservedInstances': True,
