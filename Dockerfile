@@ -1,11 +1,14 @@
-FROM ubuntu:latest
+FROM ubuntu:latest as updated-ubuntu
 
 WORKDIR /root
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get upgrade -y
+    apt-get upgrade --yes && \
+    apt-get clean
+
+FROM updated-ubuntu as python-builder
 
 # Install python-build dependencies
 RUN apt-get install -y git-all make build-essential libssl-dev zlib1g-dev \
@@ -20,13 +23,20 @@ RUN git clone https://github.com/pyenv/pyenv.git && \
 # Install python 2.7
 RUN /usr/local/bin/python-build 2.7.18 /usr/local/
 
+FROM updated-ubuntu as runner
+
+# Copy python 2.7 installation
+COPY --from=python-builder /usr/local/ /usr/local/
+
 # Make Directories for Asiaq
 RUN mkdir -p /project/asiaq
 RUN mkdir -p /project/asiaq_config
 
 # Install Asiaq
 ## Asiaq Dependencies
-RUN apt-get install -y rake rsync vim
+RUN apt-get update && \
+    apt-get install --yes rake rsync vim git && \
+    apt-get clean
 
 ## Copy over asiaq files
 WORKDIR /project/asiaq
