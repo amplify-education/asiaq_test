@@ -1,0 +1,9 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: asiaq
+  annotations:
+    github.com/project-slug: amplify-education/asiaq
+spec:
+  type: other
+  lifecycle: unknown
