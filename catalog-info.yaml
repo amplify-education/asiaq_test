@@ -2,11 +2,12 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: asiaq
+  description: Python CLI scripts for EC2 deployments.
   annotations:
     github.com/project-slug: amplify-education/asiaq
   tags:
     - deploy-tooling
 spec:
-  type: command-line-tool
+  type: cli
   lifecycle: deprecated
   owner: astrotools
