@@ -4,7 +4,9 @@ metadata:
   name: asiaq
   annotations:
     github.com/project-slug: amplify-education/asiaq
+  tags:
+    - deploy-tooling
 spec:
-  type: other
-  lifecycle: unknown
+  type: command-line-tool
+  lifecycle: deprecated
   owner: astrotools
