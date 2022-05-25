@@ -138,6 +138,8 @@ def get_parser():
     parser_exec.set_defaults(mode="exec")
     parser_exec.add_argument('--command', dest='command', required=True)
     parser_exec.add_argument('--user', dest='user', required=True)
+    parser_exec.add_argument('--bg', dest='bg', action='store_const', const=True, default=False,
+                             help='run command in background, return immediately' )
     parser_exec_group = parser_exec.add_mutually_exclusive_group(required=True)
     parser_exec_group.add_argument('--instance', dest='instances', default=[], action='append', type=str)
     parser_exec_group.add_argument('--hostname', dest='hostnames', default=[], action='append', type=str)
@@ -351,8 +353,9 @@ def run():
     elif args.mode == "exec":
         instances = instances_from_args(aws, args)
         exit_code = 0
+        command = args.command + " &" if args.bg else args.command
         for instance in instances:
-            _code, _stdout = aws.remotecmd(instance, [args.command], user=args.user, nothrow=True)
+            _code, _stdout = aws.remotecmd(instance, [command], user=args.user, nothrow=True)
             sys.stdout.write(_stdout)
             exit_code = _code if _code else exit_code
         sys.exit(exit_code)
