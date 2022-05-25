@@ -9,6 +9,7 @@ from datetime import datetime
 from ConfigParser import NoOptionError
 
 from dateutil import parser as dateutil_parser
+from threading import Thread
 
 from disco_aws_automation import DiscoAWS, DiscoBake, DiscoSSM
 from disco_aws_automation.resource_helper import TimeoutError
@@ -265,6 +266,13 @@ def parse_ssm_parameters(parameters):
     return {entry[0]: [entry[1]] for entry in keys_to_values}
 
 
+def exec_in_background(exec_obj, aws, instance, command, user):
+    _code, _stdout = aws.remotecmd(instance, [command], user=user, nothrow=True)
+    exit_code = _code if _code else 0
+    exec_obj['exit_code'] = exit_code
+    exec_obj['stdout'] = _stdout
+
+
 @graceful
 def run():
     """Parses command line and dispatches the commands"""
@@ -353,11 +361,26 @@ def run():
     elif args.mode == "exec":
         instances = instances_from_args(aws, args)
         exit_code = 0
-        command = args.command + " &" if args.bg else args.command
-        for instance in instances:
-            _code, _stdout = aws.remotecmd(instance, [command], user=args.user, nothrow=True)
-            sys.stdout.write(_stdout)
-            exit_code = _code if _code else exit_code
+        if args.bg and len(instances) > 1:
+            thread_objs = []
+            for instance in instances:
+                exec_obj = {}
+                thread = Thread(target=exec_in_background, args=(exec_obj, aws, instance, args.command, args.user))
+                thread.start()
+                exec_obj['thread'] = thread
+                thread_objs.append(exec_obj)
+
+            for thread_obj in thread_objs:
+                thread_obj['thread'].join()
+                sys.stdout.write(thread_obj['stdout'])
+                exit_code = max(thread_obj['exit_code'], exit_code)
+
+        else:
+            for instance in instances:
+                _code, _stdout = aws.remotecmd(instance, [args.command], user=args.user, nothrow=True)
+                sys.stdout.write(_stdout)
+                exit_code = _code if _code else exit_code
+
         sys.exit(exit_code)
     elif args.mode == "exec-ssm":
         ssm = DiscoSSM(environment_name)
