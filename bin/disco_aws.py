@@ -366,7 +366,8 @@ def run():
             thread_objs = []
             for instance in instances:
                 exec_obj = {}
-                thread = Thread(target=exec_in_thread, args=(exec_obj, aws, instance, args.command, args.user))
+                thread = Thread(target=exec_in_thread,
+                                args=(exec_obj, aws, instance, args.command, args.user))
                 thread.start()
                 exec_obj['thread'] = thread
                 thread_objs.append(exec_obj)
