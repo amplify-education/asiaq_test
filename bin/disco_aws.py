@@ -8,8 +8,8 @@ import argparse
 from datetime import datetime
 from ConfigParser import NoOptionError
 
-from dateutil import parser as dateutil_parser
 from threading import Thread
+from dateutil import parser as dateutil_parser
 
 from disco_aws_automation import DiscoAWS, DiscoBake, DiscoSSM
 from disco_aws_automation.resource_helper import TimeoutError
@@ -139,8 +139,8 @@ def get_parser():
     parser_exec.set_defaults(mode="exec")
     parser_exec.add_argument('--command', dest='command', required=True)
     parser_exec.add_argument('--user', dest='user', required=True)
-    parser_exec.add_argument('--concurrent', dest='concurrent', action='store_const', const=True, default=False,
-                             help='run command concurrently on all instances' )
+    parser_exec.add_argument('--concurrent', dest='concurrent', action='store_const',
+                             const=True, default=False, help='run command concurrently on all instances')
     parser_exec_group = parser_exec.add_mutually_exclusive_group(required=True)
     parser_exec_group.add_argument('--instance', dest='instances', default=[], action='append', type=str)
     parser_exec_group.add_argument('--hostname', dest='hostnames', default=[], action='append', type=str)
@@ -266,7 +266,8 @@ def parse_ssm_parameters(parameters):
     return {entry[0]: [entry[1]] for entry in keys_to_values}
 
 
-def exec_in_background(exec_obj, aws, instance, command, user):
+def exec_in_thread(exec_obj, aws, instance, command, user):
+    """Helper function to execute remote command on a background thread"""
     _code, _stdout = aws.remotecmd(instance, [command], user=user, nothrow=True)
     exit_code = _code if _code else 0
     exec_obj['exit_code'] = exit_code
@@ -365,7 +366,7 @@ def run():
             thread_objs = []
             for instance in instances:
                 exec_obj = {}
-                thread = Thread(target=exec_in_background, args=(exec_obj, aws, instance, args.command, args.user))
+                thread = Thread(target=exec_in_thread, args=(exec_obj, aws, instance, args.command, args.user))
                 thread.start()
                 exec_obj['thread'] = thread
                 thread_objs.append(exec_obj)
