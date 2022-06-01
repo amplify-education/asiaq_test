@@ -8,6 +8,7 @@ import argparse
 from datetime import datetime
 from ConfigParser import NoOptionError
 
+from threading import Thread
 from dateutil import parser as dateutil_parser
 
 from disco_aws_automation import DiscoAWS, DiscoBake, DiscoSSM
@@ -138,6 +139,8 @@ def get_parser():
     parser_exec.set_defaults(mode="exec")
     parser_exec.add_argument('--command', dest='command', required=True)
     parser_exec.add_argument('--user', dest='user', required=True)
+    parser_exec.add_argument('--concurrent', dest='concurrent', action='store_const',
+                             const=True, default=False, help='run command concurrently on all instances')
     parser_exec_group = parser_exec.add_mutually_exclusive_group(required=True)
     parser_exec_group.add_argument('--instance', dest='instances', default=[], action='append', type=str)
     parser_exec_group.add_argument('--hostname', dest='hostnames', default=[], action='append', type=str)
@@ -263,6 +266,14 @@ def parse_ssm_parameters(parameters):
     return {entry[0]: [entry[1]] for entry in keys_to_values}
 
 
+def exec_in_thread(exec_obj, aws, instance, command, user):
+    """Helper function to execute remote command on a background thread"""
+    _code, _stdout = aws.remotecmd(instance, [command], user=user, nothrow=True)
+    exit_code = _code if _code else 0
+    exec_obj['exit_code'] = exit_code
+    exec_obj['stdout'] = _stdout
+
+
 @graceful
 def run():
     """Parses command line and dispatches the commands"""
@@ -351,10 +362,27 @@ def run():
     elif args.mode == "exec":
         instances = instances_from_args(aws, args)
         exit_code = 0
-        for instance in instances:
-            _code, _stdout = aws.remotecmd(instance, [args.command], user=args.user, nothrow=True)
-            sys.stdout.write(_stdout)
-            exit_code = _code if _code else exit_code
+        if args.concurrent and len(instances) > 1:
+            thread_objs = []
+            for instance in instances:
+                exec_obj = {}
+                thread = Thread(target=exec_in_thread,
+                                args=(exec_obj, aws, instance, args.command, args.user))
+                thread.start()
+                exec_obj['thread'] = thread
+                thread_objs.append(exec_obj)
+
+            for exec_obj in thread_objs:
+                exec_obj['thread'].join()
+                sys.stdout.write(exec_obj['stdout'])
+                exit_code = max(exec_obj['exit_code'], exit_code)
+
+        else:
+            for instance in instances:
+                _code, _stdout = aws.remotecmd(instance, [args.command], user=args.user, nothrow=True)
+                sys.stdout.write(_stdout)
+                exit_code = _code if _code else exit_code
+
         sys.exit(exit_code)
     elif args.mode == "exec-ssm":
         ssm = DiscoSSM(environment_name)
